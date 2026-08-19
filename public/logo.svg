@@ -1,0 +1,87 @@
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 500 240" width="100%" height="100%">
+  <defs>
+    <filter id="dropShadow" x="-10%" y="-10%" width="120%" height="120%">
+      <feDropShadow dx="1" dy="2" stdDeviation="2" flood-color="#000000" flood-opacity="0.15" />
+    </filter>
+  </defs>
+
+  <rect width="100%" height="100%" fill="transparent" />
+
+  <!-- Left Side: 3D Off-Road Heavy-Duty Tire -->
+  <g transform="translate(15, 10)">
+    <!-- Outer Black Tire Silhouette with perspective -->
+    <path d="M 125 15 C 75 15, 30 45, 30 100 C 30 155, 75 185, 125 185 C 138 185, 150 182, 162 176 L 150 156 C 142 160, 134 162, 125 162 C 88 162, 58 135, 58 100 C 58 65, 88 38, 125 38 C 135 38, 145 41, 153 45 L 165 24 C 153 18, 139 15, 125 15 Z" fill="#0D131A" />
+
+    <!-- Deep All-Terrain Tread Lug Pattern (Chevron blocks) -->
+    <!-- Outer Edge Treads -->
+    <g fill="#FFFFFF" stroke="#0D131A" stroke-width="2.5" stroke-linejoin="round">
+      <!-- Top arc treads -->
+      <polygon points="108,18 122,19 120,33 104,30" />
+      <polygon points="85,25 99,28 94,42 79,38" />
+      <polygon points="63,38 76,43 69,57 56,50" />
+      <polygon points="46,57 57,64 48,77 37,69" />
+      
+      <!-- Middle face treads -->
+      <polygon points="34,80 44,88 35,102 24,93" />
+      <polygon points="30,105 40,111 31,126 21,118" />
+      <polygon points="35,130 46,134 38,149 27,143" />
+      <polygon points="49,152 61,154 55,168 43,164" />
+      
+      <!-- Bottom arc treads -->
+      <polygon points="70,168 83,168 79,182 66,180" />
+      <polygon points="95,177 109,174 107,188 93,189" />
+      <polygon points="120,181 135,175 136,188 122,192" />
+    </g>
+
+    <!-- Inner Chevron Staggered Grip Blocks -->
+    <g fill="#0D131A">
+      <polygon points="105,33 115,35 110,48 100,45" />
+      <polygon points="85,44 95,47 88,60 78,56" />
+      <polygon points="68,60 78,65 70,78 59,72" />
+      <polygon points="57,80 67,86 58,99 48,92" />
+      <polygon points="54,103 64,108 55,121 44,115" />
+      <polygon points="58,124 68,128 61,141 50,136" />
+      <polygon points="71,143 82,145 76,158 65,155" />
+      <polygon points="90,157 101,156 97,169 86,169" />
+      <polygon points="112,162 124,159 122,172 110,174" />
+    </g>
+
+    <!-- White Inner Rim Groove Circle -->
+    <ellipse cx="125" cy="100" rx="52" ry="52" fill="none" stroke="#FFFFFF" stroke-width="5" />
+    <!-- Deep Sidewall Core -->
+    <ellipse cx="125" cy="100" rx="42" ry="42" fill="#0D131A" stroke="#1E293B" stroke-width="2" />
+    <!-- Wheel Hub Center Accent -->
+    <ellipse cx="125" cy="100" rx="20" ry="20" fill="#FFFFFF" fill-opacity="0.9" />
+    <ellipse cx="125" cy="100" rx="14" ry="14" fill="#0D131A" />
+    <ellipse cx="125" cy="100" rx="6" ry="6" fill="#1A56DB" />
+
+    <!-- Top Dynamic Swoosh Extension -->
+    <path d="M 125 34 C 180 34, 250 44, 325 50 C 255 60, 185 54, 125 54 Z" fill="#0D131A" />
+
+    <!-- Bottom Dynamic Swoosh Extension -->
+    <path d="M 125 146 C 185 146, 255 140, 325 150 C 250 156, 180 166, 125 166 Z" fill="#0D131A" />
+  </g>
+
+  <!-- Typography: Max Executive Tires Inc. in Rich Royal Blue -->
+  <g transform="translate(195, 30)">
+    <text x="0" y="52" font-family="Impact, Arial Black, 'Trebuchet MS', sans-serif" font-size="46" font-weight="900" fill="#1340D8" letter-spacing="-0.5px">
+      Max Executive
+    </text>
+    <text x="0" y="105" font-family="Impact, Arial Black, 'Trebuchet MS', sans-serif" font-size="46" font-weight="900" fill="#1340D8" letter-spacing="-0.5px">
+      Tires Inc.
+    </text>
+  </g>
+
+  <!-- Tagline: Where quality meets the road! in Antique Gold Italics -->
+  <g transform="translate(70, 205)">
+    <text x="50" y="20" font-family="Georgia, 'Times New Roman', serif" font-style="italic" font-size="25" font-weight="600" fill="#C29B38" letter-spacing="1px">
+      Where quality meets the road!
+    </text>
+  </g>
+
+  <!-- Left & Right Gold Pinstripe Decorative Borders -->
+  <line x1="8" y1="20" x2="8" y2="225" stroke="#C29B38" stroke-width="2.5" />
+  <line x1="14" y1="20" x2="14" y2="225" stroke="#C29B38" stroke-width="1.2" />
+  <line x1="492" y1="20" x2="492" y2="225" stroke="#C29B38" stroke-width="2.5" />
+  <line x1="486" y1="20" x2="486" y2="225" stroke="#C29B38" stroke-width="1.2" />
+</svg>

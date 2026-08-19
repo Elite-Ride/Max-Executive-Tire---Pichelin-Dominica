@@ -1,0 +1,200 @@
+import React, { useState } from 'react';
+import { 
+  Phone, 
+  MapPin, 
+  Clock, 
+  ShoppingBag, 
+  Menu, 
+  X, 
+  ShieldCheck, 
+  Compass, 
+  Wrench, 
+  Sparkles,
+  MessageSquare
+} from 'lucide-react';
+import { Currency, BackgroundTheme } from '../types';
+import { SHOP_LOCATION_INFO } from '../data/servicesData';
+import { BrandLogo } from './BrandLogo';
+
+interface NavbarProps {
+  activeTab: string;
+  setActiveTab: (tab: string) => void;
+  currency: Currency;
+  setCurrency: (c: Currency) => void;
+  bgTheme: BackgroundTheme;
+  setBgTheme: (t: BackgroundTheme) => void;
+  cartCount: number;
+  openCart: () => void;
+  openSOS: () => void;
+}
+
+export const Navbar: React.FC<NavbarProps> = ({
+  activeTab,
+  setActiveTab,
+  currency,
+  setCurrency,
+  bgTheme,
+  setBgTheme,
+  cartCount,
+  openCart,
+  openSOS,
+}) => {
+  const [mobileMenuOpen, setMobileMenuOpen] = useState(false);
+
+  const navItems = [
+    { id: 'inventory', label: 'Tyre Inventory', icon: ShoppingBag },
+    { id: 'services', label: 'Services & Pricing', icon: Wrench },
+    { id: 'advisor', label: 'AI Tyre Advisor', icon: Sparkles },
+    { id: 'guide', label: 'Dominica Road Guide', icon: Compass },
+    { id: 'location', label: 'Location & Hours', icon: MapPin },
+  ];
+
+  const handleNavClick = (tabId: string) => {
+    setActiveTab(tabId);
+    setMobileMenuOpen(false);
+    // Smooth scroll to top or section
+    window.scrollTo({ top: 0, behavior: 'smooth' });
+  };
+
+  return (
+    <header className="sticky top-0 z-40 bg-slate-950/95 backdrop-blur-md border-b border-slate-800 text-white shadow-md">
+      {/* Top Banner with Dominica info & Quick Hotline */}
+      <div className="bg-slate-900/90 text-slate-200 text-xs font-medium py-1.5 px-4 sm:px-6 border-b border-slate-800">
+        <div className="max-w-7xl mx-auto flex flex-wrap items-center justify-between gap-2">
+          <div className="flex items-center gap-3">
+            <span className="inline-flex items-center gap-1.5 text-emerald-400 font-semibold">
+              <span className="w-2 h-2 rounded-full bg-emerald-500 animate-pulse"></span>
+              Open Today: 7:30 AM – 6:00 PM
+            </span>
+            <span className="hidden md:inline text-slate-700">|</span>
+            <span className="hidden md:inline-flex items-center gap-1 text-slate-300">
+              <MapPin className="w-3.5 h-3.5 text-[#E17055]" />
+              Maranatha Square, Pichelin, Dominica
+            </span>
+          </div>
+
+          <div className="flex items-center gap-2 text-xs text-slate-300">
+            <span className="hidden sm:inline text-slate-400">Direct Hotline:</span>
+            <a 
+              href={`tel:${SHOP_LOCATION_INFO.phonePrimary.replace(/[^0-9+]/g, '')}`}
+              className="inline-flex items-center justify-center text-[#0984E3] hover:text-blue-400 hover:underline font-bold px-3 py-1 bg-slate-950/60 rounded-md border border-slate-800 transition"
+              style={{ minHeight: '32px' }}
+            >
+              {SHOP_LOCATION_INFO.phonePrimary}
+            </a>
+          </div>
+        </div>
+      </div>
+
+      {/* Main Navigation Bar */}
+      <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8">
+        <div className="flex items-center justify-between h-16 sm:h-18">
+          {/* Logo & Brand Identity */}
+          <div 
+            onClick={() => handleNavClick('inventory')}
+            className="cursor-pointer py-1"
+          >
+            <BrandLogo variant="navbar" showTagline={true} />
+          </div>
+
+          {/* Desktop Navigation Links */}
+          <nav className="hidden lg:flex items-center gap-1.5">
+            {navItems.map((item) => {
+              const Icon = item.icon;
+              const isActive = activeTab === item.id;
+              return (
+                <button
+                  key={item.id}
+                  id={`nav-tab-${item.id}`}
+                  onClick={() => handleNavClick(item.id)}
+                  className={`inline-flex items-center gap-2 px-3.5 py-2 rounded-lg text-sm font-semibold transition ${
+                    isActive 
+                      ? 'bg-[#0984E3]/20 text-[#0984E3] border border-[#0984E3]/40 shadow-xs' 
+                      : 'text-slate-300 hover:text-white hover:bg-slate-900'
+                  }`}
+                >
+                  <Icon className={`w-4 h-4 ${isActive ? 'text-[#0984E3]' : 'text-slate-400'}`} />
+                  {item.label}
+                </button>
+              );
+            })}
+          </nav>
+
+          {/* Action Buttons: Cart Drawer & Mobile Menu */}
+          <div className="flex items-center gap-2.5">
+            {/* Cart Drawer Trigger */}
+            <button
+              id="cart-button-nav"
+              onClick={openCart}
+              className="relative inline-flex items-center gap-2 bg-[#0984E3] hover:bg-[#0873c4] text-white text-sm font-bold px-3.5 py-2.5 rounded-lg shadow-sm transition"
+              aria-label="View reserved tyres and services"
+            >
+              <ShoppingBag className="w-4 h-4 text-white" />
+              <span className="hidden md:inline">Reserve</span>
+              {cartCount > 0 && (
+                <span className="w-5 h-5 rounded-full bg-white text-[#0984E3] text-xs font-black flex items-center justify-center">
+                  {cartCount}
+                </span>
+              )}
+            </button>
+
+            {/* Mobile Menu Toggle Button */}
+            <button
+              id="mobile-menu-toggle"
+              onClick={() => setMobileMenuOpen(!mobileMenuOpen)}
+              className="lg:hidden p-2 text-slate-300 hover:text-white rounded-lg hover:bg-slate-900"
+              aria-label="Toggle menu"
+            >
+              {mobileMenuOpen ? <X className="w-6 h-6" /> : <Menu className="w-6 h-6" />}
+            </button>
+          </div>
+        </div>
+      </div>
+
+      {/* Mobile Drawer Menu */}
+      {mobileMenuOpen && (
+        <div className="lg:hidden bg-slate-950 border-t border-slate-800 px-4 pt-3 pb-6 space-y-2 shadow-xl">
+          <div className="grid grid-cols-1 gap-1">
+            {navItems.map((item) => {
+              const Icon = item.icon;
+              const isActive = activeTab === item.id;
+              return (
+                <button
+                  key={item.id}
+                  onClick={() => handleNavClick(item.id)}
+                  className={`w-full flex items-center gap-3 px-4 py-3 rounded-lg text-sm font-bold text-left transition ${
+                    isActive
+                      ? 'bg-blue-600/20 text-[#0984E3] border border-blue-500/30'
+                      : 'text-slate-300 hover:bg-slate-900'
+                  }`}
+                >
+                  <Icon className="w-5 h-5" />
+                  <span>{item.label}</span>
+                </button>
+              );
+            })}
+          </div>
+
+          <div className="pt-4 border-t border-slate-800 flex flex-col gap-2">
+            <a
+              href={`https://wa.me/${SHOP_LOCATION_INFO.whatsapp.replace(/[^0-9]/g, '')}?text=Hello%20Max%20Executive%20Tires,%20I%20am%20inquiring%20about%20tyres%20in%20Pichelin`}
+              target="_blank"
+              rel="noopener noreferrer"
+              className="w-full flex items-center justify-center gap-2 bg-emerald-600 text-white font-bold py-2.5 rounded-lg text-sm"
+            >
+              <MessageSquare className="w-4 h-4" />
+              Chat on WhatsApp
+            </a>
+            <a
+              href={`tel:${SHOP_LOCATION_INFO.phonePrimary.replace(/[^0-9+]/g, '')}`}
+              className="w-full flex items-center justify-center gap-2 bg-slate-900 text-slate-200 font-bold py-2.5 rounded-lg text-sm border border-slate-800"
+            >
+              <Phone className="w-4 h-4 text-slate-400" />
+              Call Shop: {SHOP_LOCATION_INFO.phonePrimary}
+            </a>
+          </div>
+        </div>
+      )}
+    </header>
+  );
+};
