@@ -16,17 +16,19 @@ import {
 } from 'lucide-react';
 import { Tyre, Currency } from '../types';
 import { SHOP_LOCATION_INFO } from '../data/servicesData';
+import { getRepresentativeVehicleForTyre } from '../data/tyresData';
 
 interface TireDetailModalProps {
   tyre: Tyre | null;
   currency: Currency;
   onClose: () => void;
+  servicePrices: Record<string, number>;
   onAddToCartWithServices: (
     tyre: Tyre, 
     qty: number, 
     includeMounting: boolean, 
-    includeBalancing: boolean, 
-    includeValves: boolean
+    includeValves: boolean,
+    includeShredding: boolean
   ) => void;
 }
 
@@ -34,36 +36,35 @@ export const TireDetailModal: React.FC<TireDetailModalProps> = ({
   tyre,
   currency,
   onClose,
+  servicePrices,
   onAddToCartWithServices,
 }) => {
   if (!tyre) return null;
 
   const [quantity, setQuantity] = useState(2);
   const [includeMounting, setIncludeMounting] = useState(true);
-  const [includeBalancing, setIncludeBalancing] = useState(true);
   const [includeValves, setIncludeValves] = useState(true);
+  const [includeShredding, setIncludeShredding] = useState(true);
 
-  const mountingCostXCD = 20;
-  const balancingCostXCD = 25;
-  const valveCostXCD = 15;
+  const mountingCostXCD = servicePrices['mounting'] ?? 20;
+  const valveCostXCD = servicePrices['valves'] ?? 15;
+  const shreddingCostXCD = servicePrices['shredding'] ?? 1;
 
   const unitServiceCostXCD = 
     (includeMounting ? mountingCostXCD : 0) +
-    (includeBalancing ? balancingCostXCD : 0) +
-    (includeValves ? valveCostXCD : 0);
+    (includeValves ? valveCostXCD : 0) +
+    (includeShredding ? shreddingCostXCD : 0);
 
   const totalCostXCD = (tyre.priceXCD + unitServiceCostXCD) * quantity;
   const totalCostUSD = totalCostXCD / 2.70;
-
-  const treadPercent = Math.round((tyre.treadDepthMm / tyre.originalTreadMm) * 100);
 
   const handleAdd = () => {
     onAddToCartWithServices(
       tyre, 
       quantity, 
       includeMounting, 
-      includeBalancing, 
-      includeValves
+      includeValves,
+      includeShredding
     );
     onClose();
   };
@@ -71,6 +72,13 @@ export const TireDetailModal: React.FC<TireDetailModalProps> = ({
   const whatsappMessage = encodeURIComponent(
     `Hello Max Executive Tires! I am interested in reserving ${quantity}x ${tyre.brand} ${tyre.modelName} (${tyre.size}) [${tyre.condition === 'new' ? 'New' : 'Used'}] at Maranatha Square, Pichelin. Please confirm availability.`
   );
+
+  const repPreset = getRepresentativeVehicleForTyre(tyre);
+  const repVehicle = {
+    vehicleName: repPreset.name,
+    photo: repPreset.photo || tyre.image,
+    caption: `Size ${tyre.size} is the recommended fitment for ${repPreset.name} navigating Dominica's mountain grades and roads.`
+  };
 
   return (
     <div className="fixed inset-0 z-50 flex items-center justify-center p-4 bg-slate-950/70 backdrop-blur-xs overflow-y-auto animate-fade-in">
@@ -86,7 +94,7 @@ export const TireDetailModal: React.FC<TireDetailModalProps> = ({
                 ? 'bg-blue-50 text-[#0984E3] border border-blue-200/80' 
                 : 'bg-slate-900 text-white'
             }`}>
-              {tyre.condition === 'new' ? '✨ Brand New' : `🔍 Tested Used (${treadPercent}% Tread)`}
+              {tyre.condition === 'new' ? '✨ Brand New' : `🔍 Tested Used Tyre`}
             </span>
             <span className="text-xs text-slate-500 font-medium hidden sm:inline">
               Maranatha Square Stock ID: {tyre.id}
@@ -134,63 +142,64 @@ export const TireDetailModal: React.FC<TireDetailModalProps> = ({
                 <div>
                   <span className="text-xs text-slate-500 block">Unit Tyre Price:</span>
                   <span className="text-2xl font-black text-[#2D3436]">
-                    {currency === 'XCD' ? `EC$ ${tyre.priceXCD}` : `$${tyre.priceUSD} USD`}
+                    EC$ {tyre.priceXCD}
                   </span>
                 </div>
-                <span className="text-xs font-semibold text-emerald-700 bg-emerald-50 px-2.5 py-1 rounded-md border border-emerald-200">
-                  {tyre.stockCount} Available in Pichelin
-                </span>
               </div>
             </div>
           </div>
 
-          {/* Tread Depth & Safety Inspection Breakdown */}
-          <div className="bg-slate-50 rounded-xl p-4 sm:p-5 border border-slate-200 space-y-3">
-            <h4 className="text-sm font-bold text-[#2D3436] flex items-center gap-2">
-              <Gauge className="w-4 h-4 text-[#0984E3]" />
-              <span>Tread Depth & Pichelin Workshop Inspection Status</span>
-            </h4>
-
-            {/* Tread Depth Bar */}
-            <div className="space-y-1.5">
-              <div className="flex justify-between text-xs font-bold">
-                <span className="text-slate-700">Measured Tread Depth: {tyre.treadDepthMm} mm</span>
-                <span className="text-[#0984E3]">{treadPercent}% Remaining Life</span>
+          {/* Representative Vehicle Representation Photo Card */}
+          <div className="bg-slate-900 text-white rounded-2xl overflow-hidden shadow-md border border-slate-800">
+            <div className="grid grid-cols-1 sm:grid-cols-12 items-center">
+              <div className="sm:col-span-5 h-44 sm:h-full relative bg-slate-950">
+                <img
+                  src={repVehicle.photo}
+                  alt={repVehicle.vehicleName}
+                  className="w-full h-full object-cover opacity-90"
+                  referrerPolicy="no-referrer"
+                />
+                <div className="absolute inset-0 bg-gradient-to-t sm:bg-gradient-to-r from-slate-950/80 via-transparent to-transparent"></div>
+                <div className="absolute top-3 left-3 bg-black/70 backdrop-blur-xs text-emerald-400 text-[11px] font-bold px-2.5 py-1 rounded-md border border-emerald-500/30 flex items-center gap-1.5">
+                  <span>🚗</span>
+                  <span>Representative Vehicle Fitment</span>
+                </div>
               </div>
-              <div className="w-full bg-slate-200 h-2.5 rounded-full overflow-hidden flex">
-                <div 
-                  className={`h-full rounded-full transition-all duration-500 ${
-                    treadPercent > 85 ? 'bg-emerald-500' : treadPercent > 70 ? 'bg-[#0984E3]' : 'bg-[#E17055]'
-                  }`} 
-                  style={{ width: `${treadPercent}%` }}
-                ></div>
-              </div>
-              <div className="flex justify-between text-[10px] text-slate-400">
-                <span>Legal Minimum (1.6mm)</span>
-                <span>Original Factory Depth ({tyre.originalTreadMm}mm)</span>
+              <div className="sm:col-span-7 p-5 space-y-2">
+                <span className="text-xs font-mono text-emerald-400 uppercase tracking-widest block font-bold">
+                  Tyre Size Description: {tyre.size}
+                </span>
+                <h4 className="text-lg font-bold text-white">
+                  {repVehicle.vehicleName}
+                </h4>
+                <p className="text-xs sm:text-sm text-slate-300 leading-relaxed">
+                  {repVehicle.caption}
+                </p>
               </div>
             </div>
+          </div>
 
             {/* Inspection Checklist */}
-            <div className="grid grid-cols-1 sm:grid-cols-2 gap-2 pt-2 text-xs">
-              <div className="flex items-center gap-2 text-slate-700 font-medium">
-                <CheckCircle2 className="w-4 h-4 text-emerald-600 shrink-0" />
-                <span>Pressure tank tested at 55 PSI</span>
-              </div>
-              <div className="flex items-center gap-2 text-slate-700 font-medium">
-                <CheckCircle2 className="w-4 h-4 text-emerald-600 shrink-0" />
-                <span>Zero sidewall bulges or cuts</span>
-              </div>
-              <div className="flex items-center gap-2 text-slate-700 font-medium">
-                <CheckCircle2 className="w-4 h-4 text-emerald-600 shrink-0" />
-                <span>Bead seating edge clean & sealed</span>
-              </div>
-              <div className="flex items-center gap-2 text-slate-700 font-medium">
-                <CheckCircle2 className="w-4 h-4 text-emerald-600 shrink-0" />
-                <span>{tyre.warranty}</span>
+            <div className="bg-slate-50 rounded-xl p-4 border border-slate-200">
+              <div className="grid grid-cols-1 sm:grid-cols-2 gap-2 text-xs">
+                <div className="flex items-center gap-2 text-slate-700 font-medium">
+                  <CheckCircle2 className="w-4 h-4 text-emerald-600 shrink-0" />
+                  <span>Pressure tank tested at 55 PSI</span>
+                </div>
+                <div className="flex items-center gap-2 text-slate-700 font-medium">
+                  <CheckCircle2 className="w-4 h-4 text-emerald-600 shrink-0" />
+                  <span>Zero sidewall bulges or cuts</span>
+                </div>
+                <div className="flex items-center gap-2 text-slate-700 font-medium">
+                  <CheckCircle2 className="w-4 h-4 text-emerald-600 shrink-0" />
+                  <span>Bead seating edge clean & sealed</span>
+                </div>
+                <div className="flex items-center gap-2 text-slate-700 font-medium">
+                  <CheckCircle2 className="w-4 h-4 text-emerald-600 shrink-0" />
+                  <span>{tyre.warranty}</span>
+                </div>
               </div>
             </div>
-          </div>
 
           {/* Technical Specs & Dominica Suitability */}
           <div className="grid grid-cols-2 sm:grid-cols-4 gap-3 text-xs">
@@ -235,48 +244,57 @@ export const TireDetailModal: React.FC<TireDetailModalProps> = ({
             </h4>
 
             <div className="grid grid-cols-1 sm:grid-cols-3 gap-2.5">
-              <label className={`flex items-center gap-2.5 p-3 rounded-lg border text-xs cursor-pointer transition ${
+              <label className={`flex items-start gap-2.5 p-3 rounded-lg border text-xs cursor-pointer transition ${
                 includeMounting ? 'bg-blue-50 border-blue-200 text-slate-900 font-bold' : 'bg-slate-50 border-slate-200 text-slate-600'
               }`}>
                 <input
                   type="checkbox"
                   checked={includeMounting}
                   onChange={(e) => setIncludeMounting(e.target.checked)}
-                  className="rounded text-[#0984E3] focus:ring-[#0984E3] w-4 h-4"
+                  className="rounded text-[#0984E3] focus:ring-[#0984E3] w-4 h-4 mt-0.5"
                 />
-                <div>
-                  <div>Mounting & Fitting</div>
+                <div className="space-y-0.5">
+                  <div className="font-bold">Mounting & Fitting</div>
                   <div className="text-[11px] text-slate-500 font-normal">+EC$ 20/tyre</div>
+                  <p className="text-[10px] text-slate-500 leading-tight pt-0.5">
+                    Professional rim mounting, bead sealing, and high-speed precision computer dynamic balancing.
+                  </p>
                 </div>
               </label>
 
-              <label className={`flex items-center gap-2.5 p-3 rounded-lg border text-xs cursor-pointer transition ${
-                includeBalancing ? 'bg-blue-50 border-blue-200 text-slate-900 font-bold' : 'bg-slate-50 border-slate-200 text-slate-600'
-              }`}>
-                <input
-                  type="checkbox"
-                  checked={includeBalancing}
-                  onChange={(e) => setIncludeBalancing(e.target.checked)}
-                  className="rounded text-[#0984E3] focus:ring-[#0984E3] w-4 h-4"
-                />
-                <div>
-                  <div>Computer Balancing</div>
-                  <div className="text-[11px] text-slate-500 font-normal">+EC$ 25/tyre</div>
-                </div>
-              </label>
-
-              <label className={`flex items-center gap-2.5 p-3 rounded-lg border text-xs cursor-pointer transition ${
+              <label className={`flex items-start gap-2.5 p-3 rounded-lg border text-xs cursor-pointer transition ${
                 includeValves ? 'bg-blue-50 border-blue-200 text-slate-900 font-bold' : 'bg-slate-50 border-slate-200 text-slate-600'
               }`}>
                 <input
                   type="checkbox"
                   checked={includeValves}
                   onChange={(e) => setIncludeValves(e.target.checked)}
-                  className="rounded text-[#0984E3] focus:ring-[#0984E3] w-4 h-4"
+                  className="rounded text-[#0984E3] focus:ring-[#0984E3] w-4 h-4 mt-0.5"
                 />
-                <div>
-                  <div>New Valve Stem</div>
+                <div className="space-y-0.5">
+                  <div className="font-bold">New Valve Stem</div>
                   <div className="text-[11px] text-slate-500 font-normal">+EC$ 15/tyre</div>
+                  <p className="text-[10px] text-slate-500 leading-tight pt-0.5">
+                    Brand-new high-pressure brass/rubber valve stem installation to prevent slow air leaks.
+                  </p>
+                </div>
+              </label>
+
+              <label className={`flex items-start gap-2.5 p-3 rounded-lg border text-xs cursor-pointer transition ${
+                includeShredding ? 'bg-emerald-50 border-emerald-200 text-slate-900 font-bold' : 'bg-slate-50 border-slate-200 text-slate-600'
+              }`}>
+                <input
+                  type="checkbox"
+                  checked={includeShredding}
+                  onChange={(e) => setIncludeShredding(e.target.checked)}
+                  className="rounded text-emerald-600 focus:ring-emerald-500 w-4 h-4 mt-0.5"
+                />
+                <div className="space-y-0.5">
+                  <div className="font-bold text-emerald-800">Eco Tyre Shredder</div>
+                  <div className="text-[11px] text-slate-500 font-normal">+EC$ 1/tyre (Green)</div>
+                  <p className="text-[10px] text-slate-500 leading-tight pt-0.5">
+                    Eco-friendly old tyre disposal fee supporting Dominica safe waste recycling and shredding.
+                  </p>
                 </div>
               </label>
             </div>
@@ -309,7 +327,7 @@ export const TireDetailModal: React.FC<TireDetailModalProps> = ({
             <div>
               <div className="text-[10px] text-slate-400 uppercase font-bold">Estimated Total:</div>
               <div className="text-xl sm:text-2xl font-black text-white">
-                {currency === 'XCD' ? `EC$ ${totalCostXCD.toLocaleString()}` : `$${totalCostUSD.toFixed(2)} USD`}
+                EC$ {totalCostXCD.toLocaleString()}
               </div>
             </div>
           </div>

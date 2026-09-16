@@ -49,7 +49,7 @@ export interface Tyre {
 export interface TyreService {
   id: string;
   name: string;
-  category: 'Fitting & Mounting' | 'Balancing & Alignment' | 'Puncture & Repair' | 'Maintenance & Safety' | 'Emergency Rescue';
+  category: 'Fitting & Mounting' | 'Alignment & Safety' | 'Puncture & Repair' | 'Maintenance & Safety' | 'Emergency Rescue' | 'Environmental Sustainability';
   priceXCD: number;
   priceUSD: number;
   durationMinutes: number;
@@ -65,8 +65,8 @@ export interface CartItem {
   tyre: Tyre;
   quantity: number;
   includeMounting: boolean;
-  includeBalancing: boolean;
   includeNewValves: boolean;
+  includeShredding: boolean;
 }
 
 export interface ServiceBooking {
@@ -100,10 +100,12 @@ export interface RoadsideRescueRequest {
 export interface DominicaVehiclePreset {
   id: string;
   name: string;
-  popularModels: string;
-  typicalSizes: string[];
+  popularModels?: string;
+  typicalSizes?: string[];
   category: TyreCategory;
-  terrainAdvice: string;
+  terrainAdvice?: string;
+  description?: string;
+  photo?: string;
 }
 
 export const EXCHANGE_RATE_USD_TO_XCD = 2.70;

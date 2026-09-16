@@ -33,7 +33,7 @@ export const Footer: React.FC<FooterProps> = ({ setActiveTab, onOpenSOS }) => {
             </div>
 
             <p className="text-xs text-slate-400 leading-relaxed">
-              Southern Dominica’s premier centre for brand new and pressure-tested pre-owned tyres, computer balancing, pneumatic mounting, and 24/7 emergency roadside rescue.
+              Southern Dominica’s premier centre for brand new and pressure-tested pre-owned tyres, pneumatic mounting, and 24/7 emergency roadside rescue.
             </p>
 
             <div className="text-xs text-slate-400 space-y-1">
@@ -67,7 +67,7 @@ export const Footer: React.FC<FooterProps> = ({ setActiveTab, onOpenSOS }) => {
                   onClick={() => { setActiveTab('services'); window.scrollTo({ top: 0, behavior: 'smooth' }); }}
                   className="hover:text-[#0984E3] transition"
                 >
-                  Computer Wheel Balancing
+                  Precision Tyre Fitting
                 </button>
               </li>
               <li>
@@ -86,14 +86,7 @@ export const Footer: React.FC<FooterProps> = ({ setActiveTab, onOpenSOS }) => {
                   Dominica Mountain Road Guide
                 </button>
               </li>
-              <li>
-                <button
-                  onClick={() => { setActiveTab('advisor'); window.scrollTo({ top: 0, behavior: 'smooth' }); }}
-                  className="hover:text-[#0984E3] transition"
-                >
-                  AI Tyre Fitment Expert
-                </button>
-              </li>
+
             </ul>
           </div>
 
@@ -152,7 +145,7 @@ export const Footer: React.FC<FooterProps> = ({ setActiveTab, onOpenSOS }) => {
             © {new Date().getFullYear()} Max Executive Tires. Maranatha Square, Pichelin, Commonwealth of Dominica. All rights reserved.
           </p>
           <div className="flex items-center gap-2">
-            <span>Prices displayed in EC$ (XCD) & USD</span>
+            <span>Prices displayed in EC$ (XCD)</span>
             <span>•</span>
             <span className="text-[#0984E3] font-semibold">Nature Isle Motoring Excellence</span>
           </div>

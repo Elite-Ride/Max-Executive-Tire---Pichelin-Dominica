@@ -10,7 +10,9 @@ import {
   Compass, 
   Wrench, 
   Sparkles,
-  MessageSquare
+  MessageSquare,
+  Bell,
+  Calendar
 } from 'lucide-react';
 import { Currency, BackgroundTheme } from '../types';
 import { SHOP_LOCATION_INFO } from '../data/servicesData';
@@ -26,6 +28,8 @@ interface NavbarProps {
   cartCount: number;
   openCart: () => void;
   openSOS: () => void;
+  adminOrdersCount: number;
+  openAdminOrders: () => void;
 }
 
 export const Navbar: React.FC<NavbarProps> = ({
@@ -38,13 +42,15 @@ export const Navbar: React.FC<NavbarProps> = ({
   cartCount,
   openCart,
   openSOS,
+  adminOrdersCount,
+  openAdminOrders,
 }) => {
   const [mobileMenuOpen, setMobileMenuOpen] = useState(false);
 
   const navItems = [
     { id: 'inventory', label: 'Tyre Inventory', icon: ShoppingBag },
     { id: 'services', label: 'Services & Pricing', icon: Wrench },
-    { id: 'advisor', label: 'AI Tyre Advisor', icon: Sparkles },
+    { id: 'orders', label: 'My Orders', icon: Calendar },
     { id: 'guide', label: 'Dominica Road Guide', icon: Compass },
     { id: 'location', label: 'Location & Hours', icon: MapPin },
   ];
@@ -122,6 +128,21 @@ export const Navbar: React.FC<NavbarProps> = ({
 
           {/* Action Buttons: Cart Drawer & Mobile Menu */}
           <div className="flex items-center gap-2.5">
+            {/* Admin Notifications Button */}
+            <button
+              onClick={openAdminOrders}
+              className="relative inline-flex items-center gap-1.5 bg-slate-900 hover:bg-slate-850 text-slate-200 text-xs font-bold px-3 py-2.5 rounded-lg border border-slate-700 transition"
+              title="Shop Admin Order Notifications"
+            >
+              <Bell className="w-4 h-4 text-amber-400" />
+              <span className="hidden sm:inline">Admin Orders</span>
+              {adminOrdersCount > 0 && (
+                <span className="w-5 h-5 rounded-full bg-red-600 text-white text-[10px] font-bold flex items-center justify-center animate-pulse">
+                  {adminOrdersCount}
+                </span>
+              )}
+            </button>
+
             {/* Cart Drawer Trigger */}
             <button
               id="cart-button-nav"

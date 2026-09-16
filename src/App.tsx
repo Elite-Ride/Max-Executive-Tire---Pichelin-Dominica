@@ -1,16 +1,16 @@
 import React, { useState, useEffect, useMemo } from 'react';
 import { Navbar } from './components/Navbar';
 import { Hero } from './components/Hero';
-import { TireFinder } from './components/TireFinder';
 import { TireCatalog } from './components/TireCatalog';
 import { TireDetailModal } from './components/TireDetailModal';
 import { ServicesSection } from './components/ServicesSection';
 import { RoadsideRescueSOS } from './components/RoadsideRescueSOS';
-import { AITyreAdvisor } from './components/AITyreAdvisor';
 import { DominicaTyreGuide } from './components/DominicaTyreGuide';
 import { LocationSection } from './components/LocationSection';
-import { Testimonials } from './components/Testimonials';
+import { MyOrdersView } from './components/MyOrdersView';
 import { CartDrawer } from './components/CartDrawer';
+import { AdminOrdersModal, AdminOrder } from './components/AdminOrdersModal';
+import { AdminLoginModal } from './components/AdminLoginModal';
 import { Footer } from './components/Footer';
 import { TYRES_DATA } from './data/tyresData';
 import { Tyre, CartItem, Currency, DominicaVehiclePreset, TyreCondition, BackgroundTheme } from './types';
@@ -49,7 +49,193 @@ export default function App() {
 
   const [isCartOpen, setIsCartOpen] = useState(false);
   const [isSOSOpen, setIsSOSOpen] = useState(false);
+
+  const handleOpenSOS = () => {
+    setIsSOSOpen(true);
+    setActiveTab('location');
+    setTimeout(() => {
+      const el = document.getElementById('location-section');
+      if (el) {
+        el.scrollIntoView({ behavior: 'smooth' });
+      }
+    }, 150);
+  };
+  const [isAdminOrdersOpen, setIsAdminOrdersOpen] = useState(false);
+  const [isAdminLoginOpen, setIsAdminLoginOpen] = useState(false);
+  const [isAdminLoggedIn, setIsAdminLoggedIn] = useState<boolean>(() => {
+    try {
+      return localStorage.getItem('max_executive_admin_logged_in') === 'true';
+    } catch {
+      return false;
+    }
+  });
   const [selectedTyreDetail, setSelectedTyreDetail] = useState<Tyre | null>(null);
+
+  const [adminOrders, setAdminOrders] = useState<AdminOrder[]>(() => {
+    try {
+      const saved = localStorage.getItem('max_executive_admin_orders');
+      return saved ? JSON.parse(saved) : [];
+    } catch {
+      return [];
+    }
+  });
+
+  const [whatsappCustomMessage, setWhatsappCustomMessage] = useState<string>(() => {
+    try {
+      return localStorage.getItem('max_executive_whatsapp_msg') || 'Hello Max Executive Tires, I need tyres in Pichelin';
+    } catch {
+      return 'Hello Max Executive Tires, I need tyres in Pichelin';
+    }
+  });
+
+  const [servicePrices, setServicePrices] = useState<Record<string, number>>(() => {
+    try {
+      const saved = localStorage.getItem('max_executive_service_prices');
+      return saved ? JSON.parse(saved) : {
+        'srv-roadside': 80,
+        'srv-shredder': 1,
+        'mounting': 20,
+        'valves': 15,
+        'balancing': 15
+      };
+    } catch {
+      return {
+        'srv-roadside': 80,
+        'srv-shredder': 1,
+        'mounting': 20,
+        'valves': 15,
+        'balancing': 15
+      };
+    }
+  });
+
+  const [adminActivityLog, setAdminActivityLog] = useState<Array<{
+    id: string;
+    timestamp: string;
+    actionType: 'STATUS_CHANGE' | 'ORDER_DELETION' | 'BULK_ACTION' | 'PRICE_UPDATE' | 'OTHER';
+    description: string;
+    adminName: string;
+  }>>(() => {
+    try {
+      const saved = localStorage.getItem('max_executive_admin_activity_log');
+      return saved ? JSON.parse(saved) : [];
+    } catch {
+      return [];
+    }
+  });
+
+  useEffect(() => {
+    try {
+      localStorage.setItem('max_executive_service_prices', JSON.stringify(servicePrices));
+    } catch {}
+  }, [servicePrices]);
+
+  useEffect(() => {
+    try {
+      localStorage.setItem('max_executive_admin_activity_log', JSON.stringify(adminActivityLog));
+    } catch {}
+  }, [adminActivityLog]);
+
+  const logActivity = (actionType: 'STATUS_CHANGE' | 'ORDER_DELETION' | 'BULK_ACTION' | 'PRICE_UPDATE' | 'OTHER', description: string) => {
+    const newItem = {
+      id: 'log-' + Date.now() + '-' + Math.random().toString(36).substr(2, 4),
+      timestamp: new Date().toLocaleString(),
+      actionType,
+      description,
+      adminName: 'Executive Admin'
+    };
+    setAdminActivityLog(prev => [newItem, ...prev]);
+  };
+
+  const handleUpdateServicePrice = (serviceId: string, newPriceXCD: number) => {
+    setServicePrices(prev => ({ ...prev, [serviceId]: newPriceXCD }));
+    logActivity('PRICE_UPDATE', `Updated service rate for [${serviceId}] to EC$ ${newPriceXCD}`);
+  };
+
+  useEffect(() => {
+    try {
+      localStorage.setItem('max_executive_whatsapp_msg', whatsappCustomMessage);
+    } catch (e) {
+      console.warn('Could not save whatsapp message:', e);
+    }
+  }, [whatsappCustomMessage]);
+
+  useEffect(() => {
+    try {
+      localStorage.setItem('max_executive_admin_orders', JSON.stringify(adminOrders));
+    } catch (e) {
+      console.warn('Could not save admin orders:', e);
+    }
+  }, [adminOrders]);
+
+  const handleOpenAdmin = () => {
+    if (isAdminLoggedIn) {
+      setIsAdminOrdersOpen(true);
+    } else {
+      setIsAdminLoginOpen(true);
+    }
+  };
+
+  const handleSuccessLogin = () => {
+    setIsAdminLoggedIn(true);
+    try {
+      localStorage.setItem('max_executive_admin_logged_in', 'true');
+    } catch {}
+    setIsAdminLoginOpen(false);
+    setIsAdminOrdersOpen(true);
+  };
+
+  const handleLogoffAdmin = () => {
+    setIsAdminLoggedIn(false);
+    try {
+      localStorage.removeItem('max_executive_admin_logged_in');
+    } catch {}
+    setIsAdminOrdersOpen(false);
+  };
+
+  const handleUpdateOrder = (orderId: string, updatedFields: Partial<AdminOrder>) => {
+    setAdminOrders(prev => {
+      const target = prev.find(o => o.id === orderId);
+      if (target && updatedFields.dispatchStatus && updatedFields.dispatchStatus !== target.dispatchStatus) {
+        logActivity('STATUS_CHANGE', `Updated order #${target.reservationCode} (${target.customerName}) status to "${updatedFields.dispatchStatus}"`);
+      }
+      return prev.map(o => o.id === orderId ? { ...o, ...updatedFields } : o);
+    });
+  };
+
+  const handleDeleteOrder = (orderId: string) => {
+    setAdminOrders(prev => {
+      const target = prev.find(o => o.id === orderId);
+      if (target) {
+        logActivity('ORDER_DELETION', `Deleted order #${target.reservationCode} (${target.customerName})`);
+      }
+      return prev.filter(o => o.id !== orderId);
+    });
+  };
+
+  const handleBulkUpdateOrders = (orderIds: string[], updatedFields: Partial<AdminOrder>) => {
+    setAdminOrders(prev => prev.map(o => orderIds.includes(o.id) ? { ...o, ...updatedFields } : o));
+    logActivity('BULK_ACTION', `Bulk updated ${orderIds.length} orders`);
+  };
+
+  const handleBulkDeleteOrders = (orderIds: string[]) => {
+    setAdminOrders(prev => prev.filter(o => !orderIds.includes(o.id)));
+    logActivity('ORDER_DELETION', `Bulk deleted ${orderIds.length} orders`);
+  };
+
+  const handleClearOrders = () => {
+    setAdminOrders([]);
+    logActivity('ORDER_DELETION', 'Cleared all customer orders');
+  };
+
+  const handleOrderSubmitted = (orderData: Omit<AdminOrder, 'id' | 'timestamp'>) => {
+    const newOrder: AdminOrder = {
+      ...orderData,
+      id: 'ord-' + Date.now(),
+      timestamp: new Date().toLocaleString(),
+    };
+    setAdminOrders((prev) => [newOrder, ...prev]);
+  };
 
   // Filters
   const [selectedBrand, setSelectedBrand] = useState<string>('');
@@ -61,7 +247,6 @@ export default function App() {
   const [selectedCategory, setSelectedCategory] = useState<string>('All Categories');
   const [minPrice, setMinPrice] = useState<string>('');
   const [maxPrice, setMaxPrice] = useState<string>('');
-  const [minQuantity, setMinQuantity] = useState<string>('');
   const [sortBy, setSortBy] = useState<string>('featured');
   const [searchQuery, setSearchQuery] = useState<string>('');
   const [activePresetId, setActivePresetId] = useState<string | null>(null);
@@ -116,7 +301,6 @@ export default function App() {
     setSelectedCategory('All Categories');
     setMinPrice('');
     setMaxPrice('');
-    setMinQuantity('');
     setSortBy('featured');
     setSearchQuery('');
     setActivePresetId(null);
@@ -164,12 +348,6 @@ export default function App() {
           if (tyre.priceUSD > limitUSD && tyre.priceXCD > limit) return false;
         }
       }
-      // Minimum in-stock quantity filter
-      if (minQuantity) {
-        if (tyre.stockCount < Number(minQuantity)) {
-          return false;
-        }
-      }
       // Search keyword (matches brand, model, size, features, description)
       if (searchQuery.trim()) {
         const q = searchQuery.toLowerCase();
@@ -190,7 +368,6 @@ export default function App() {
       if (sortBy === 'price-asc') return a.priceXCD - b.priceXCD;
       if (sortBy === 'price-desc') return b.priceXCD - a.priceXCD;
       if (sortBy === 'brand-asc') return a.brand.localeCompare(b.brand);
-      if (sortBy === 'stock-desc') return b.stockCount - a.stockCount;
       if (sortBy === 'grip-desc') return b.dominicaMountainRating - a.dominicaMountainRating;
       // Default: popular first, then special deals
       return (b.isPopular ? 1 : 0) - (a.isPopular ? 1 : 0);
@@ -204,7 +381,6 @@ export default function App() {
     selectedRim,
     selectedCategory,
     maxPrice,
-    minQuantity,
     sortBy,
     searchQuery,
     currency,
@@ -226,7 +402,6 @@ export default function App() {
           tyre,
           quantity: 2,
           includeMounting: true,
-          includeBalancing: true,
           includeNewValves: true,
         },
       ];
@@ -238,8 +413,8 @@ export default function App() {
     tyre: Tyre,
     qty: number,
     includeMounting: boolean,
-    includeBalancing: boolean,
-    includeValves: boolean
+    includeValves: boolean,
+    includeShredding: boolean
   ) => {
     setCartItems((prev) => {
       const existing = prev.find((item) => item.tyre.id === tyre.id);
@@ -250,8 +425,8 @@ export default function App() {
                 ...item,
                 quantity: item.quantity + qty,
                 includeMounting,
-                includeBalancing,
                 includeNewValves: includeValves,
+                includeShredding,
               }
             : item
         );
@@ -263,8 +438,8 @@ export default function App() {
           tyre,
           quantity: qty,
           includeMounting,
-          includeBalancing,
           includeNewValves: includeValves,
+          includeShredding,
         },
       ];
     });
@@ -291,14 +466,14 @@ export default function App() {
 
   const handleToggleService = (
     itemId: string,
-    serviceKey: 'mounting' | 'balancing' | 'valves'
+    serviceKey: 'mounting' | 'valves' | 'shredding'
   ) => {
     setCartItems((prev) =>
       prev.map((item) => {
         if (item.id === itemId) {
           if (serviceKey === 'mounting') return { ...item, includeMounting: !item.includeMounting };
-          if (serviceKey === 'balancing') return { ...item, includeBalancing: !item.includeBalancing };
           if (serviceKey === 'valves') return { ...item, includeNewValves: !item.includeNewValves };
+          if (serviceKey === 'shredding') return { ...item, includeShredding: !item.includeShredding };
         }
         return item;
       })
@@ -330,7 +505,9 @@ export default function App() {
         setBgTheme={setBgTheme}
         cartCount={totalCartCount}
         openCart={() => setIsCartOpen(true)}
-        openSOS={() => setIsSOSOpen(true)}
+        openSOS={handleOpenSOS}
+        adminOrdersCount={adminOrders.length}
+        openAdminOrders={handleOpenAdmin}
       />
 
       {/* Main Content Area */}
@@ -340,152 +517,17 @@ export default function App() {
         <Hero
           onSearchClick={() => {
             setActiveTab('inventory');
-            const el = document.getElementById('tyre-finder-section');
-            if (el) el.scrollIntoView({ behavior: 'smooth' });
+            window.scrollTo({ top: 400, behavior: 'smooth' });
           }}
           onBookServiceClick={() => {
             setActiveTab('services');
-            const el = document.getElementById('service-booking-form-box');
+            const el = document.getElementById('services-section');
             if (el) el.scrollIntoView({ behavior: 'smooth' });
           }}
-          onSOSClick={() => setIsSOSOpen(true)}
-          onAdvisorClick={() => {
-            setActiveTab('advisor');
-            window.scrollTo({ top: 0, behavior: 'smooth' });
-          }}
+          onSOSClick={handleOpenSOS}
         />
 
-        {/* Executive Sub-Nav Tab Switcher with Live Indicators */}
-        <div className={`sticky top-14 z-30 backdrop-blur-md border-b transition-colors duration-200 ${
-          bgTheme === 'light' 
-            ? 'bg-white/95 border-slate-200 shadow-xs' 
-            : 'bg-slate-950/90 border-slate-800 shadow-md'
-        }`}>
-          <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8">
-            <div className="flex items-center justify-between overflow-x-auto py-2.5 gap-2 scrollbar-none">
-              <div className="flex items-center gap-1.5 min-w-max">
-                <button
-                  type="button"
-                  id="tab-btn-inventory"
-                  onClick={() => {
-                    setActiveTab('inventory');
-                    window.scrollTo({ top: 380, behavior: 'smooth' });
-                  }}
-                  className={`inline-flex items-center gap-2 px-3.5 py-2 rounded-xl text-xs sm:text-sm font-bold transition ${
-                    activeTab === 'inventory'
-                      ? 'bg-[#0984E3] text-white shadow-sm shadow-blue-500/20'
-                      : bgTheme === 'light'
-                        ? 'text-slate-600 hover:text-slate-900 hover:bg-slate-100'
-                        : 'text-slate-300 hover:text-white hover:bg-slate-900'
-                  }`}
-                >
-                  <Car className="w-4 h-4" />
-                  <span>Tyre Inventory</span>
-                  <span className={`text-[10px] font-bold px-1.5 py-0.5 rounded-full ${
-                    activeTab === 'inventory' 
-                      ? 'bg-white/20 text-white' 
-                      : bgTheme === 'light'
-                        ? 'bg-slate-200 text-slate-700'
-                        : 'bg-slate-800 text-slate-300'
-                  }`}>
-                    {filteredTyres.length}
-                  </span>
-                </button>
 
-                <button
-                  type="button"
-                  id="tab-btn-services"
-                  onClick={() => {
-                    setActiveTab('services');
-                    window.scrollTo({ top: 380, behavior: 'smooth' });
-                  }}
-                  className={`inline-flex items-center gap-2 px-3.5 py-2 rounded-xl text-xs sm:text-sm font-bold transition ${
-                    activeTab === 'services'
-                      ? 'bg-[#0984E3] text-white shadow-sm shadow-blue-500/20'
-                      : bgTheme === 'light'
-                        ? 'text-slate-600 hover:text-slate-900 hover:bg-slate-100'
-                        : 'text-slate-300 hover:text-white hover:bg-slate-900'
-                  }`}
-                >
-                  <Wrench className="w-4 h-4" />
-                  <span>Workshop Services & Bays</span>
-                </button>
-
-                <button
-                  type="button"
-                  id="tab-btn-advisor"
-                  onClick={() => {
-                    setActiveTab('advisor');
-                    window.scrollTo({ top: 380, behavior: 'smooth' });
-                  }}
-                  className={`inline-flex items-center gap-2 px-3.5 py-2 rounded-xl text-xs sm:text-sm font-bold transition ${
-                    activeTab === 'advisor'
-                      ? 'bg-[#0984E3] text-white shadow-sm shadow-blue-500/20'
-                      : bgTheme === 'light'
-                        ? 'text-slate-600 hover:text-slate-900 hover:bg-slate-100'
-                        : 'text-slate-300 hover:text-white hover:bg-slate-900'
-                  }`}
-                >
-                  <ShieldCheck className="w-4 h-4 text-amber-400" />
-                  <span>AI Tyre Advisor</span>
-                </button>
-
-                <button
-                  type="button"
-                  id="tab-btn-guide"
-                  onClick={() => {
-                    setActiveTab('guide');
-                    window.scrollTo({ top: 380, behavior: 'smooth' });
-                  }}
-                  className={`inline-flex items-center gap-2 px-3.5 py-2 rounded-xl text-xs sm:text-sm font-bold transition ${
-                    activeTab === 'guide'
-                      ? 'bg-[#0984E3] text-white shadow-sm shadow-blue-500/20'
-                      : bgTheme === 'light'
-                        ? 'text-slate-600 hover:text-slate-900 hover:bg-slate-100'
-                        : 'text-slate-300 hover:text-white hover:bg-slate-900'
-                  }`}
-                >
-                  <RotateCcw className="w-4 h-4" />
-                  <span>Dominica Road Guide</span>
-                </button>
-
-                <button
-                  type="button"
-                  id="tab-btn-location"
-                  onClick={() => {
-                    setActiveTab('location');
-                    window.scrollTo({ top: 380, behavior: 'smooth' });
-                  }}
-                  className={`inline-flex items-center gap-2 px-3.5 py-2 rounded-xl text-xs sm:text-sm font-bold transition ${
-                    activeTab === 'location'
-                      ? 'bg-[#0984E3] text-white shadow-sm shadow-blue-500/20'
-                      : bgTheme === 'light'
-                        ? 'text-slate-600 hover:text-slate-900 hover:bg-slate-100'
-                        : 'text-slate-300 hover:text-white hover:bg-slate-900'
-                  }`}
-                >
-                  <MapPin className="w-4 h-4 text-red-500" />
-                  <span>Location & Hours</span>
-                </button>
-              </div>
-
-              {/* Quick Call Button on Sub-nav */}
-              <div className="hidden md:flex items-center gap-2">
-                <a
-                  href={`tel:${SHOP_LOCATION_INFO.phonePrimary.replace(/[^0-9+]/g, '')}`}
-                  className={`inline-flex items-center gap-1.5 text-xs font-bold px-3 py-1.5 rounded-lg border transition ${
-                    bgTheme === 'light'
-                      ? 'text-slate-700 hover:text-[#0984E3] bg-slate-100 border-slate-200'
-                      : 'text-slate-200 hover:text-white bg-slate-900 border-slate-800'
-                  }`}
-                >
-                  <Phone className="w-3.5 h-3.5 text-[#0984E3]" />
-                  <span>Call {SHOP_LOCATION_INFO.phonePrimary}</span>
-                </a>
-              </div>
-            </div>
-          </div>
-        </div>
 
         {/* Tab-driven Content Container */}
         <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 py-8 sm:py-12 space-y-12">
@@ -493,50 +535,14 @@ export default function App() {
           {/* TAB 1: Inventory & Sales */}
           {activeTab === 'inventory' && (
             <div className="space-y-8 animate-fade-in">
-              <TireFinder
-                selectedBrand={selectedBrand}
-                setSelectedBrand={setSelectedBrand}
-                selectedModel={selectedModel}
-                setSelectedModel={setSelectedModel}
-                selectedWidth={selectedWidth}
-                setSelectedWidth={setSelectedWidth}
-                selectedAspect={selectedAspect}
-                setSelectedAspect={setSelectedAspect}
-                selectedRim={selectedRim}
-                setSelectedRim={setSelectedRim}
-                selectedCondition={selectedCondition}
-                setSelectedCondition={setSelectedCondition}
-                selectedCategory={selectedCategory}
-                setSelectedCategory={setSelectedCategory}
-                minPrice={minPrice}
-                setMinPrice={setMinPrice}
-                maxPrice={maxPrice}
-                setMaxPrice={setMaxPrice}
-                minQuantity={minQuantity}
-                setMinQuantity={setMinQuantity}
-                sortBy={sortBy}
-                setSortBy={setSortBy}
-                searchQuery={searchQuery}
-                setSearchQuery={setSearchQuery}
-                currency={currency}
-                onReset={handleResetFilters}
-                onSelectVehiclePreset={handleSelectVehiclePreset}
-                activePresetId={activePresetId}
-                totalFilteredCount={filteredTyres.length}
-              />
+
 
               <TireCatalog
                 tyres={filteredTyres}
                 currency={currency}
                 onSelectTyre={(tyre) => setSelectedTyreDetail(tyre)}
                 onAddToCart={handleAddToCart}
-                onOpenAdvisor={() => setActiveTab('advisor')}
               />
-
-              {/* Dominica Customer Reviews */}
-              <div className="pt-8">
-                <Testimonials />
-              </div>
             </div>
           )}
 
@@ -545,18 +551,20 @@ export default function App() {
             <div className="animate-fade-in space-y-12">
               <ServicesSection
                 currency={currency}
-                onOpenSOS={() => setIsSOSOpen(true)}
+                onOpenSOS={handleOpenSOS}
+                servicePrices={servicePrices}
               />
-
-              <Testimonials />
             </div>
           )}
 
-          {/* TAB 3: AI Tyre Advisor */}
-          {activeTab === 'advisor' && (
-            <div className="animate-fade-in space-y-10">
-              <AITyreAdvisor />
-              <DominicaTyreGuide />
+          {/* TAB 3: My Orders & Reservation Lookup */}
+          {activeTab === 'orders' && (
+            <div className="animate-fade-in space-y-12">
+              <MyOrdersView
+                orders={adminOrders}
+                currency={currency}
+                servicePrices={servicePrices}
+              />
             </div>
           )}
 
@@ -572,7 +580,6 @@ export default function App() {
           {activeTab === 'location' && (
             <div className="animate-fade-in space-y-12">
               <LocationSection />
-              <Testimonials />
             </div>
           )}
 
@@ -591,7 +598,7 @@ export default function App() {
       {/* Floating Desktop & Tablet Assistance Widget */}
       <aside aria-label="Quick Assistance and Emergency Contacts" className="hidden md:flex fixed bottom-6 right-6 z-30 flex-col items-end gap-2.5">
         <button
-          onClick={() => setIsSOSOpen(true)}
+          onClick={handleOpenSOS}
           className="group inline-flex items-center gap-2 bg-red-600 hover:bg-red-700 text-white font-bold text-xs px-4 py-2.5 rounded-full shadow-lg shadow-red-600/30 transition transform hover:scale-105"
           title="Emergency Roadside Puncture Rescue"
         >
@@ -600,7 +607,7 @@ export default function App() {
         </button>
 
         <a
-          href={`https://wa.me/${SHOP_LOCATION_INFO.whatsapp.replace(/[^0-9]/g, '')}?text=Hello%20Max%20Executive%20Tires,%20I%20need%20tyres%20in%20Pichelin`}
+          href={`https://wa.me/${SHOP_LOCATION_INFO.whatsapp.replace(/[^0-9]/g, '')}?text=${encodeURIComponent(whatsappCustomMessage)}`}
           target="_blank"
           rel="noopener noreferrer"
           className="inline-flex items-center gap-2 bg-emerald-600 hover:bg-emerald-500 text-white font-bold text-xs px-4 py-2.5 rounded-full shadow-lg shadow-emerald-600/30 transition transform hover:scale-105"
@@ -616,7 +623,7 @@ export default function App() {
         style={{ width: '500px', minHeight: '31px' }}
       >
         <button
-          onClick={() => setIsSOSOpen(true)}
+          onClick={handleOpenSOS}
           className="bg-red-600 hover:bg-red-700 text-white text-xs font-bold px-2 rounded-lg shadow-md flex items-center justify-center gap-1.5 h-full py-1.5"
           style={{ width: '199.5px' }}
         >
@@ -625,7 +632,7 @@ export default function App() {
         </button>
 
         <a
-          href={`https://wa.me/${SHOP_LOCATION_INFO.whatsapp.replace(/[^0-9]/g, '')}?text=Hello%20Max%20Executive%20Tires,%20I%20need%20tyres%20in%20Pichelin`}
+          href={`https://wa.me/${SHOP_LOCATION_INFO.whatsapp.replace(/[^0-9]/g, '')}?text=${encodeURIComponent(whatsappCustomMessage)}`}
           target="_blank"
           rel="noopener noreferrer"
           className="bg-emerald-600 hover:bg-emerald-500 text-white text-xs font-bold px-2 rounded-lg shadow-md flex items-center justify-center gap-1.5 h-full py-1.5"
@@ -642,6 +649,7 @@ export default function App() {
           tyre={selectedTyreDetail}
           currency={currency}
           onClose={() => setSelectedTyreDetail(null)}
+          servicePrices={servicePrices}
           onAddToCartWithServices={handleAddToCartWithServices}
         />
       )}
@@ -656,12 +664,43 @@ export default function App() {
         onRemoveItem={handleRemoveItem}
         onToggleService={handleToggleService}
         onClearCart={handleClearCart}
+        servicePrices={servicePrices}
+        onOrderSubmitted={handleOrderSubmitted}
+      />
+
+      {/* Admin Login Modal */}
+      <AdminLoginModal
+        isOpen={isAdminLoginOpen}
+        onClose={() => setIsAdminLoginOpen(false)}
+        onSuccessLogin={handleSuccessLogin}
+      />
+
+      {/* Admin Orders Modal */}
+      <AdminOrdersModal
+        isOpen={isAdminOrdersOpen}
+        onClose={() => setIsAdminOrdersOpen(false)}
+        orders={adminOrders}
+        onClearOrders={handleClearOrders}
+        onLogoff={handleLogoffAdmin}
+        onUpdateOrder={handleUpdateOrder}
+        onDeleteOrder={handleDeleteOrder}
+        onBulkUpdateOrders={handleBulkUpdateOrders}
+        onBulkDeleteOrders={handleBulkDeleteOrders}
+        whatsappCustomMessage={whatsappCustomMessage}
+        onUpdateWhatsAppMessage={setWhatsappCustomMessage}
+        servicePrices={servicePrices}
+        onUpdateServicePrice={handleUpdateServicePrice}
+        adminActivityLog={adminActivityLog}
+        onClearActivityLog={() => {
+          setAdminActivityLog([]);
+          logActivity('OTHER', 'Cleared admin activity log');
+        }}
       />
 
       {/* Footer */}
       <Footer
         setActiveTab={setActiveTab}
-        onOpenSOS={() => setIsSOSOpen(true)}
+        onOpenSOS={handleOpenSOS}
       />
 
     </div>

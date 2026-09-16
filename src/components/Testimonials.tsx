@@ -8,7 +8,7 @@ export const Testimonials: React.FC = () => {
       role: 'Minibus / Taxi Driver (Roseau - Grand Bay Route)',
       location: 'Grand Bay, Dominica',
       rating: 5,
-      comment: 'I drive the Roseau to Grand Bay route every single day carrying full passenger loads over Pichelin hill. Got 4 commercial 8-ply Hankooks mounted and dynamically balanced at Maranatha Square. Zero steering shake on the highway and exceptional wet grip during heavy rain!',
+      comment: 'I drive the Roseau to Grand Bay route every single day carrying full passenger loads over Pichelin hill. Got 4 commercial 8-ply Hankooks mounted at Maranatha Square. Zero steering shake on the highway and exceptional wet grip during heavy rain!',
       vehicle: 'Toyota HiAce Minibus',
       verified: 'Verified Customer'
     },

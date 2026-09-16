@@ -85,6 +85,12 @@ export const RoadsideRescueSOS: React.FC<RoadsideRescueSOSProps> = ({ onClose })
     setDispatchSent(true);
     // Open WhatsApp automatically
     window.open(constructWhatsAppSOSUrl(), '_blank');
+
+    // Smooth scroll to location section
+    const el = document.getElementById('location-section');
+    if (el) {
+      el.scrollIntoView({ behavior: 'smooth' });
+    }
   };
 
   return (

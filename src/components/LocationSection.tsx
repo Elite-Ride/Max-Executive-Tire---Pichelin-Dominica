@@ -11,6 +11,7 @@ import {
   Truck
 } from 'lucide-react';
 import { SHOP_LOCATION_INFO, WORKSHOP_HOURS } from '../data/servicesData';
+import { GoogleMapsStoreLocator } from './GoogleMapsStoreLocator';
 
 export const LocationSection: React.FC = () => {
   const travelTimes = [
@@ -35,6 +36,9 @@ export const LocationSection: React.FC = () => {
           Direct roadside drive-in access along the Grand Bay-Roseau link road with spacious bays for passenger cars, SUVs, minibuses, and 4x4s.
         </p>
       </div>
+
+      {/* Google Maps Platform Interactive Store Locator */}
+      <GoogleMapsStoreLocator />
 
       <div className="grid grid-cols-1 lg:grid-cols-12 gap-8">
         

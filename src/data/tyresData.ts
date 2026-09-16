@@ -1,5 +1,10 @@
 import { Tyre, DominicaVehiclePreset } from '../types';
 
+const HILUX_PHOTO = 'https://images.unsplash.com/photo-1533473359331-0135ef1b58bf?auto=format&fit=crop&w=800&q=80'; // Toyota Hilux / 4x4 Pickup
+const RAV4_PHOTO = 'https://images.unsplash.com/photo-1519641471654-76ce0107ad1b?auto=format&fit=crop&w=800&q=80'; // Toyota RAV4 / CR-V SUV
+const HIACE_PHOTO = 'https://images.unsplash.com/photo-1563720223185-11003d516935?auto=format&fit=crop&w=800&q=80'; // Toyota HiAce Minibus & Van
+const VITZ_PHOTO = 'https://images.unsplash.com/photo-1541899481282-d53bffe3c35d?auto=format&fit=crop&w=800&q=80'; // Toyota Vitz / Yaris Hatchback
+
 export const TYRES_DATA: Tyre[] = [
   // 1. Heavy Duty 4x4 / Hilux / Prado
   {
@@ -14,10 +19,10 @@ export const TYRES_DATA: Tyre[] = [
     treadDepthMm: 11.5,
     originalTreadMm: 11.5,
     category: 'All-Terrain (A/T)',
-    priceXCD: 695,
-    priceUSD: 257,
+    priceXCD: 135,
+    priceUSD: 50,
     stockCount: 8,
-    image: 'https://images.unsplash.com/photo-1578844251758-2f71da64c96f?auto=format&fit=crop&w=800&q=80',
+    image: HILUX_PHOTO,
     features: [
       'Heavy-duty puncture-resistant steel belt',
       'Superior wet braking on Pichelin & Soufriere mountain switchbacks',
@@ -49,10 +54,10 @@ export const TYRES_DATA: Tyre[] = [
     treadDepthMm: 9.8,
     originalTreadMm: 11.5,
     category: 'All-Terrain (A/T)',
-    priceXCD: 295,
-    priceUSD: 109,
+    priceXCD: 140,
+    priceUSD: 52,
     stockCount: 6,
-    image: 'https://images.unsplash.com/photo-1543852786-1cf6624b9987?auto=format&fit=crop&w=800&q=80',
+    image: HILUX_PHOTO,
     features: [
       '90% Remaining tread with zero sidewall repairs',
       'High-pressure tank tested up to 60 PSI with zero bead leaks',
@@ -84,10 +89,10 @@ export const TYRES_DATA: Tyre[] = [
     treadDepthMm: 9.0,
     originalTreadMm: 9.0,
     category: 'SUV, Crossover & 4x4',
-    priceXCD: 540,
-    priceUSD: 200,
+    priceXCD: 145,
+    priceUSD: 54,
     stockCount: 12,
-    image: 'https://images.unsplash.com/photo-1580273916550-e323be2ae537?auto=format&fit=crop&w=800&q=80',
+    image: RAV4_PHOTO,
     features: [
       'Dominica tropical rain drainage siping',
       'Reinforced MaxTouch construction for long tread life on slopes',
@@ -119,13 +124,13 @@ export const TYRES_DATA: Tyre[] = [
     treadDepthMm: 7.5,
     originalTreadMm: 9.0,
     category: 'SUV, Crossover & 4x4',
-    priceXCD: 230,
-    priceUSD: 85,
+    priceXCD: 150,
+    priceUSD: 56,
     stockCount: 10,
-    image: 'https://images.unsplash.com/photo-1549399542-7e3f8b79c341?auto=format&fit=crop&w=800&q=80',
+    image: RAV4_PHOTO,
     features: [
       '82% Evenly worn original tread with 7.5mm depth',
-      'Full radial balance tested with zero wobble',
+      'Full pressure tank tested with zero wobble',
       'Great grip on wet concrete and asphalt hills',
       'High grade bead seal'
     ],
@@ -154,10 +159,10 @@ export const TYRES_DATA: Tyre[] = [
     treadDepthMm: 10.5,
     originalTreadMm: 10.5,
     category: 'Commercial Van & Minibus',
-    priceXCD: 420,
-    priceUSD: 155,
+    priceXCD: 155,
+    priceUSD: 57,
     stockCount: 16,
-    image: 'https://images.unsplash.com/photo-1616422285623-13ff0162193c?auto=format&fit=crop&w=800&q=80',
+    image: HIACE_PHOTO,
     features: [
       '8-Ply heavy duty commercial rating for high payload & passengers',
       'Reinforced curb protectors prevent sidewall scuffs at bus stops',
@@ -189,10 +194,10 @@ export const TYRES_DATA: Tyre[] = [
     treadDepthMm: 9.2,
     originalTreadMm: 10.5,
     category: 'Commercial Van & Minibus',
-    priceXCD: 195,
-    priceUSD: 72,
+    priceXCD: 160,
+    priceUSD: 59,
     stockCount: 8,
-    image: 'https://images.unsplash.com/photo-1578844251758-2f71da64c96f?auto=format&fit=crop&w=800&q=80',
+    image: HIACE_PHOTO,
     features: [
       'Heavy 8-ply casing in excellent condition',
       'No punctures or patch marks on carcass',
@@ -223,10 +228,10 @@ export const TYRES_DATA: Tyre[] = [
     treadDepthMm: 8.5,
     originalTreadMm: 8.5,
     category: 'Passenger & Hatchback',
-    priceXCD: 245,
-    priceUSD: 90,
+    priceXCD: 135,
+    priceUSD: 50,
     stockCount: 20,
-    image: 'https://images.unsplash.com/photo-1549399542-7e3f8b79c341?auto=format&fit=crop&w=800&q=80',
+    image: VITZ_PHOTO,
     features: [
       'Micro-silica compound for exceptional wet grip on mountain roads',
       'Reinforced shoulder blocks to prevent edge-wear on tight corners',
@@ -258,10 +263,10 @@ export const TYRES_DATA: Tyre[] = [
     treadDepthMm: 7.0,
     originalTreadMm: 8.5,
     category: 'Passenger & Hatchback',
-    priceXCD: 135,
-    priceUSD: 50,
+    priceXCD: 378,
+    priceUSD: 140,
     stockCount: 14,
-    image: 'https://images.unsplash.com/photo-1580273916550-e323be2ae537?auto=format&fit=crop&w=800&q=80',
+    image: VITZ_PHOTO,
     features: [
       'Genuine Michelin casing with 80%+ tread remaining',
       'Inspected for radial trueness and zero bead damage',
@@ -292,10 +297,10 @@ export const TYRES_DATA: Tyre[] = [
     treadDepthMm: 8.2,
     originalTreadMm: 8.2,
     category: 'Passenger & Hatchback',
-    priceXCD: 215,
-    priceUSD: 79,
+    priceXCD: 145,
+    priceUSD: 54,
     stockCount: 18,
-    image: 'https://images.unsplash.com/photo-1543852786-1cf6624b9987?auto=format&fit=crop&w=800&q=80',
+    image: VITZ_PHOTO,
     features: [
       'Designed for rough roads and uneven concrete surfaces',
       'High-durability carbon rubber prevents chipping',
@@ -326,10 +331,10 @@ export const TYRES_DATA: Tyre[] = [
     treadDepthMm: 7.4,
     originalTreadMm: 8.2,
     category: 'Passenger & Hatchback',
-    priceXCD: 110,
-    priceUSD: 40,
+    priceXCD: 378,
+    priceUSD: 140,
     stockCount: 12,
-    image: 'https://images.unsplash.com/photo-1616422285623-13ff0162193c?auto=format&fit=crop&w=800&q=80',
+    image: VITZ_PHOTO,
     features: [
       'Clean tread with almost no visible wear',
       'Tested under pressure at our Pichelin shop',
@@ -360,10 +365,10 @@ export const TYRES_DATA: Tyre[] = [
     treadDepthMm: 10.2,
     originalTreadMm: 10.2,
     category: 'All-Terrain (A/T)',
-    priceXCD: 390,
-    priceUSD: 144,
+    priceXCD: 155,
+    priceUSD: 57,
     stockCount: 10,
-    image: 'https://images.unsplash.com/photo-1578844251758-2f71da64c96f?auto=format&fit=crop&w=800&q=80',
+    image: HILUX_PHOTO,
     features: [
       'Aggressive interlocking lug pattern for mountain mud & gravel tracks',
       'Reinforced carcass for Suzuki Jimny & older CR-Vs',
@@ -394,10 +399,10 @@ export const TYRES_DATA: Tyre[] = [
     treadDepthMm: 14.5,
     originalTreadMm: 14.5,
     category: 'Mud-Terrain (M/T)',
-    priceXCD: 890,
-    priceUSD: 329,
+    priceXCD: 160,
+    priceUSD: 59,
     stockCount: 4,
-    image: 'https://images.unsplash.com/photo-1580273916550-e323be2ae537?auto=format&fit=crop&w=800&q=80',
+    image: HILUX_PHOTO,
     features: [
       'CoreGard Max sidewall technology to resist punctures from jagged rocks',
       'Massive tread blocks dig through tropical mud and steep rainforest trails',
@@ -428,10 +433,10 @@ export const TYRES_DATA: Tyre[] = [
     treadDepthMm: 8.8,
     originalTreadMm: 8.8,
     category: 'Passenger & Hatchback',
-    priceXCD: 345,
-    priceUSD: 127,
+    priceXCD: 135,
+    priceUSD: 50,
     stockCount: 12,
-    image: 'https://images.unsplash.com/photo-1549399542-7e3f8b79c341?auto=format&fit=crop&w=800&q=80',
+    image: VITZ_PHOTO,
     features: [
       'Optimized tread design reduces road noise and hydroplaning',
       'High mileage compound with even tread wear',
@@ -462,10 +467,10 @@ export const TYRES_DATA: Tyre[] = [
     treadDepthMm: 7.9,
     originalTreadMm: 8.8,
     category: 'Passenger & Hatchback',
-    priceXCD: 165,
-    priceUSD: 61,
+    priceXCD: 140,
+    priceUSD: 52,
     stockCount: 9,
-    image: 'https://images.unsplash.com/photo-1543852786-1cf6624b9987?auto=format&fit=crop&w=800&q=80',
+    image: VITZ_PHOTO,
     features: [
       '88% Tread remaining with deep longitudinal grooves',
       'Tested under pressure at Maranatha Square shop',
@@ -496,10 +501,10 @@ export const TYRES_DATA: Tyre[] = [
     treadDepthMm: 7.8,
     originalTreadMm: 7.8,
     category: 'Passenger & Hatchback',
-    priceXCD: 175,
-    priceUSD: 65,
+    priceXCD: 145,
+    priceUSD: 54,
     stockCount: 16,
-    image: 'https://images.unsplash.com/photo-1578844251758-2f71da64c96f?auto=format&fit=crop&w=800&q=80',
+    image: VITZ_PHOTO,
     features: [
       'Optimized tread pitch reduces road hum',
       'All-weather sipes for excellent rain evacuation on Dominica coastal roads',
@@ -530,10 +535,10 @@ export const TYRES_DATA: Tyre[] = [
     treadDepthMm: 6.5,
     originalTreadMm: 7.8,
     category: 'Passenger & Hatchback',
-    priceXCD: 95,
-    priceUSD: 35,
+    priceXCD: 150,
+    priceUSD: 56,
     stockCount: 8,
-    image: 'https://images.unsplash.com/photo-1616422285623-13ff0162193c?auto=format&fit=crop&w=800&q=80',
+    image: VITZ_PHOTO,
     features: [
       'Tested for airtight bead seal and no puncture repairs',
       'Japanese fuel efficiency compound',
@@ -564,10 +569,10 @@ export const TYRES_DATA: Tyre[] = [
     treadDepthMm: 11.0,
     originalTreadMm: 11.0,
     category: 'All-Terrain (A/T)',
-    priceXCD: 780,
-    priceUSD: 289,
+    priceXCD: 155,
+    priceUSD: 57,
     stockCount: 6,
-    image: 'https://images.unsplash.com/photo-1549399542-7e3f8b79c341?auto=format&fit=crop&w=800&q=80',
+    image: HILUX_PHOTO,
     features: [
       'DuPont Kevlar reinforcement layer prevents cuts and flats',
       'Open shoulder blocks clear mud and gravel effortlessly',
@@ -598,10 +603,10 @@ export const TYRES_DATA: Tyre[] = [
     treadDepthMm: 8.0,
     originalTreadMm: 9.0,
     category: 'SUV, Crossover & 4x4',
-    priceXCD: 280,
-    priceUSD: 104,
+    priceXCD: 160,
+    priceUSD: 59,
     stockCount: 4,
-    image: 'https://images.unsplash.com/photo-1580273916550-e323be2ae537?auto=format&fit=crop&w=800&q=80',
+    image: RAV4_PHOTO,
     features: [
       'Over 88% remaining tread on premium Michelin casing',
       'Zero sidewall blemishes or plugs',
@@ -623,43 +628,44 @@ export const TYRES_DATA: Tyre[] = [
 
 export const DOMINICA_VEHICLE_PRESETS: DominicaVehiclePreset[] = [
   {
-    id: 'v-hilux',
-    name: 'Toyota Hilux / Tacoma / Fortuner / Prado',
-    popularModels: 'Hilux Vigo, Revo, Tacoma 4x4, Prado TX',
-    typicalSizes: ['265/65 R17', '265/70 R17', '245/75 R16'],
+    id: 'hilux',
+    name: 'Toyota Hilux / 4x4 Pickup',
     category: 'All-Terrain (A/T)',
-    terrainAdvice: 'Recommend 6-Ply or 8-Ply reinforced All-Terrain tyres to withstand steep rocky climbs and heavy payload carrying.',
+    description: 'The workhorse of Dominica for construction, agriculture, and mountain tracks.',
+    photo: HILUX_PHOTO
   },
   {
-    id: 'v-rav4',
-    name: 'Toyota RAV4 / Honda CR-V / Suzuki Vitara',
-    popularModels: 'RAV4 (2008-2024), CR-V AWD, Vitara 4WD',
-    typicalSizes: ['225/65 R17', '215/65 R16', '225/60 R18'],
+    id: 'rav4',
+    name: 'Toyota RAV4 / Honda CR-V',
     category: 'SUV, Crossover & 4x4',
-    terrainAdvice: 'Choose tyres with A-rated wet grip and reinforced sidewalls to handle sudden mountain rain showers without hydroplaning.',
+    description: 'Popular compact SUV for comfortable island cruising and moderate inclines.',
+    photo: RAV4_PHOTO
   },
   {
-    id: 'v-bus',
-    name: 'Toyota HiAce / Noah / Voxy / Minibuses (Taxi)',
-    popularModels: 'Noah, Voxy, HiAce Commuter, Nissan Caravan',
-    typicalSizes: ['195/75 R16C', '195/65 R15', '195/80 R15C'],
+    id: 'hiace',
+    name: 'Toyota HiAce Minibus & Van',
     category: 'Commercial Van & Minibus',
-    terrainAdvice: 'Must use heavy-duty commercial "C" rated tyres with 8-ply carcass to prevent heat blowout under continuous passenger weight.',
+    description: 'Heavy duty 8-ply commercial transport for passenger routes and cargo delivery.',
+    photo: HIACE_PHOTO
   },
   {
-    id: 'v-jimny',
-    name: 'Suzuki Jimny / Daihatsu Terios / Rocky',
-    popularModels: 'Jimny Sierra 4x4, Terios AWD',
-    typicalSizes: ['205/70 R15', '195/80 R15', '215/75 R15'],
-    category: 'All-Terrain (A/T)',
-    terrainAdvice: 'Lightweight A/T tyres provide outstanding agility and climb capability through muddy Pichelin-Soufriere backroads.',
-  },
-  {
-    id: 'v-sedan',
-    name: 'Passenger Cars (Corolla, Premio, Axio, Fit, Vitz)',
-    popularModels: 'Premio, Allion, Axio, Fit, Vitz, Tiida, Swift',
-    typicalSizes: ['195/65 R15', '185/65 R14', '175/70 R13', '205/55 R16'],
+    id: 'vitz',
+    name: 'Toyota Vitz / Yaris / Hatchback',
     category: 'Passenger & Hatchback',
-    terrainAdvice: 'Select reinforced extra-load (XL) passenger tyres with deep tread to prevent edge-scrubbing on tight hairpin corners.',
-  },
+    description: 'Fuel-efficient daily commuter vehicles for Roseau and coastal highway driving.',
+    photo: VITZ_PHOTO
+  }
 ];
+
+export function getRepresentativeVehicleForTyre(tyre: Tyre): DominicaVehiclePreset {
+  if (tyre.category === 'All-Terrain (A/T)' || tyre.category === 'Mud-Terrain (M/T)' || tyre.category === 'Heavy Duty Pickup & Truck' || tyre.size.includes('265/') || tyre.size.includes('205/70')) {
+    return DOMINICA_VEHICLE_PRESETS[0]; // Hilux
+  }
+  if (tyre.category === 'SUV, Crossover & 4x4') {
+    return DOMINICA_VEHICLE_PRESETS[1]; // RAV4
+  }
+  if (tyre.category === 'Commercial Van & Minibus') {
+    return DOMINICA_VEHICLE_PRESETS[2]; // HiAce
+  }
+  return DOMINICA_VEHICLE_PRESETS[3]; // Vitz / Hatchback
+}

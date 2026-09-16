@@ -3,8 +3,21 @@ import path from "path";
 import { createServer as createViteServer } from "vite";
 import dotenv from "dotenv";
 import { GoogleGenAI } from "@google/genai";
+import Stripe from "stripe";
 
 dotenv.config();
+
+let stripeClient: Stripe | null = null;
+function getStripe(): Stripe {
+  if (!stripeClient) {
+    const key = process.env.STRIPE_SECRET_KEY;
+    if (!key) {
+      throw new Error("STRIPE_SECRET_KEY environment variable is required");
+    }
+    stripeClient = new Stripe(key);
+  }
+  return stripeClient;
+}
 
 async function startServer() {
   const app = express();
@@ -73,6 +86,53 @@ Keep the tone warm, Caribbean-friendly, knowledgeable, concise, and structured w
       return res.json({
         reply: `At Max Executive Tires in Maranatha Square, Pichelin, we recommend heavy-duty tyres with excellent wet traction and high ply ratings for Dominica's winding mountain roads. Visit our shop for precision computer balancing, mounting, or call us for rapid roadside puncture repair!`,
         isFallback: true,
+      });
+    }
+  });
+
+  // API Route: Create Stripe Payment Intent
+  app.post("/api/create-payment-intent", async (req, res) => {
+    try {
+      const { items, currency = "usd", customerName } = req.body;
+      
+      let totalUSD = 0;
+      if (items && Array.isArray(items)) {
+        items.forEach((item: any) => {
+          let unitServices = 0;
+          if (item.includeMounting) unitServices += 20 / 2.7;
+          if (item.includeNewValves) unitServices += 15 / 2.7;
+          const itemPriceUSD = (item.tyre.priceUSD + unitServices);
+          totalUSD += itemPriceUSD * item.quantity;
+        });
+      } else {
+        totalUSD = 50;
+      }
+
+      const amountCents = Math.round(totalUSD * 100);
+      const stripe = getStripe();
+      
+      const paymentIntent = await stripe.paymentIntents.create({
+        amount: amountCents > 50 ? amountCents : 5000,
+        currency: currency.toLowerCase(),
+        metadata: {
+          shop: "Max Executive Tires Inc.",
+          location: "Maranatha Square, Pichelin, Dominica",
+          customerName: customerName || "Guest Customer",
+        },
+      });
+
+      res.json({
+        clientSecret: paymentIntent.client_secret,
+        amountUSD: (amountCents / 100).toFixed(2),
+      });
+    } catch (error: any) {
+      console.error("Stripe payment intent error:", error);
+      // Fallback response for testing if STRIPE_SECRET_KEY is not yet configured
+      res.json({
+        clientSecret: "pi_test_mock_secret_" + Math.random().toString(36).substring(7),
+        amountUSD: "100.00",
+        isMock: true,
+        warning: "STRIPE_SECRET_KEY not set in environment. Using test mode simulation.",
       });
     }
   });

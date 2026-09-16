@@ -2,99 +2,11 @@ import { TyreService } from '../types';
 
 export const TYRE_SERVICES: TyreService[] = [
   {
-    id: 'srv-mounting',
-    name: 'Precision Tyre Mounting & Demounting',
-    category: 'Fitting & Mounting',
-    priceXCD: 20,
-    priceUSD: 7.50,
-    durationMinutes: 15,
-    description: 'Professional pneumatic tyre change using scratch-free rim clamping to protect alloy wheels. Includes bead lubrication & rim inspection.',
-    inclusions: [
-      'Pneumatic demounting and mounting',
-      'Alloy wheel rim lip inspection & cleaning',
-      'Bead sealing compound application',
-      'Inflated to exact vehicle manufacturer PSI'
-    ],
-    iconName: 'Wrench',
-    isPopular: true,
-    badge: 'Standard Workshop Service',
-  },
-  {
-    id: 'srv-balancing',
-    name: 'Computerized Dynamic Wheel Balancing',
-    category: 'Balancing & Alignment',
-    priceXCD: 25,
-    priceUSD: 9.25,
-    durationMinutes: 15,
-    description: 'High-precision micro-gram dynamic balancing. Eliminates steering wheel vibration at highway speeds and extends tyre life on Dominica roads.',
-    inclusions: [
-      'Digital spin balancer calibration',
-      'Old clip & adhesive weights removal',
-      'High-grade zinc/steel counter-weights applied',
-      'Hub mounting surface de-rusting'
-    ],
-    iconName: 'Disc',
-    isPopular: true,
-    badge: 'Recommended with Every Tyre Change',
-  },
-  {
-    id: 'srv-puncture',
-    name: 'Heavy-Duty Radial Puncture Repair & Vulcanizing',
-    category: 'Puncture & Repair',
-    priceXCD: 35,
-    priceUSD: 13.00,
-    durationMinutes: 20,
-    description: 'Permanent inside-out mushroom plug vulcanization. Meets strict international safety standards — far superior to temporary external string plugs.',
-    inclusions: [
-      'Internal tyre carcass inspection for hidden cord damage',
-      'Inner liner reaming and chemical vulcanizing cement',
-      'Heavy-duty radial reinforcement patch',
-      'Immersion pressure leak submersion test'
-    ],
-    iconName: 'ShieldAlert',
-    isPopular: true,
-    badge: 'Permanent Safety Fix',
-  },
-  {
-    id: 'srv-rotation',
-    name: '4-Wheel Rotation & Mountain Tread Alignment Check',
-    category: 'Maintenance & Safety',
-    priceXCD: 40,
-    priceUSD: 15.00,
-    durationMinutes: 25,
-    description: 'Cross-pattern rotation engineered to counteract the severe front-outer tyre scrub caused by Dominica’s steep downhill mountain hairpin curves.',
-    inclusions: [
-      'Full 4-wheel removal & directional cross-rotation',
-      'Digital depth gauge check across all 4 tyres',
-      'Torque wrench lug nut tightening to factory spec',
-      'Suspension play & visual camber check'
-    ],
-    iconName: 'RotateCw',
-    isPopular: false,
-    badge: 'Every 5,000 KM in Dominica',
-  },
-  {
-    id: 'srv-valve',
-    name: 'High-Pressure Rubber / Metal Valve Replacement',
-    category: 'Maintenance & Safety',
-    priceXCD: 15,
-    priceUSD: 5.50,
-    durationMinutes: 10,
-    description: 'Brand new high-pressure EPDM ozone-resistant valve stem with brass core. Prevents slow leaks and sudden pressure drops.',
-    inclusions: [
-      'Fresh ozone-resistant rubber or metal valve stem',
-      'New spring-loaded valve core',
-      'High-seal dust cap with internal rubber O-ring'
-    ],
-    iconName: 'CircleDot',
-    isPopular: false,
-  },
-  {
     id: 'srv-roadside',
     name: 'Emergency Mobile Roadside Tyre Rescue (SOS)',
     category: 'Emergency Rescue',
-    priceXCD: 75,
-    priceUSD: 28.00,
+    priceXCD: 80,
+    priceUSD: 29.63,
     durationMinutes: 30,
     description: 'Rapid mobile rescue dispatched directly from Maranatha Square. We come to your breakdown location with jacks, impact tools, air, and spare tyres.',
     inclusions: [
@@ -108,20 +20,22 @@ export const TYRE_SERVICES: TyreService[] = [
     badge: 'Pichelin & South Dominica Rapid Response',
   },
   {
-    id: 'srv-rim-bead',
-    name: 'Bead De-scaling & Rim Rust Seal Treatment',
-    category: 'Maintenance & Safety',
-    priceXCD: 30,
-    priceUSD: 11.00,
-    durationMinutes: 20,
-    description: 'Special wire-wheel grinding and black liquid bead sealer to stop chronic slow leaks caused by salty Dominica ocean air and rim corrosion.',
+    id: 'srv-shredder',
+    name: 'Eco-Friendly Tyre Shredder & Green Recycling',
+    category: 'Environmental Sustainability',
+    priceXCD: 1,
+    priceUSD: 0.37,
+    durationMinutes: 10,
+    description: 'State-of-the-art commercial mechanical tyre shredding. Destroys scrap and old bald tyres into clean rubber chips, eliminating vector-borne mosquito breeding sites and zero landfill impact in Dominica’s lush biosphere.',
     inclusions: [
-      'Wire-brush cleaning of wheel rim flange & bead seat',
-      'Anti-corrosion protective rim paint/primer',
-      'Heavy vulcanized bead sealer compound'
+      'Complete mechanical shredding of old/bald scrap tyres',
+      'Prevention of stagnant water vector-breeding (Zika/Dengue control)',
+      'Recycled into eco-rubber agricultural mulch & civil engineering aggregate',
+      'Official Green Dominica Environmental Impact Certificate'
     ],
-    iconName: 'Sparkles',
-    isPopular: false,
+    iconName: 'Leaf',
+    isPopular: true,
+    badge: '100% Zero Landfill Commitment',
   }
 ];
 
