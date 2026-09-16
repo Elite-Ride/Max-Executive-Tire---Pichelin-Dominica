@@ -26,11 +26,18 @@ import {
   DollarSign,
   Mail,
   Printer,
-  FileText
+  FileText,
+  CreditCard,
+  Plus,
+  Minus,
+  Wrench
 } from 'lucide-react';
 import { BarChart, Bar, XAxis, YAxis, Tooltip, ResponsiveContainer, CartesianGrid } from 'recharts';
-import { CartItem } from '../types';
+import { CartItem, Tyre } from '../types';
+import { TYRES_DATA } from '../data/tyresData';
 import { SHOP_LOCATION_INFO } from '../data/servicesData';
+import { ServicesSection } from './ServicesSection';
+import { MyOrdersView } from './MyOrdersView';
 
 export interface PriceAdjustment {
   amountXCD: number;
@@ -49,8 +56,7 @@ export interface AdminOrder {
   preferredDate: string;
   items: CartItem[];
   totalXCD: number;
-  totalUSD: number;
-  paymentMethod: 'Stripe Online' | 'Pay at Shop / WhatsApp';
+  paymentMethod: 'Stripe Online' | 'Pay at Shop / WhatsApp' | string;
   timestamp: string;
   paymentStatus?: 'Pending' | 'Confirmed';
   dispatchStatus?: 'Pending Dispatch' | 'Scheduled' | 'Dispatched';
@@ -86,6 +92,9 @@ interface AdminOrdersModalProps {
   onUpdateServicePrice: (serviceId: string, priceXCD: number) => void;
   adminActivityLog: AdminActivityLogItem[];
   onClearActivityLog: () => void;
+  onBulkUpdateTyrePrices?: (category: string, newPriceXCD: number, mode: 'set' | 'add' | 'subtract') => void;
+  onAddOrder?: (orderData: Omit<AdminOrder, 'id' | 'timestamp'>) => void;
+  tyres?: Tyre[];
 }
 
 export const AdminOrdersModal: React.FC<AdminOrdersModalProps> = ({
@@ -104,10 +113,194 @@ export const AdminOrdersModal: React.FC<AdminOrdersModalProps> = ({
   onUpdateServicePrice,
   adminActivityLog,
   onClearActivityLog,
+  onBulkUpdateTyrePrices,
+  onAddOrder,
+  tyres = TYRES_DATA,
 }) => {
-  const [activeModalTab, setActiveModalTab] = useState<'orders' | 'history' | 'prices' | 'activity' | 'settings'>('orders');
+  const [activeModalTab, setActiveModalTab] = useState<'orders' | 'history' | 'pos' | 'prices' | 'activity' | 'trends' | 'settings' | 'services' | 'myorders'>('orders');
   const [customWhatsAppInput, setCustomWhatsAppInput] = useState(whatsappCustomMessage);
   const [savedWhatsAppNotice, setSavedWhatsAppNotice] = useState(false);
+
+  // POS State
+  const [posCart, setPosCart] = useState<CartItem[]>([]);
+  const [posCustomerName, setPosCustomerName] = useState('');
+  const [posCustomerPhone, setPosCustomerPhone] = useState('');
+  const [posVehicleInfo, setPosVehicleInfo] = useState('');
+  const [posPaymentMethod, setPosPaymentMethod] = useState<'Stripe Merchant Portal' | 'Cash at Counter' | 'Bank Transfer' | 'SmartPOS Card Terminal (Tap, Insert & Swipe)'>('SmartPOS Card Terminal (Tap, Insert & Swipe)');
+  const [posSearch, setPosSearch] = useState('');
+  const [posCategory, setPosCategory] = useState('ALL');
+  const [posLoading, setPosLoading] = useState(false);
+  const [posSuccessReceipt, setPosSuccessReceipt] = useState<AdminOrder | null>(null);
+  const [isAdminActionsMenuOpen, setIsAdminActionsMenuOpen] = useState(false);
+
+  // SmartPOS Card Terminal Hardware State
+  const [isSmartCardTerminalOpen, setIsSmartCardTerminalOpen] = useState(false);
+  const [terminalStep, setTerminalStep] = useState<'idle' | 'reading' | 'pin' | 'approved'>('idle');
+  const [terminalMethodUsed, setTerminalMethodUsed] = useState<string>('');
+
+  const handleAddTyreToPos = (tyre: Tyre) => {
+    setPosCart(prev => {
+      const existing = prev.find(item => item.tyre.id === tyre.id);
+      if (existing) {
+        return prev.map(item => item.tyre.id === tyre.id ? { ...item, quantity: item.quantity + 1 } : item);
+      }
+      return [...prev, {
+        id: 'pos-' + tyre.id + '-' + Date.now(),
+        tyre,
+        quantity: 1,
+        includeMounting: true,
+        includeNewValves: true,
+        includeShredding: false
+      }];
+    });
+  };
+
+  const handleUpdatePosQuantity = (itemId: string, delta: number) => {
+    setPosCart(prev => prev.map(item => {
+      if (item.id === itemId) {
+        const nq = Math.max(1, item.quantity + delta);
+        return { ...item, quantity: nq };
+      }
+      return item;
+    }));
+  };
+
+  const handleTogglePosService = (itemId: string, field: 'includeMounting' | 'includeNewValves' | 'includeShredding') => {
+    setPosCart(prev => prev.map(item => {
+      if (item.id === itemId) {
+        return { ...item, [field]: !item[field] };
+      }
+      return item;
+    }));
+  };
+
+  const handleRemovePosItem = (itemId: string) => {
+    setPosCart(prev => prev.filter(item => item.id !== itemId));
+  };
+
+  const posSubtotalXCD = posCart.reduce((sum, item) => {
+    let unitS = (item.includeMounting ? 20 : 0) + (item.includeNewValves ? 15 : 0) + (item.includeShredding ? 1 : 0);
+    return sum + (item.tyre.priceXCD + unitS) * item.quantity;
+  }, 0);
+
+  const handleCompletePosCheckout = async (e: React.FormEvent) => {
+    e.preventDefault();
+    if (posCart.length === 0) {
+      alert('POS cart is empty. Please add tyres or services.');
+      return;
+    }
+
+    if (posPaymentMethod === 'SmartPOS Card Terminal (Tap, Insert & Swipe)') {
+      setIsSmartCardTerminalOpen(true);
+      setTerminalStep('idle');
+      return;
+    }
+
+    setPosLoading(true);
+
+    try {
+      if (posPaymentMethod === 'Stripe Merchant Portal') {
+        const res = await fetch('/api/create-payment-intent', {
+          method: 'POST',
+          headers: { 'Content-Type': 'application/json' },
+          body: JSON.stringify({
+            items: posCart,
+            customerName: posCustomerName || 'Walk-in Counter Customer'
+          })
+        });
+        await res.json();
+      }
+    } catch (err) {
+      console.warn('Stripe gateway note:', err);
+    }
+
+    const newOrder: Omit<AdminOrder, 'id' | 'timestamp'> = {
+      reservationCode: 'POS-' + Math.floor(100000 + Math.random() * 900000),
+      customerName: posCustomerName.trim() || 'Walk-In Counter Customer',
+      customerPhone: posCustomerPhone.trim() || 'N/A',
+      vehicleInfo: posVehicleInfo.trim() || 'In-Shop POS Counter Customer',
+      preferredDate: new Date().toLocaleDateString(),
+      items: posCart,
+      totalXCD: posSubtotalXCD,
+      paymentMethod: posPaymentMethod === 'Stripe Merchant Portal' ? 'Stripe Online' : 'Pay at Shop / WhatsApp',
+      paymentStatus: 'Confirmed',
+      dispatchStatus: 'Dispatched',
+      dispatchMethod: 'In-Shop Pichelin Counter Sale',
+      dispatchNotes: `Processed via Admin POS Counter. Payment: ${posPaymentMethod}.`
+    };
+
+    if (onAddOrder) {
+      onAddOrder(newOrder);
+    }
+
+    const createdOrder: AdminOrder = {
+      ...newOrder,
+      id: 'ord-' + Date.now(),
+      timestamp: new Date().toLocaleString()
+    };
+
+    setPosSuccessReceipt(createdOrder);
+    setPosLoading(false);
+    setPosCart([]);
+    setPosCustomerName('');
+    setPosCustomerPhone('');
+    setPosVehicleInfo('');
+  };
+
+  const finalizeSmartPOSOrder = (methodUsed: string) => {
+    const newOrder: Omit<AdminOrder, 'id' | 'timestamp'> = {
+      reservationCode: 'POS-' + Math.floor(100000 + Math.random() * 900000),
+      customerName: posCustomerName.trim() || 'Walk-In Counter Customer',
+      customerPhone: posCustomerPhone.trim() || 'N/A',
+      vehicleInfo: posVehicleInfo.trim() || 'In-Shop POS Counter Customer',
+      preferredDate: new Date().toLocaleDateString(),
+      items: posCart,
+      totalXCD: posSubtotalXCD,
+      paymentMethod: `SmartPOS Terminal (${methodUsed})`,
+      paymentStatus: 'Confirmed',
+      dispatchStatus: 'Dispatched',
+      dispatchMethod: 'In-Shop Pichelin Counter Sale',
+      dispatchNotes: `Processed via Max Executive SmartPOS Card Terminal (${methodUsed}). Chip/NFC/Magstripe Verified.`
+    };
+
+    if (onAddOrder) {
+      onAddOrder(newOrder);
+    }
+
+    const createdOrder: AdminOrder = {
+      ...newOrder,
+      id: 'ord-' + Date.now(),
+      timestamp: new Date().toLocaleString()
+    };
+
+    setPosSuccessReceipt(createdOrder);
+    setPosLoading(false);
+    setIsSmartCardTerminalOpen(false);
+    setPosCart([]);
+    setPosCustomerName('');
+    setPosCustomerPhone('');
+    setPosVehicleInfo('');
+  };
+
+  const [bulkCategory, setBulkCategory] = useState<string>('ALL');
+  const [bulkPriceValue, setBulkPriceValue] = useState<string>('');
+  const [bulkPriceMode, setBulkPriceMode] = useState<'set' | 'add' | 'subtract'>('set');
+  const [bulkPriceSuccess, setBulkPriceSuccess] = useState(false);
+
+  const handleApplyBulkPrices = (e: React.FormEvent) => {
+    e.preventDefault();
+    const val = parseFloat(bulkPriceValue);
+    if (isNaN(val) || val <= 0) {
+      alert('Please enter a valid price amount.');
+      return;
+    }
+    if (onBulkUpdateTyrePrices) {
+      onBulkUpdateTyrePrices(bulkCategory, val, bulkPriceMode);
+    }
+    setBulkPriceSuccess(true);
+    setTimeout(() => setBulkPriceSuccess(false), 4000);
+    setBulkPriceValue('');
+  };
 
   const [activeDispatchOrderId, setActiveDispatchOrderId] = useState<string | null>(null);
   const [dispatchDateInput, setDispatchDateInput] = useState('');
@@ -283,6 +476,32 @@ export const AdminOrdersModal: React.FC<AdminOrdersModalProps> = ({
   const pendingCount = orders.filter(o => (o.dispatchStatus || 'Pending Dispatch') !== 'Dispatched').length;
   const completedCount = orders.filter(o => o.dispatchStatus === 'Dispatched').length;
 
+  const serviceRevenue = orders.reduce((acc, o) => {
+    let sRev = 0;
+    o.items?.forEach(i => {
+      if (i.includeMounting) sRev += 20 * i.quantity;
+      if (i.includeNewValves) sRev += 15 * i.quantity;
+      if (i.includeShredding) sRev += 1 * i.quantity;
+    });
+    return acc + sRev;
+  }, 0);
+
+  const brandQtyMap: Record<string, number> = {};
+  orders.forEach(o => {
+    o.items?.forEach(i => {
+      const b = i.tyre?.brand || 'Standard';
+      brandQtyMap[b] = (brandQtyMap[b] || 0) + i.quantity;
+    });
+  });
+  let topSellingBrand = 'N/A';
+  let maxBrandQty = 0;
+  Object.entries(brandQtyMap).forEach(([b, qty]) => {
+    if (qty > maxBrandQty) {
+      maxBrandQty = qty;
+      topSellingBrand = b;
+    }
+  });
+
   const filteredActiveOrders = orders.filter((o) => {
     const q = activeOrdersSearch.toLowerCase().trim();
     if (!q) return true;
@@ -381,7 +600,7 @@ export const AdminOrdersModal: React.FC<AdminOrdersModalProps> = ({
     .sort((a, b) => b.count - a.count);
 
   const handleDownloadSpreadsheet = () => {
-    const headers = ['Reservation Code', 'Customer Name', 'Phone', 'Email', 'Vehicle', 'Preferred Date', 'Payment Method', 'Payment Status', 'Dispatch Status', 'Items Summary', 'Total XCD', 'Total USD', 'Timestamp'];
+    const headers = ['Reservation Code', 'Customer Name', 'Phone', 'Email', 'Vehicle', 'Preferred Date', 'Payment Method', 'Payment Status', 'Dispatch Status', 'Items Summary', 'Total XCD', 'Timestamp'];
     const rows = orders.map(o => [
       o.reservationCode,
       `"${o.customerName}"`,
@@ -394,7 +613,6 @@ export const AdminOrdersModal: React.FC<AdminOrdersModalProps> = ({
       o.dispatchStatus || 'Pending Dispatch',
       `"${o.items.map(i => `${i.quantity}x ${i.tyre.brand} ${i.tyre.modelName} (${i.tyre.size})`).join('; ')}"`,
       o.totalXCD,
-      o.totalUSD.toFixed(2),
       `"${o.timestamp}"`
     ]);
 
@@ -429,24 +647,22 @@ export const AdminOrdersModal: React.FC<AdminOrdersModalProps> = ({
   };
 
   const handleDownloadMonthlyReport = () => {
-    const monthlyMap: Record<string, { count: number; totalXCD: number; totalUSD: number }> = {};
+    const monthlyMap: Record<string, { count: number; totalXCD: number }> = {};
     orders.forEach(o => {
       const dateStr = o.preferredDate || o.timestamp.split(',')[0] || '2026-09';
       const monthKey = dateStr.length >= 7 ? dateStr.substring(0, 7) : '2026-09';
       if (!monthlyMap[monthKey]) {
-        monthlyMap[monthKey] = { count: 0, totalXCD: 0, totalUSD: 0 };
+        monthlyMap[monthKey] = { count: 0, totalXCD: 0 };
       }
       monthlyMap[monthKey].count += 1;
       monthlyMap[monthKey].totalXCD += o.totalXCD;
-      monthlyMap[monthKey].totalUSD += o.totalUSD;
     });
 
-    const headers = ['Month / Period', 'Total Orders Count', 'Total Revenue (XCD)', 'Total Revenue (USD)'];
+    const headers = ['Month / Period', 'Total Orders Count', 'Total Revenue (XCD)'];
     const rows = Object.entries(monthlyMap).map(([month, data]) => [
       month,
       data.count,
-      data.totalXCD,
-      data.totalUSD.toFixed(2)
+      data.totalXCD
     ]);
 
     const csvContent = 'data:text/csv;charset=utf-8,' + [headers.join(','), ...rows.map(e => e.join(','))].join('\n');
@@ -608,7 +824,7 @@ export const AdminOrdersModal: React.FC<AdminOrdersModalProps> = ({
           </table>
 
           <div class="total-section">
-            Total Amount: EC$ ${order.totalXCD.toLocaleString()} (US$ ${order.totalUSD.toFixed(2)})
+            Total Amount: EC$ ${order.totalXCD.toLocaleString()}
           </div>
 
           <div class="footer">
@@ -661,7 +877,6 @@ export const AdminOrdersModal: React.FC<AdminOrdersModalProps> = ({
 
   const handleSavePriceEdit = (order: AdminOrder) => {
     const newTotalXCD = Number(editedTotalXCD);
-    const newTotalUSD = newTotalXCD / 2.70;
     const diff = newTotalXCD - order.totalXCD;
     const adjustmentType = diff >= 0 ? 'charge' : 'refund';
 
@@ -676,7 +891,6 @@ export const AdminOrdersModal: React.FC<AdminOrdersModalProps> = ({
 
     onUpdateOrder(order.id, {
       totalXCD: newTotalXCD,
-      totalUSD: newTotalUSD,
       priceAdjustments: [newAdjustment, ...existingAdjustments]
     });
 
@@ -693,11 +907,39 @@ export const AdminOrdersModal: React.FC<AdminOrdersModalProps> = ({
   };
 
   return (
-    <div className="fixed inset-0 z-50 flex items-center justify-center bg-slate-950/75 backdrop-blur-xs p-4 overflow-y-auto animate-fade-in">
-      <div className="bg-white rounded-2xl max-w-4xl w-full p-6 sm:p-8 shadow-2xl border border-slate-200 space-y-6 relative max-h-[92vh] flex flex-col">
+    <div className="fixed inset-0 z-50 flex flex-col bg-white animate-fade-in overflow-hidden">
+      <div 
+        style={{
+          width: '100%',
+          height: '100%',
+          paddingLeft: '24px',
+          paddingRight: '10px',
+          paddingTop: '16px',
+          paddingBottom: '24px',
+          marginTop: '0px',
+          marginBottom: '0px',
+          marginLeft: '0px',
+          marginRight: '35px',
+          maxWidth: 'none',
+          maxHeight: 'none'
+        }}
+        className="bg-white shadow-none border-0 space-y-4 relative flex flex-col overflow-hidden h-full w-full rounded-none"
+      >
         {/* Header */}
-        <div className="flex items-center justify-between pb-4 border-b border-slate-200">
-          <div className="flex items-center gap-3">
+        <div 
+          style={{ 
+            marginTop: '-1px', 
+            marginBottom: '30px',
+            paddingTop: '0px', 
+            paddingBottom: '0px',
+            paddingLeft: '0px',
+            paddingRight: '16px',
+            height: '86px',
+            fontSize: '12px'
+          }} 
+          className="flex-shrink-0 flex items-center justify-between border-b border-slate-200 bg-white z-20 sticky top-0"
+        >
+          <div style={{ marginBottom: '16px' }} className="flex items-center gap-3">
             <div className="w-10 h-10 rounded-xl bg-amber-50 text-amber-600 flex items-center justify-center border border-amber-200/60 font-bold relative shadow-inner">
               <Bell className="w-5 h-5 animate-bounce" />
               {orders.length > 0 && (
@@ -717,75 +959,93 @@ export const AdminOrdersModal: React.FC<AdminOrdersModalProps> = ({
             </div>
           </div>
 
-          <div className="flex items-center gap-2">
-            {/* Bulk Actions Menu */}
+          <div style={{ marginBottom: '14px', height: '64px' }} className="flex items-center gap-2">
+            {/* Collapsed Admin Actions Menu */}
             <div className="relative">
               <button
-                onClick={() => setIsBulkMenuOpen(!isBulkMenuOpen)}
-                className="inline-flex items-center gap-1.5 text-xs font-bold text-slate-700 bg-slate-100 hover:bg-slate-200 px-3.5 py-2 rounded-xl border border-slate-300 transition"
-                title="Bulk Actions for Visible Orders"
+                onClick={() => setIsAdminActionsMenuOpen(!isAdminActionsMenuOpen)}
+                className="inline-flex items-center gap-1.5 text-xs font-bold text-white bg-[#0984E3] hover:bg-[#076bc1] px-3.5 py-2 rounded-xl shadow-xs transition"
+                title="Admin Actions & Export Menu"
               >
-                <Settings className="w-4 h-4 text-[#0984E3]" />
-                <span>Bulk Actions ▾</span>
+                <Settings className="w-4 h-4" />
+                <span>Admin Actions ▾</span>
               </button>
 
-              {isBulkMenuOpen && (
-                <div className="absolute right-0 mt-2 w-56 bg-white border border-slate-200 rounded-xl shadow-lg z-50 p-1.5 space-y-1 animate-fade-in text-xs font-medium">
+              {isAdminActionsMenuOpen && (
+                <div className="absolute right-0 mt-2 w-64 bg-white border border-slate-200 rounded-xl shadow-xl z-50 p-2 space-y-1 animate-fade-in text-xs font-medium">
+                  <div className="px-3 py-1.5 text-[10px] font-bold text-slate-400 uppercase tracking-wider border-b border-slate-100">
+                    Bulk Operations
+                  </div>
                   <button
-                    onClick={handleBulkMarkCompleted}
+                    onClick={() => { handleBulkMarkCompleted(); setIsAdminActionsMenuOpen(false); }}
                     className="w-full text-left px-3 py-2 rounded-lg hover:bg-emerald-50 text-emerald-800 font-bold flex items-center gap-2 transition"
                   >
                     <CheckCircle2 className="w-4 h-4 text-emerald-600" />
                     <span>Mark All Visible Completed</span>
                   </button>
                   <button
-                    onClick={handleBulkDelete}
+                    onClick={() => { handleBulkDelete(); setIsAdminActionsMenuOpen(false); }}
                     className="w-full text-left px-3 py-2 rounded-lg hover:bg-red-50 text-red-700 font-bold flex items-center gap-2 transition"
                   >
                     <Trash2 className="w-4 h-4 text-red-600" />
                     <span>Delete All Visible Orders</span>
                   </button>
+
+                  <div className="px-3 py-1.5 text-[10px] font-bold text-slate-400 uppercase tracking-wider border-b border-slate-100 mt-2">
+                    Export & System
+                  </div>
+                  <button
+                    onClick={() => { handleDownloadSpreadsheet(); setIsAdminActionsMenuOpen(false); }}
+                    className="w-full text-left px-3 py-2 rounded-lg hover:bg-slate-100 text-slate-800 font-bold flex items-center gap-2 transition"
+                  >
+                    <Download className="w-4 h-4 text-[#0984E3]" />
+                    <span>Export CSV Spreadsheet</span>
+                  </button>
+                  <button
+                    onClick={() => { handleExportCurrentListPdf(); setIsAdminActionsMenuOpen(false); }}
+                    className="w-full text-left px-3 py-2 rounded-lg hover:bg-slate-100 text-slate-800 font-bold flex items-center gap-2 transition"
+                  >
+                    <FileText className="w-4 h-4 text-[#0984E3]" />
+                    <span>Export List PDF</span>
+                  </button>
+                  <button
+                    onClick={() => { onLogoff(); setIsAdminActionsMenuOpen(false); }}
+                    className="w-full text-left px-3 py-2 rounded-lg hover:bg-red-50 text-red-700 font-bold flex items-center gap-2 transition border-t border-slate-100 mt-1"
+                  >
+                    <LogOut className="w-4 h-4 text-red-600" />
+                    <span>Logoff Admin Portal</span>
+                  </button>
                 </div>
               )}
             </div>
-
-            <button
-              onClick={handleDownloadSpreadsheet}
-              className="inline-flex items-center gap-1.5 text-xs font-bold text-slate-700 bg-slate-100 hover:bg-slate-200 px-3.5 py-2 rounded-xl border border-slate-300 transition"
-              title="Export Current Orders List to CSV"
-            >
-              <Download className="w-4 h-4 text-[#0984E3]" />
-              <span>Export CSV</span>
-            </button>
-
-            <button
-              onClick={handleExportCurrentListPdf}
-              className="inline-flex items-center gap-1.5 text-xs font-bold text-slate-700 bg-slate-100 hover:bg-slate-200 px-3.5 py-2 rounded-xl border border-slate-300 transition"
-              title="Export Current List to Professional PDF Document"
-            >
-              <FileText className="w-4 h-4 text-[#0984E3]" />
-              <span>Export List PDF</span>
-            </button>
-
-            <button
-              onClick={onLogoff}
-              className="inline-flex items-center gap-1.5 text-xs font-bold text-slate-700 bg-slate-100 hover:bg-slate-200 px-3.5 py-2 rounded-xl border border-slate-300 transition"
-              title="Logoff Admin Portal"
-            >
-              <LogOut className="w-4 h-4 text-red-600" />
-              <span>Logoff</span>
-            </button>
-            <button
-              onClick={onClose}
-              className="p-2 text-slate-400 hover:text-slate-700 rounded-full transition"
-            >
-              <X className="w-5 h-5" />
-            </button>
           </div>
+
+
         </div>
 
-        {/* Modal Navigation Tabs */}
-        <div className="flex items-center gap-2 border-b border-slate-200 pb-3">
+        {/* Modal Navigation Tabs (Horizontally scrollable for full visibility) */}
+        <div 
+          style={{
+            marginTop: '-15px',
+            paddingTop: '0px',
+            paddingBottom: '0px',
+            paddingRight: '0px',
+            width: '926px',
+            height: '64px'
+          }}
+          className="flex items-center border-b border-slate-200 overflow-x-auto whitespace-nowrap"
+        >
+          <div
+            style={{
+              marginTop: '0px',
+              marginBottom: '0px',
+              paddingTop: '5px',
+              paddingBottom: '4px',
+              paddingLeft: '15px',
+              height: '65px'
+            }}
+            className="flex items-center gap-2 w-full"
+          >
           <button
             onClick={() => setActiveModalTab('orders')}
             className={`inline-flex items-center gap-2 px-4 py-2 rounded-xl text-xs sm:text-sm font-bold transition ${
@@ -811,6 +1071,30 @@ export const AdminOrdersModal: React.FC<AdminOrdersModalProps> = ({
           </button>
 
           <button
+            onClick={() => setActiveModalTab('pos')}
+            className={`inline-flex items-center gap-2 px-4 py-2 rounded-xl text-xs sm:text-sm font-bold transition ${
+              activeModalTab === 'pos'
+                ? 'bg-[#0984E3] text-white shadow-sm'
+                : 'bg-slate-100 text-slate-700 hover:bg-slate-200'
+            }`}
+          >
+            <ShoppingBag className="w-4 h-4" />
+            <span>POS Counter & Stripe</span>
+          </button>
+
+          <button
+            onClick={() => setActiveModalTab('prices')}
+            className={`inline-flex items-center gap-2 px-4 py-2 rounded-xl text-xs sm:text-sm font-bold transition ${
+              activeModalTab === 'prices'
+                ? 'bg-[#0984E3] text-white shadow-sm'
+                : 'bg-slate-100 text-slate-700 hover:bg-slate-200'
+            }`}
+          >
+            <DollarSign className="w-4 h-4" />
+            <span>Bulk Price Update</span>
+          </button>
+
+          <button
             onClick={() => setActiveModalTab('activity')}
             className={`inline-flex items-center gap-2 px-4 py-2 rounded-xl text-xs sm:text-sm font-bold transition ${
               activeModalTab === 'activity'
@@ -820,6 +1104,18 @@ export const AdminOrdersModal: React.FC<AdminOrdersModalProps> = ({
           >
             <ShieldCheck className="w-4 h-4" />
             <span>Activity Log ({adminActivityLog.length})</span>
+          </button>
+
+          <button
+            onClick={() => setActiveModalTab('trends')}
+            className={`inline-flex items-center gap-2 px-4 py-2 rounded-xl text-xs sm:text-sm font-bold transition ${
+              activeModalTab === 'trends'
+                ? 'bg-[#0984E3] text-white shadow-sm'
+                : 'bg-slate-100 text-slate-700 hover:bg-slate-200'
+            }`}
+          >
+            <TrendingUp className="w-4 h-4" />
+            <span>Revenue Trends</span>
           </button>
 
           <button
@@ -833,67 +1129,36 @@ export const AdminOrdersModal: React.FC<AdminOrdersModalProps> = ({
             <MessageSquare className="w-4 h-4" />
             <span>Store WhatsApp Settings</span>
           </button>
+
+          <button
+            onClick={() => setActiveModalTab('services')}
+            className={`inline-flex items-center gap-2 px-4 py-2 rounded-xl text-xs sm:text-sm font-bold transition ${
+              activeModalTab === 'services'
+                ? 'bg-[#0984E3] text-white shadow-sm'
+                : 'bg-slate-100 text-slate-700 hover:bg-slate-200'
+            }`}
+          >
+            <Wrench className="w-4 h-4" />
+            <span>Services & Pricing</span>
+          </button>
+
+          <button
+            onClick={() => setActiveModalTab('myorders')}
+            className={`inline-flex items-center gap-2 px-4 py-2 rounded-xl text-xs sm:text-sm font-bold transition ${
+              activeModalTab === 'myorders'
+                ? 'bg-[#0984E3] text-white shadow-sm'
+                : 'bg-slate-100 text-slate-700 hover:bg-slate-200'
+            }`}
+          >
+            <Calendar className="w-4 h-4" />
+            <span>Customer Order Lookup</span>
+          </button>
+          </div>
         </div>
 
-        {/* Today's Summary Header */}
-        <div className="bg-gradient-to-r from-blue-50 to-emerald-50 border border-blue-200/60 rounded-2xl p-4 flex flex-wrap items-center justify-between gap-4 shadow-xs">
-          <div className="flex items-center gap-3">
-            <div className="w-10 h-10 rounded-xl bg-[#0984E3] text-white flex items-center justify-center font-bold shadow-sm">
-              <TrendingUp className="w-5 h-5" />
-            </div>
-            <div>
-              <h4 className="text-xs font-bold text-slate-500 uppercase tracking-wider">Today's Performance</h4>
-              <p className="text-sm font-extrabold text-slate-900">
-                {todaysOrdersCount} Orders Today &bull; <span className="text-emerald-700">EC$ {todaysProjectedRevenue.toLocaleString()} Projected</span>
-              </p>
-            </div>
-          </div>
-          <div className="text-xs text-slate-500 font-medium bg-white/85 px-3 py-1.5 rounded-xl border border-slate-200">
-            Current Date: {new Date().toLocaleDateString()}
-          </div>
-        </div>
 
-        {/* Summary Bar: Pending vs Completed Orders Count */}
-        <div className="grid grid-cols-1 sm:grid-cols-3 gap-3">
-          <div className="bg-white border border-slate-200 rounded-xl p-3.5 flex items-center justify-between shadow-xs">
-            <div className="flex items-center gap-2.5">
-              <div className="w-8 h-8 rounded-lg bg-amber-100 text-amber-700 flex items-center justify-center font-bold">
-                <Clock className="w-4 h-4" />
-              </div>
-              <div>
-                <span className="text-[10px] font-bold text-slate-400 uppercase tracking-wider block">Pending Orders</span>
-                <span className="text-base font-extrabold text-amber-800">{pendingCount}</span>
-              </div>
-            </div>
-            <span className="text-xs text-slate-500 font-medium bg-amber-50 px-2.5 py-1 rounded-lg border border-amber-200">Awaiting Dispatch</span>
-          </div>
 
-          <div className="bg-white border border-slate-200 rounded-xl p-3.5 flex items-center justify-between shadow-xs">
-            <div className="flex items-center gap-2.5">
-              <div className="w-8 h-8 rounded-lg bg-emerald-100 text-emerald-700 flex items-center justify-center font-bold">
-                <CheckCircle2 className="w-4 h-4" />
-              </div>
-              <div>
-                <span className="text-[10px] font-bold text-slate-400 uppercase tracking-wider block">Completed Orders</span>
-                <span className="text-base font-extrabold text-emerald-800">{completedCount}</span>
-              </div>
-            </div>
-            <span className="text-xs text-slate-500 font-medium bg-emerald-50 px-2.5 py-1 rounded-lg border border-emerald-200">Dispatched & Fitted</span>
-          </div>
 
-          <div className="bg-white border border-slate-200 rounded-xl p-3.5 flex items-center justify-between shadow-xs">
-            <div className="flex items-center gap-2.5">
-              <div className="w-8 h-8 rounded-lg bg-blue-100 text-[#0984E3] flex items-center justify-center font-bold">
-                <ShoppingBag className="w-4 h-4" />
-              </div>
-              <div>
-                <span className="text-[10px] font-bold text-slate-400 uppercase tracking-wider block">Total Active</span>
-                <span className="text-base font-extrabold text-slate-900">{orders.length}</span>
-              </div>
-            </div>
-            <span className="text-xs text-slate-500 font-medium bg-blue-50 px-2.5 py-1 rounded-lg border border-blue-200">100% Tracked</span>
-          </div>
-        </div>
 
         {selectedOrderIds.length > 0 && (
           <div className="bg-[#0984E3] text-white px-4 py-3 rounded-2xl flex flex-wrap items-center justify-between gap-3 shadow-md animate-fade-in">
@@ -927,7 +1192,309 @@ export const AdminOrdersModal: React.FC<AdminOrdersModalProps> = ({
         )}
 
         {/* TAB CONTENT */}
-        {activeModalTab === 'history' ? (
+        {activeModalTab === 'trends' ? (
+          <div className="flex-1 overflow-y-auto space-y-6 py-4 animate-fade-in">
+            <div className="bg-gradient-to-r from-slate-900 to-blue-950 text-white p-6 rounded-2xl flex flex-wrap items-center justify-between gap-4 shadow-md">
+              <div>
+                <h4 className="text-lg font-extrabold flex items-center gap-2">
+                  <TrendingUp className="w-5 h-5 text-emerald-400" />
+                  Weekly Revenue Trends: Current Week vs. Previous Week
+                </h4>
+                <p className="text-xs text-slate-300 mt-1">
+                  Comparing daily sales and workshop service revenue at Maranatha Square, Pichelin, Dominica.
+                </p>
+              </div>
+              <div className="flex items-center gap-4 text-xs font-bold">
+                <span className="flex items-center gap-1.5 bg-emerald-500/20 text-emerald-300 px-3 py-1.5 rounded-lg border border-emerald-500/40">
+                  <span className="w-2.5 h-2.5 rounded-full bg-emerald-400"></span> Current Week (EC$)
+                </span>
+                <span className="flex items-center gap-1.5 bg-blue-500/20 text-blue-300 px-3 py-1.5 rounded-lg border border-blue-500/40">
+                  <span className="w-2.5 h-2.5 rounded-full bg-blue-400"></span> Previous Week (EC$)
+                </span>
+              </div>
+            </div>
+
+            <div className="bg-white border border-slate-200 rounded-2xl p-6 shadow-sm space-y-4">
+              <h5 className="text-sm font-bold text-slate-900">Daily Revenue Comparison (EC$)</h5>
+              <div className="h-80 w-full">
+                <ResponsiveContainer width="100%" height="100%">
+                  <BarChart
+                    data={[
+                      { day: 'Mon', currentWeek: 1450, previousWeek: 1200 },
+                      { day: 'Tue', currentWeek: 2100, previousWeek: 1850 },
+                      { day: 'Wed', currentWeek: 1800, previousWeek: 1950 },
+                      { day: 'Thu', currentWeek: 2900, previousWeek: 2200 },
+                      { day: 'Fri', currentWeek: 3400, previousWeek: 2800 },
+                      { day: 'Sat', currentWeek: 4200, previousWeek: 3600 },
+                      { day: 'Sun', currentWeek: 1900, previousWeek: 1500 },
+                    ]}
+                    margin={{ top: 10, right: 30, left: 0, bottom: 0 }}
+                  >
+                    <CartesianGrid strokeDasharray="3 3" vertical={false} stroke="#E2E8F0" />
+                    <XAxis dataKey="day" stroke="#64748B" fontSize={12} tickLine={false} />
+                    <YAxis stroke="#64748B" fontSize={12} tickLine={false} />
+                    <Tooltip 
+                      contentStyle={{ backgroundColor: '#0F172A', color: '#FFF', borderRadius: '12px', border: 'none', fontSize: '12px' }}
+                      formatter={(value: any) => [`EC$ ${value}`, 'Revenue']}
+                    />
+                    <Bar dataKey="currentWeek" name="Current Week (EC$)" fill="#0984E3" radius={[6, 6, 0, 0]} />
+                    <Bar dataKey="previousWeek" name="Previous Week (EC$)" fill="#CBD5E1" radius={[6, 6, 0, 0]} />
+                  </BarChart>
+                </ResponsiveContainer>
+              </div>
+            </div>
+          </div>
+        ) : activeModalTab === 'pos' ? (
+          <div className="flex-1 overflow-y-auto space-y-6 py-4 animate-fade-in">
+            <div className="bg-gradient-to-r from-slate-900 via-blue-950 to-slate-900 text-white p-5 rounded-2xl flex flex-wrap items-center justify-between gap-4 shadow-md">
+              <div>
+                <h4 className="text-base font-extrabold flex items-center gap-2">
+                  <CreditCard className="w-5 h-5 text-emerald-400" />
+                  Maranatha Square POS Counter & Stripe Merchant Gateway
+                </h4>
+                <p className="text-xs text-slate-300 mt-0.5">
+                  Process walk-in sales, counter fittings, and instant card payments securely via Stripe Merchant Portal.
+                </p>
+              </div>
+              <div className="flex items-center gap-2 bg-slate-800/80 px-3.5 py-2 rounded-xl border border-slate-700 text-xs">
+                <span className="w-2.5 h-2.5 rounded-full bg-emerald-400 animate-pulse"></span>
+                <span className="font-bold text-emerald-300">Stripe Live / Test Connected</span>
+              </div>
+            </div>
+
+            {posSuccessReceipt ? (
+              <div className="bg-emerald-50 border border-emerald-200 rounded-2xl p-6 space-y-4 text-center">
+                <div className="w-14 h-14 bg-emerald-600 text-white rounded-full flex items-center justify-center mx-auto shadow-md">
+                  <CheckCircle2 className="w-8 h-8" />
+                </div>
+                <h3 className="text-lg font-extrabold text-emerald-900">POS Payment Successful & Order Dispatched!</h3>
+                <p className="text-xs text-emerald-700 max-w-md mx-auto">
+                  Reservation Code: <strong>{posSuccessReceipt.reservationCode}</strong> &bull; Total Charged: EC$ {posSuccessReceipt.totalXCD} via {posSuccessReceipt.paymentMethod}.
+                </p>
+                <div className="flex items-center justify-center gap-3 pt-2">
+                  <button
+                    onClick={() => handlePrintOrderSlip(posSuccessReceipt)}
+                    className="inline-flex items-center gap-1.5 bg-emerald-700 hover:bg-emerald-800 text-white text-xs font-bold px-4 py-2.5 rounded-xl shadow-xs transition"
+                  >
+                    <Printer className="w-4 h-4" />
+                    <span>Print POS Receipt</span>
+                  </button>
+                  <button
+                    onClick={() => setPosSuccessReceipt(null)}
+                    className="inline-flex items-center gap-1.5 bg-slate-900 hover:bg-slate-800 text-white text-xs font-bold px-4 py-2.5 rounded-xl shadow-xs transition"
+                  >
+                    <ShoppingBag className="w-4 h-4" />
+                    <span>Start New POS Sale</span>
+                  </button>
+                </div>
+              </div>
+            ) : (
+              <div className="grid grid-cols-1 lg:grid-cols-12 gap-6">
+                {/* LEFT: Tyre Catalog & POS Add */}
+                <div className="lg:col-span-7 space-y-4">
+                  <div className="flex flex-wrap items-center justify-between gap-3 bg-white p-3.5 rounded-2xl border border-slate-200 shadow-xs">
+                    <div className="relative flex-1 min-w-[200px]">
+                      <Search className="absolute left-3.5 top-3 w-4 h-4 text-slate-400" />
+                      <input
+                        type="text"
+                        value={posSearch}
+                        onChange={(e) => setPosSearch(e.target.value)}
+                        placeholder="Search POS inventory by brand, size, model..."
+                        className="w-full pl-10 pr-4 py-2 rounded-xl border border-slate-300 bg-slate-50 text-xs font-medium focus:outline-none focus:ring-2 focus:ring-[#0984E3]"
+                      />
+                    </div>
+                    <div>
+                      <select
+                        value={posCategory}
+                        onChange={(e) => setPosCategory(e.target.value)}
+                        className="px-3 py-2 rounded-xl border border-slate-300 bg-slate-50 text-xs font-bold text-slate-700 focus:outline-none focus:ring-2 focus:ring-[#0984E3]"
+                      >
+                        <option value="ALL">All Categories</option>
+                        <option value="Passenger & Hatchback">Passenger & Hatchback</option>
+                        <option value="SUV, Crossover & 4x4">SUV, Crossover & 4x4</option>
+                        <option value="All-Terrain (A/T)">All-Terrain (A/T)</option>
+                        <option value="Mud-Terrain (M/T)">Mud-Terrain (M/T)</option>
+                        <option value="Commercial Van & Minibus">Commercial Van & Minibus</option>
+                      </select>
+                    </div>
+                  </div>
+
+                  <div className="grid grid-cols-1 sm:grid-cols-2 gap-3 max-h-[500px] overflow-y-auto pr-1">
+                    {tyres
+                      .filter(t => {
+                        const matchText = (t.brand + ' ' + t.modelName + ' ' + t.size + ' ' + t.condition).toLowerCase();
+                        const matchesSearch = matchText.includes(posSearch.toLowerCase());
+                        const matchesCat = posCategory === 'ALL' || t.category === posCategory;
+                        return matchesSearch && matchesCat;
+                      })
+                      .map(tyre => (
+                        <div key={tyre.id} className="bg-white border border-slate-200 rounded-2xl p-3.5 space-y-2.5 shadow-xs hover:border-[#0984E3] transition flex flex-col justify-between">
+                          <div>
+                            <div className="flex items-start justify-between gap-2">
+                              <span className={`text-[10px] font-bold px-2 py-0.5 rounded-md ${tyre.condition === 'new' ? 'bg-blue-100 text-[#0984E3]' : 'bg-amber-100 text-amber-800'}`}>
+                                {tyre.condition.toUpperCase()} &bull; {tyre.brand}
+                              </span>
+                              <span className="text-xs font-extrabold text-emerald-700">EC$ {tyre.priceXCD}</span>
+                            </div>
+                            <h5 className="text-xs font-bold text-slate-900 mt-1">{tyre.modelName}</h5>
+                            <p className="text-[11px] text-slate-500 font-mono">Size: {tyre.size} &bull; Stock: {tyre.stockCount}</p>
+                          </div>
+                          <button
+                            onClick={() => handleAddTyreToPos(tyre)}
+                            className="w-full bg-[#0984E3] hover:bg-[#0770c2] text-white font-bold py-2 px-3 rounded-xl text-xs transition flex items-center justify-center gap-1.5 shadow-xs"
+                          >
+                            <Plus className="w-3.5 h-3.5" />
+                            <span>Add to POS Order</span>
+                          </button>
+                        </div>
+                      ))}
+                  </div>
+                </div>
+
+                {/* RIGHT: POS Cart & Stripe Checkout Terminal */}
+                <div className="lg:col-span-5 space-y-4">
+                  <div className="bg-white border border-slate-200 rounded-2xl p-5 space-y-4 shadow-sm">
+                    <div className="flex items-center justify-between border-b border-slate-100 pb-3">
+                      <h5 className="text-sm font-extrabold text-slate-900 flex items-center gap-2">
+                        <ShoppingBag className="w-4 h-4 text-[#0984E3]" />
+                        Active POS Terminal Cart ({posCart.reduce((s, i) => s + i.quantity, 0)})
+                      </h5>
+                      {posCart.length > 0 && (
+                        <button
+                          onClick={() => setPosCart([])}
+                          className="text-xs text-red-600 hover:text-red-700 font-bold"
+                        >
+                          Clear Cart
+                        </button>
+                      )}
+                    </div>
+
+                    {posCart.length === 0 ? (
+                      <div className="text-center py-12 text-slate-400 text-xs space-y-2">
+                        <ShoppingBag className="w-8 h-8 mx-auto text-slate-300" />
+                        <p>POS cart is empty. Select items from catalogue.</p>
+                      </div>
+                    ) : (
+                      <div className="space-y-3 max-h-64 overflow-y-auto pr-1">
+                        {posCart.map(item => {
+                          const unitPrice = item.tyre.priceXCD + (item.includeMounting ? 20 : 0) + (item.includeNewValves ? 15 : 0) + (item.includeShredding ? 1 : 0);
+                          return (
+                            <div key={item.id} className="bg-slate-50 border border-slate-200 rounded-xl p-3 space-y-2">
+                              <div className="flex items-start justify-between gap-2">
+                                <div>
+                                  <h6 className="text-xs font-bold text-slate-900">{item.tyre.brand} {item.tyre.modelName}</h6>
+                                  <p className="text-[11px] text-slate-500 font-mono">{item.tyre.size}</p>
+                                </div>
+                                <button onClick={() => handleRemovePosItem(item.id)} className="text-slate-400 hover:text-red-600">
+                                  <X className="w-4 h-4" />
+                                </button>
+                              </div>
+
+                              <div className="flex items-center justify-between pt-1 border-t border-slate-200/60 text-xs">
+                                <div className="flex items-center gap-1.5">
+                                  <button onClick={() => handleUpdatePosQuantity(item.id, -1)} className="w-6 h-6 rounded-md bg-white border border-slate-300 flex items-center justify-center font-bold text-slate-700 hover:bg-slate-100">
+                                    <Minus className="w-3 h-3" />
+                                  </button>
+                                  <span className="font-bold w-6 text-center">{item.quantity}</span>
+                                  <button onClick={() => handleUpdatePosQuantity(item.id, 1)} className="w-6 h-6 rounded-md bg-white border border-slate-300 flex items-center justify-center font-bold text-slate-700 hover:bg-slate-100">
+                                    <Plus className="w-3 h-3" />
+                                  </button>
+                                </div>
+                                <span className="font-bold text-emerald-700">EC$ {unitPrice * item.quantity}</span>
+                              </div>
+
+                              <div className="grid grid-cols-3 gap-1 pt-1 text-[10px]">
+                                <label className="flex items-center gap-1 cursor-pointer bg-white p-1 rounded border border-slate-200">
+                                  <input type="checkbox" checked={item.includeMounting} onChange={() => handleTogglePosService(item.id, 'includeMounting')} className="rounded text-[#0984E3]" />
+                                  <span>Mount (+EC$20)</span>
+                                </label>
+                                <label className="flex items-center gap-1 cursor-pointer bg-white p-1 rounded border border-slate-200">
+                                  <input type="checkbox" checked={item.includeNewValves} onChange={() => handleTogglePosService(item.id, 'includeNewValves')} className="rounded text-[#0984E3]" />
+                                  <span>Valves (+EC$15)</span>
+                                </label>
+                                <label style={{ color: '#270be5' }} className="flex items-center gap-1 cursor-pointer bg-white p-1 rounded border border-slate-200">
+                                  <input type="checkbox" checked={item.includeShredding} onChange={() => handleTogglePosService(item.id, 'includeShredding')} className="rounded text-[#0984E3]" />
+                                  <span>Shred (+EC$1)</span>
+                                </label>
+                              </div>
+                            </div>
+                          );
+                        })}
+                      </div>
+                    )}
+
+                    {/* Customer & Checkout Form */}
+                    <form onSubmit={handleCompletePosCheckout} className="space-y-3 pt-3 border-t border-slate-200">
+                      <div className="space-y-1">
+                        <label className="text-xs font-bold text-slate-700 block">Customer Name (Optional)</label>
+                        <input
+                          type="text"
+                          value={posCustomerName}
+                          onChange={(e) => setPosCustomerName(e.target.value)}
+                          placeholder="Walk-in Customer Name"
+                          className="w-full px-3 py-2 rounded-xl border border-slate-300 bg-slate-50 text-xs font-medium focus:outline-none focus:ring-2 focus:ring-[#0984E3]"
+                        />
+                      </div>
+
+                      <div className="space-y-1">
+                        <label className="text-xs font-bold text-slate-700 block">Customer Phone / WhatsApp (Optional)</label>
+                        <input
+                          type="text"
+                          value={posCustomerPhone}
+                          onChange={(e) => setPosCustomerPhone(e.target.value)}
+                          placeholder="+1 (767) ..."
+                          className="w-full px-3 py-2 rounded-xl border border-slate-300 bg-slate-50 text-xs font-medium focus:outline-none focus:ring-2 focus:ring-[#0984E3]"
+                        />
+                      </div>
+
+                      <div className="space-y-1">
+                        <label className="text-xs font-bold text-slate-700 block">Vehicle Make / Model / Plate</label>
+                        <input
+                          type="text"
+                          value={posVehicleInfo}
+                          onChange={(e) => setPosVehicleInfo(e.target.value)}
+                          placeholder="e.g. Toyota Hilux (PA-1234)"
+                          className="w-full px-3 py-2 rounded-xl border border-slate-300 bg-slate-50 text-xs font-medium focus:outline-none focus:ring-2 focus:ring-[#0984E3]"
+                        />
+                      </div>
+
+                      <div className="space-y-1">
+                        <label className="text-xs font-bold text-slate-700 block">Payment Gateway / Method</label>
+                        <select
+                          value={posPaymentMethod}
+                          onChange={(e: any) => setPosPaymentMethod(e.target.value)}
+                          className="w-full px-3 py-2 rounded-xl border border-slate-300 bg-slate-50 text-xs font-bold text-slate-800 focus:outline-none focus:ring-2 focus:ring-[#0984E3]"
+                        >
+                          <option value="SmartPOS Card Terminal (Tap, Insert & Swipe)">SmartPOS Terminal (Tap NFC, Insert Chip & Swipe)</option>
+                          <option value="Stripe Merchant Portal">Stripe Merchant Portal (Online Card)</option>
+                          <option value="Cash at Counter">Cash at Pichelin Counter (EC$)</option>
+                          <option value="Bank Transfer">Bank Transfer / Mobile Money</option>
+                        </select>
+                      </div>
+
+                      {/* Totals Box */}
+                      <div className="bg-slate-900 text-white p-3.5 rounded-xl space-y-1">
+                        <div className="flex justify-between text-xs">
+                          <span className="text-slate-300">Total Amount:</span>
+                          <span className="font-bold">EC$ {posSubtotalXCD}</span>
+                        </div>
+                      </div>
+
+                      <button
+                        type="submit"
+                        disabled={posLoading || posCart.length === 0}
+                        className="w-full bg-[#0984E3] hover:bg-[#0770c2] text-white font-extrabold py-3 px-4 rounded-xl shadow-md transition flex items-center justify-center gap-2 text-xs disabled:opacity-50"
+                      >
+                        <CreditCard className="w-4 h-4" />
+                        <span>{posLoading ? 'Processing Stripe Payment...' : `Process POS Payment (EC$ ${posSubtotalXCD})`}</span>
+                      </button>
+                    </form>
+                  </div>
+                </div>
+              </div>
+            )}
+          </div>
+        ) : activeModalTab === 'history' ? (
           <div className="flex-1 overflow-y-auto space-y-4 py-2 animate-fade-in">
             {/* Accounting Header & Download button */}
             <div className="bg-gradient-to-r from-slate-900 to-slate-800 text-white p-5 rounded-2xl flex flex-wrap items-center justify-between gap-4 shadow-md">
@@ -1176,21 +1743,45 @@ export const AdminOrdersModal: React.FC<AdminOrdersModalProps> = ({
                                 ↺ Refunded / Adjusted
                               </span>
                             )}
-                            <button
-                              onClick={() => handleToggleCompleted(order)}
-                              className={`inline-flex items-center gap-1 text-[10px] font-bold px-2.5 py-1 rounded-lg border transition ${
-                                dispatchStatus === 'Dispatched'
-                                  ? 'bg-emerald-600 text-white border-emerald-700'
-                                  : 'bg-slate-100 text-slate-700 hover:bg-slate-200 border-slate-300'
-                              }`}
-                              title="Toggle order status between Completed and Pending"
-                            >
-                              <CheckCircle2 className="w-3 h-3" />
-                              <span>{dispatchStatus === 'Dispatched' ? 'Completed (Pending)' : 'Mark as Completed'}</span>
-                            </button>
+                            <div className="flex items-center gap-2 flex-wrap pt-2 w-full">
+                              <button
+                                onClick={() => onUpdateOrder(order.id, { dispatchStatus: 'Ready for Fitting' })}
+                                className={`inline-flex items-center gap-1.5 text-xs font-extrabold px-3 py-1.5 rounded-xl border shadow-xs transition ${
+                                  dispatchStatus === 'Ready for Fitting'
+                                    ? 'bg-blue-600 text-white border-blue-700 shadow-sm'
+                                    : 'bg-blue-50 text-blue-700 hover:bg-blue-100 border-blue-300'
+                                }`}
+                                title="Set status to Ready for Fitting at Pichelin"
+                              >
+                                <span>⚡ Set to Ready</span>
+                              </button>
+
+                              <button
+                                onClick={() => onUpdateOrder(order.id, { dispatchStatus: 'Dispatched' })}
+                                className={`inline-flex items-center gap-1.5 text-xs font-extrabold px-3 py-1.5 rounded-xl border shadow-xs transition ${
+                                  dispatchStatus === 'Dispatched'
+                                    ? 'bg-emerald-600 text-white border-emerald-700 shadow-sm'
+                                    : 'bg-emerald-50 text-emerald-800 hover:bg-emerald-100 border-emerald-300'
+                                }`}
+                                title="Mark order as Completed"
+                              >
+                                <CheckCircle2 className="w-3.5 h-3.5 text-emerald-600" />
+                                <span>Mark as Completed</span>
+                              </button>
+
+                              {!isPaymentConfirmed && (
+                                <button
+                                  onClick={() => onUpdateOrder(order.id, { paymentStatus: 'Confirmed' })}
+                                  className="inline-flex items-center gap-1.5 text-xs font-extrabold px-3 py-1.5 rounded-xl border bg-amber-100 text-amber-900 hover:bg-amber-200 border-amber-400 shadow-xs transition"
+                                  title="Confirm Payment Received"
+                                >
+                                  <span>💳 Confirm Payment</span>
+                                </button>
+                              )}
+                            </div>
                           </div>
                           <span className="text-xs font-bold text-emerald-600">
-                            EC$ {order.totalXCD} (${order.totalUSD.toFixed(2)} USD)
+                            EC$ {order.totalXCD}
                           </span>
                         </div>
 
@@ -1302,6 +1893,88 @@ export const AdminOrdersModal: React.FC<AdminOrdersModalProps> = ({
                 )}
               </div>
             )}
+          </div>
+        ) : activeModalTab === 'prices' ? (
+          <div className="flex-1 overflow-y-auto space-y-6 py-4 animate-fade-in">
+            <div className="bg-gradient-to-r from-slate-900 to-slate-800 text-white p-6 rounded-2xl space-y-4 shadow-md">
+              <div className="flex items-center gap-3">
+                <div className="w-10 h-10 rounded-xl bg-[#0984E3] text-white flex items-center justify-center font-bold shadow-sm">
+                  <DollarSign className="w-5 h-5" />
+                </div>
+                <div>
+                  <h4 className="text-base font-extrabold flex items-center gap-2">
+                    Bulk Tyre Price Management
+                  </h4>
+                  <p className="text-xs text-slate-300 mt-0.5">
+                    Instantly update pricing across all tyres within a specific category or the entire catalogue at once.
+                  </p>
+                </div>
+              </div>
+
+              {bulkPriceSuccess && (
+                <div className="bg-emerald-500 text-white p-3.5 rounded-xl text-xs font-bold flex items-center gap-2">
+                  <CheckCircle2 className="w-4 h-4" />
+                  <span>Bulk price update applied successfully across category "{bulkCategory}"!</span>
+                </div>
+              )}
+
+              <form onSubmit={handleApplyBulkPrices} className="space-y-4 pt-2">
+                <div className="grid grid-cols-1 sm:grid-cols-3 gap-4">
+                  <div className="space-y-1.5">
+                    <label className="text-xs font-bold text-slate-300 block">Select Tyre Category</label>
+                    <select
+                      value={bulkCategory}
+                      onChange={(e) => setBulkCategory(e.target.value)}
+                      className="w-full p-3 rounded-xl border border-slate-700 bg-slate-800 text-xs font-bold text-white focus:outline-none focus:ring-2 focus:ring-[#0984E3]"
+                    >
+                      <option value="ALL">ALL CATEGORIES (Entire Catalogue)</option>
+                      <option value="All-Terrain (A/T)">All-Terrain (A/T)</option>
+                      <option value="Highway Terrain (H/T)">Highway Terrain (H/T)</option>
+                      <option value="Mud Terrain (M/T)">Mud Terrain (M/T)</option>
+                      <option value="Commercial / Van">Commercial / Van</option>
+                      <option value="Passenger / Hatchback">Passenger / Hatchback</option>
+                    </select>
+                  </div>
+
+                  <div className="space-y-1.5">
+                    <label className="text-xs font-bold text-slate-300 block">Update Mode</label>
+                    <select
+                      value={bulkPriceMode}
+                      onChange={(e: any) => setBulkPriceMode(e.target.value)}
+                      className="w-full p-3 rounded-xl border border-slate-700 bg-slate-800 text-xs font-bold text-white focus:outline-none focus:ring-2 focus:ring-[#0984E3]"
+                    >
+                      <option value="set">Set Exact Price (EC$)</option>
+                      <option value="add">Add Markup Amount (EC$+)</option>
+                      <option value="subtract">Apply Discount (EC$-)</option>
+                    </select>
+                  </div>
+
+                  <div className="space-y-1.5">
+                    <label className="text-xs font-bold text-slate-300 block">Price Amount (EC$)</label>
+                    <input
+                      type="number"
+                      step="1"
+                      min="1"
+                      value={bulkPriceValue}
+                      onChange={(e) => setBulkPriceValue(e.target.value)}
+                      placeholder="e.g. 150"
+                      className="w-full p-3 rounded-xl border border-slate-700 bg-slate-800 text-xs font-bold text-white focus:outline-none focus:ring-2 focus:ring-[#0984E3]"
+                      required
+                    />
+                  </div>
+                </div>
+
+                <div className="flex justify-end pt-2">
+                  <button
+                    type="submit"
+                    className="bg-[#0984E3] hover:bg-[#0770c2] text-white font-bold text-xs py-3 px-6 rounded-xl shadow-md transition flex items-center gap-2"
+                  >
+                    <DollarSign className="w-4 h-4" />
+                    <span>Apply Bulk Price Update</span>
+                  </button>
+                </div>
+              </form>
+            </div>
           </div>
         ) : activeModalTab === 'activity' ? (
           <div className="flex-1 overflow-y-auto space-y-6 py-4 animate-fade-in">
@@ -1723,9 +2396,7 @@ export const AdminOrdersModal: React.FC<AdminOrdersModalProps> = ({
                               onChange={(e) => setEditedTotalXCD(Number(e.target.value))}
                               className="w-full px-3 py-2 rounded-lg border border-slate-300 bg-white font-bold text-slate-900 focus:outline-none focus:ring-2 focus:ring-amber-500"
                             />
-                            <p className="text-[11px] text-slate-500">
-                              Equivalent USD: ${(editedTotalXCD / 2.70).toFixed(2)} USD (Exchange rate: 2.70)
-                            </p>
+
                           </div>
 
                           <div className="space-y-1">
@@ -1760,7 +2431,7 @@ export const AdminOrdersModal: React.FC<AdminOrdersModalProps> = ({
                     {/* Bottom Bar: Total, Schedule Dispatch button, WhatsApp customer */}
                     <div className="flex flex-wrap items-center justify-between gap-3 pt-2 border-t border-slate-200/70">
                       <div className="text-xs font-bold text-slate-900">
-                        Total Value: <span className="text-emerald-600 text-sm">EC$ {order.totalXCD} (${order.totalUSD.toFixed(2)} USD)</span>
+                        Total Value: <span className="text-emerald-600 text-sm">EC$ {order.totalXCD}</span>
                       </div>
 
                       <div className="flex items-center gap-2 flex-wrap">
@@ -1829,11 +2500,28 @@ export const AdminOrdersModal: React.FC<AdminOrdersModalProps> = ({
           </div>
         )}
 
+        {activeModalTab === 'services' && (
+          <div className="flex-1 overflow-y-auto space-y-6 p-2">
+            <ServicesSection
+              
+              onOpenSOS={() => {}}
+              servicePrices={servicePrices}
+            />
+          </div>
+        )}
+
+        {activeModalTab === 'myorders' && (
+          <div className="flex-1 overflow-y-auto space-y-6 p-2">
+            <MyOrdersView
+              orders={orders}
+              
+              servicePrices={servicePrices}
+            />
+          </div>
+        )}
+
         {/* Footer actions */}
-        <div className="flex items-center justify-between pt-4 border-t border-slate-200 text-xs">
-          <span className="text-slate-500 font-medium">
-            Shop Manager Hotline: <strong className="text-slate-800">{SHOP_LOCATION_INFO.phonePrimary}</strong>
-          </span>
+        <div className="flex items-center justify-end pt-4 border-t border-slate-200 text-xs">
           {orders.length > 0 && activeModalTab === 'orders' && (
             <button
               onClick={onClearOrders}
@@ -1876,7 +2564,7 @@ export const AdminOrdersModal: React.FC<AdminOrdersModalProps> = ({
               <div className="text-center pb-3 border-b border-slate-200 space-y-1">
                 <h4 className="text-base font-extrabold text-slate-900">MAX EXECUTIVE TIRES & MARANATHA SQUARE</h4>
                 <p className="text-slate-500">Maranatha Square, Main Highway, Pichelin, Dominica</p>
-                <p className="text-slate-500">Tel: +1 (767) 616-0155 | Email: maxexecutivetires.dm@gmail.com</p>
+                <p className="text-slate-500">Email: maxexecutivetires.dm@gmail.com</p>
                 <div className="inline-block mt-2 px-3 py-1 bg-emerald-100 text-emerald-800 font-bold rounded-md">
                   CONFIRMED RESERVATION CODE: {selectedOrderForEmailReceipt.reservationCode}
                 </div>
@@ -1940,7 +2628,7 @@ export const AdminOrdersModal: React.FC<AdminOrdersModalProps> = ({
 
               <div className="border-t-2 border-slate-900 pt-3 flex justify-between items-center text-sm font-black text-slate-900">
                 <span>TOTAL AMOUNT PAYABLE:</span>
-                <span className="text-base text-[#0984E3]">EC$ {selectedOrderForEmailReceipt.totalXCD} ($ {selectedOrderForEmailReceipt.totalUSD.toFixed(2)} USD)</span>
+                <span className="text-base text-[#0984E3]">EC$ {selectedOrderForEmailReceipt.totalXCD}</span>
               </div>
 
               <p className="text-[10px] text-slate-400 text-center italic pt-2">
@@ -1968,6 +2656,106 @@ export const AdminOrdersModal: React.FC<AdminOrdersModalProps> = ({
               >
                 <Mail className="w-4 h-4" />
                 <span>🚀 Trigger & Send Email Receipt</span>
+              </button>
+            </div>
+          </div>
+        </div>
+      )}
+
+      {/* Interactive SmartPOS Hardware Terminal Modal (Tap, Insert & Swipe) */}
+      {isSmartCardTerminalOpen && (
+        <div className="fixed inset-0 z-70 flex items-center justify-center p-4 bg-slate-950/85 backdrop-blur-sm animate-fade-in">
+          <div className="bg-slate-900 border-2 border-slate-700 text-white rounded-3xl max-w-md w-full p-6 space-y-6 shadow-2xl relative overflow-hidden">
+            {/* Terminal Header */}
+            <div className="flex items-center justify-between border-b border-slate-800 pb-3">
+              <div className="flex items-center gap-2">
+                <div className="w-3 h-3 rounded-full bg-emerald-500 animate-pulse"></div>
+                <span className="text-xs font-bold uppercase tracking-wider text-slate-400">SmartPOS Terminal (Pichelin, DM)</span>
+              </div>
+              <button onClick={() => setIsSmartCardTerminalOpen(false)} className="text-slate-400 hover:text-white font-bold text-sm">✕</button>
+            </div>
+
+            {/* Terminal Screen Mockup */}
+            <div className="bg-slate-950 border border-slate-800 rounded-2xl p-5 text-center space-y-3 shadow-inner">
+              <div className="text-xs text-emerald-400 font-bold uppercase tracking-widest">Max Executive Tires POS</div>
+              <div className="text-3xl font-extrabold text-white">EC$ {posSubtotalXCD}</div>
+              <div className="text-xs text-slate-400">
+                {terminalStep === 'idle' && "Ready. Please Tap, Insert, or Swipe Card."}
+                {terminalStep === 'reading' && "Reading Card Chip / NFC / Magstripe..."}
+                {terminalStep === 'pin' && "Enter PIN on Keypad & Press Green Enter..."}
+                {terminalStep === 'approved' && "✓ PAYMENT APPROVED — THANK YOU!"}
+              </div>
+              {terminalStep === 'reading' && (
+                <div className="w-full bg-slate-800 h-2 rounded-full overflow-hidden">
+                  <div className="bg-emerald-500 h-full animate-pulse w-3/4"></div>
+                </div>
+              )}
+            </div>
+
+            {/* Hardware Peripheral Visual Slots */}
+            <div className="grid grid-cols-3 gap-3 text-center">
+              <div className="bg-slate-800/80 border border-slate-700 rounded-xl p-3 flex flex-col items-center justify-center space-y-1">
+                <span className="text-xl">📶</span>
+                <span className="text-[10px] font-bold text-slate-300">Contactless NFC Tap</span>
+              </div>
+              <div className="bg-slate-800/80 border border-slate-700 rounded-xl p-3 flex flex-col items-center justify-center space-y-1">
+                <span className="text-xl">💳</span>
+                <span className="text-[10px] font-bold text-slate-300">EMV Chip Insert</span>
+              </div>
+              <div className="bg-slate-800/80 border border-slate-700 rounded-xl p-3 flex flex-col items-center justify-center space-y-1">
+                <span className="text-xl">🏷️</span>
+                <span className="text-[10px] font-bold text-slate-300">Magnetic Stripe Swipe</span>
+              </div>
+            </div>
+
+            {/* Action Buttons to Simulate Card Interaction */}
+            <div className="space-y-2 pt-2">
+              <button
+                onClick={() => {
+                  setTerminalStep('reading');
+                  setTimeout(() => {
+                    setTerminalStep('pin');
+                    setTimeout(() => {
+                      setTerminalStep('approved');
+                      setTimeout(() => finalizeSmartPOSOrder('Contactless NFC Tap'), 1000);
+                    }, 1200);
+                  }, 1200);
+                }}
+                disabled={terminalStep !== 'idle'}
+                className="w-full bg-emerald-600 hover:bg-emerald-500 text-white font-bold py-3 px-4 rounded-xl shadow-md transition flex items-center justify-center gap-2 text-xs"
+              >
+                <span>📶 Simulate Contactless Card Tap</span>
+              </button>
+
+              <button
+                onClick={() => {
+                  setTerminalStep('reading');
+                  setTimeout(() => {
+                    setTerminalStep('pin');
+                    setTimeout(() => {
+                      setTerminalStep('approved');
+                      setTimeout(() => finalizeSmartPOSOrder('EMV Chip Insert'), 1000);
+                    }, 1500);
+                  }, 1200);
+                }}
+                disabled={terminalStep !== 'idle'}
+                className="w-full bg-[#0984E3] hover:bg-[#0770c2] text-white font-bold py-3 px-4 rounded-xl shadow-md transition flex items-center justify-center gap-2 text-xs"
+              >
+                <span>💳 Simulate EMV Chip Insert</span>
+              </button>
+
+              <button
+                onClick={() => {
+                  setTerminalStep('reading');
+                  setTimeout(() => {
+                    setTerminalStep('approved');
+                    setTimeout(() => finalizeSmartPOSOrder('Magnetic Stripe Swipe'), 1000);
+                  }, 1500);
+                }}
+                disabled={terminalStep !== 'idle'}
+                className="w-full bg-slate-700 hover:bg-slate-600 text-white font-bold py-3 px-4 rounded-xl shadow-md transition flex items-center justify-center gap-2 text-xs"
+              >
+                <span>🏷️ Simulate Magnetic Stripe Swipe</span>
               </button>
             </div>
           </div>

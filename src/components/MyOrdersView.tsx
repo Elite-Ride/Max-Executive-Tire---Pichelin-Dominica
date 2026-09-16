@@ -16,19 +16,17 @@ import {
   AlertCircle
 } from 'lucide-react';
 import { AdminOrder } from './AdminOrdersModal';
-import { Currency } from '../types';
+import {  } from '../types';
 import { jsPDF } from 'jspdf';
 import { SHOP_LOCATION_INFO } from '../data/servicesData';
 
 interface MyOrdersViewProps {
   orders: AdminOrder[];
-  currency: Currency;
   servicePrices: Record<string, number>;
 }
 
 export const MyOrdersView: React.FC<MyOrdersViewProps> = ({
   orders,
-  currency,
   servicePrices,
 }) => {
   const [searchQuery, setSearchQuery] = useState('');
@@ -119,7 +117,7 @@ export const MyOrdersView: React.FC<MyOrdersViewProps> = ({
     doc.setFontSize(12);
     doc.setTextColor(9, 132, 227);
     doc.text("Total Amount:", 14, y);
-    doc.text(`EC$ ${order.totalXCD} ($${order.totalUSD.toFixed(2)} USD)`, 170, y, { align: 'right' });
+    doc.text(`EC$ ${order.totalXCD}`, 170, y, { align: 'right' });
     
     doc.save(`Reservation_${order.reservationCode}.pdf`);
   };
@@ -238,6 +236,62 @@ export const MyOrdersView: React.FC<MyOrdersViewProps> = ({
                     </div>
                   </div>
 
+                  {/* Visual Progress Tracker Stepper */}
+                  <div className="bg-slate-50 p-4 rounded-xl border border-slate-200 space-y-3">
+                    <span className="text-[11px] font-bold text-slate-600 uppercase tracking-wider block">
+                      Reservation Status & Progress Tracker:
+                    </span>
+                    {(() => {
+                      const isDispatched = order.dispatchStatus === 'Dispatched';
+                      const isScheduled = order.dispatchStatus === 'Scheduled' || isDispatched;
+                      const isConfirmed = order.paymentStatus === 'Confirmed' || isScheduled;
+                      const isPending = true; // Always true for placed orders
+
+                      const currentStep = isDispatched ? 4 : isScheduled ? 3 : isConfirmed ? 2 : 1;
+
+                      const steps = [
+                        { num: 1, label: 'Pending', desc: 'Order Received' },
+                        { num: 2, label: 'Confirmed', desc: 'Payment Verified' },
+                        { num: 3, label: 'Ready for Fitting', desc: 'Staged in Pichelin' },
+                        { num: 4, label: 'Completed', desc: 'Fitted & Dispatched' }
+                      ];
+
+                      return (
+                        <div className="grid grid-cols-2 sm:grid-cols-4 gap-2 pt-1">
+                          {steps.map((st) => {
+                            const isPassed = currentStep >= st.num;
+                            const isCurrent = currentStep === st.num;
+                            return (
+                              <div 
+                                key={st.num}
+                                className={`p-2.5 rounded-lg border text-xs flex flex-col justify-between transition ${
+                                  isPassed 
+                                    ? 'bg-emerald-50 border-emerald-300 text-emerald-900' 
+                                    : 'bg-white border-slate-200 text-slate-400'
+                                }`}
+                              >
+                                <div className="flex items-center justify-between">
+                                  <span className={`w-5 h-5 rounded-full text-[10px] font-bold flex items-center justify-center ${
+                                    isPassed ? 'bg-emerald-600 text-white' : 'bg-slate-200 text-slate-600'
+                                  }`}>
+                                    {isPassed ? '✓' : st.num}
+                                  </span>
+                                  <span className={`text-[10px] font-bold ${isCurrent ? 'text-emerald-700 animate-pulse' : ''}`}>
+                                    {isPassed ? 'Complete' : 'Pending'}
+                                  </span>
+                                </div>
+                                <div className="mt-2">
+                                  <div className="font-bold text-slate-800">{st.label}</div>
+                                  <div className="text-[10px] text-slate-500">{st.desc}</div>
+                                </div>
+                              </div>
+                            );
+                          })}
+                        </div>
+                      );
+                    })()}
+                  </div>
+
                   <div className="grid grid-cols-1 sm:grid-cols-3 gap-3 text-xs">
                     <div className="bg-slate-50 p-3 rounded-xl border border-slate-100 space-y-1">
                       <span className="text-slate-400 text-[10px] uppercase font-bold block">Customer Details</span>
@@ -269,7 +323,7 @@ export const MyOrdersView: React.FC<MyOrdersViewProps> = ({
                         {order.paymentMethod}
                       </div>
                       <div className="text-emerald-700 font-bold text-sm">
-                        {currency === 'XCD' ? `EC$ ${order.totalXCD}` : `$${order.totalUSD.toFixed(2)} USD`}
+                        EC$ {order.totalXCD}
                       </div>
                     </div>
                   </div>

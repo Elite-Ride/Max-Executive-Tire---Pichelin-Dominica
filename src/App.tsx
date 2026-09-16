@@ -13,7 +13,7 @@ import { AdminOrdersModal, AdminOrder } from './components/AdminOrdersModal';
 import { AdminLoginModal } from './components/AdminLoginModal';
 import { Footer } from './components/Footer';
 import { TYRES_DATA } from './data/tyresData';
-import { Tyre, CartItem, Currency, DominicaVehiclePreset, TyreCondition, BackgroundTheme } from './types';
+import { Tyre, CartItem, DominicaVehiclePreset, TyreCondition, BackgroundTheme } from './types';
 import { 
   Phone, 
   MessageSquare, 
@@ -28,7 +28,6 @@ import { SHOP_LOCATION_INFO } from './data/servicesData';
 
 export default function App() {
   const [activeTab, setActiveTab] = useState<string>('inventory');
-  const [currency, setCurrency] = useState<Currency>('XCD');
   const [bgTheme, setBgTheme] = useState<BackgroundTheme>(() => {
     try {
       return (localStorage.getItem('max_executive_bg_theme') as BackgroundTheme) || 'tarmac';
@@ -108,6 +107,51 @@ export default function App() {
       };
     }
   });
+
+  const [tyrePriceOverrides, setTyrePriceOverrides] = useState<Record<string, number>>(() => {
+    try {
+      const saved = localStorage.getItem('max_executive_tyre_price_overrides');
+      return saved ? JSON.parse(saved) : {};
+    } catch {
+      return {};
+    }
+  });
+
+  useEffect(() => {
+    try {
+      localStorage.setItem('max_executive_tyre_price_overrides', JSON.stringify(tyrePriceOverrides));
+    } catch {}
+  }, [tyrePriceOverrides]);
+
+  const handleBulkUpdateTyrePrices = (category: string, newPriceXCD: number, mode: 'set' | 'add' | 'subtract' = 'set') => {
+    setTyrePriceOverrides(prev => {
+      const next = { ...prev };
+      TYRES_DATA.forEach(t => {
+        if (category === 'ALL' || t.category === category) {
+          const current = next[t.id] !== undefined ? next[t.id] : t.priceXCD;
+          let updated = newPriceXCD;
+          if (mode === 'add') updated = current + newPriceXCD;
+          if (mode === 'subtract') updated = Math.max(10, current - newPriceXCD);
+          next[t.id] = updated;
+        }
+      });
+      return next;
+    });
+    logActivity('PRICE_UPDATE', `Bulk updated tyre prices for category "${category}" (${mode}): ${newPriceXCD} XCD`);
+  };
+
+  const tyresWithOverrides = useMemo(() => {
+    return TYRES_DATA.map(t => {
+      const override = tyrePriceOverrides[t.id];
+      if (override !== undefined) {
+        return {
+          ...t,
+          priceXCD: override,
+        };
+      }
+      return t;
+    });
+  }, [tyrePriceOverrides]);
 
   const [adminActivityLog, setAdminActivityLog] = useState<Array<{
     id: string;
@@ -308,7 +352,7 @@ export default function App() {
 
   // Filtered & Sorted Tyres
   const filteredTyres = useMemo(() => {
-    const list = TYRES_DATA.filter((tyre) => {
+    const list = tyresWithOverrides.filter((tyre) => {
       // Brand filter
       if (selectedBrand && tyre.brand.toLowerCase() !== selectedBrand.toLowerCase()) {
         return false;
@@ -337,16 +381,10 @@ export default function App() {
       if (selectedCategory !== 'All Categories' && tyre.category !== selectedCategory) {
         return false;
       }
-      // Max price filter (checks price in selected currency)
+      // Max price filter
       if (maxPrice) {
         const limit = Number(maxPrice);
-        if (currency === 'XCD') {
-          if (tyre.priceXCD > limit) return false;
-        } else {
-          // In USD mode, convert limit or check USD equivalent
-          const limitUSD = limit / 2.70;
-          if (tyre.priceUSD > limitUSD && tyre.priceXCD > limit) return false;
-        }
+        if (tyre.priceXCD > limit) return false;
       }
       // Search keyword (matches brand, model, size, features, description)
       if (searchQuery.trim()) {
@@ -383,8 +421,7 @@ export default function App() {
     maxPrice,
     sortBy,
     searchQuery,
-    currency,
-  ]);
+    ]);
 
   // Cart operations
   const handleAddToCart = (tyre: Tyre) => {
@@ -499,8 +536,7 @@ export default function App() {
       <Navbar
         activeTab={activeTab}
         setActiveTab={setActiveTab}
-        currency={currency}
-        setCurrency={setCurrency}
+        
         bgTheme={bgTheme}
         setBgTheme={setBgTheme}
         cartCount={totalCartCount}
@@ -530,55 +566,52 @@ export default function App() {
 
 
         {/* Tab-driven Content Container */}
-        <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 py-8 sm:py-12 space-y-12">
+        <div 
+          style={{ 
+            height: '494.5px', 
+            width: '920px', 
+            marginTop: '-26px', 
+            marginBottom: '-12px',
+            paddingTop: '5px',
+            paddingBottom: '0px',
+            paddingLeft: '26px'
+          }} 
+          className="mx-auto px-4 sm:px-6 lg:px-8 py-8 sm:py-12 space-y-12 overflow-y-auto"
+        >
           
           {/* TAB 1: Inventory & Sales */}
           {activeTab === 'inventory' && (
-            <div className="space-y-8 animate-fade-in">
+            <div 
+              style={{
+                fontSize: '15px',
+                marginTop: '-14px',
+                marginBottom: '0px',
+                marginLeft: '-8px',
+                marginRight: '-6px'
+              }} 
+              className="space-y-8 animate-fade-in"
+            >
 
 
               <TireCatalog
                 tyres={filteredTyres}
-                currency={currency}
+                
                 onSelectTyre={(tyre) => setSelectedTyreDetail(tyre)}
                 onAddToCart={handleAddToCart}
               />
             </div>
           )}
 
-          {/* TAB 2: Workshop Services & Booking */}
-          {activeTab === 'services' && (
-            <div className="animate-fade-in space-y-12">
-              <ServicesSection
-                currency={currency}
-                onOpenSOS={handleOpenSOS}
-                servicePrices={servicePrices}
-              />
-            </div>
-          )}
-
-          {/* TAB 3: My Orders & Reservation Lookup */}
-          {activeTab === 'orders' && (
-            <div className="animate-fade-in space-y-12">
-              <MyOrdersView
-                orders={adminOrders}
-                currency={currency}
-                servicePrices={servicePrices}
-              />
-            </div>
-          )}
-
-          {/* TAB 4: Dominica Road Guide */}
-          {activeTab === 'guide' && (
-            <div className="animate-fade-in space-y-12">
-              <DominicaTyreGuide />
-              <LocationSection />
-            </div>
-          )}
-
-          {/* TAB 5: Location & Workshop Schedule */}
+          {/* TAB 2: Location & Workshop Schedule */}
           {activeTab === 'location' && (
-            <div className="animate-fade-in space-y-12">
+            <div 
+              style={{
+                fontSize: '11px',
+                marginTop: '-15px',
+                marginBottom: '13px'
+              }} 
+              className="animate-fade-in space-y-12"
+            >
               <LocationSection />
             </div>
           )}
@@ -647,7 +680,7 @@ export default function App() {
       {selectedTyreDetail && (
         <TireDetailModal
           tyre={selectedTyreDetail}
-          currency={currency}
+          
           onClose={() => setSelectedTyreDetail(null)}
           servicePrices={servicePrices}
           onAddToCartWithServices={handleAddToCartWithServices}
@@ -659,7 +692,7 @@ export default function App() {
         isOpen={isCartOpen}
         onClose={() => setIsCartOpen(false)}
         cartItems={cartItems}
-        currency={currency}
+        
         onUpdateQuantity={handleUpdateQuantity}
         onRemoveItem={handleRemoveItem}
         onToggleService={handleToggleService}
@@ -695,13 +728,51 @@ export default function App() {
           setAdminActivityLog([]);
           logActivity('OTHER', 'Cleared admin activity log');
         }}
+        onBulkUpdateTyrePrices={handleBulkUpdateTyrePrices}
+        onAddOrder={handleOrderSubmitted}
+        tyres={tyresWithOverrides}
+        
       />
 
+      {/* Need Help? Floating Bubble for Technical Tyre Advice */}
+      <div 
+        style={{
+          marginTop: '-14px',
+          marginBottom: '-15px',
+          marginLeft: '-1px',
+          paddingTop: '0px',
+          width: '865px',
+          height: '71px'
+        }}
+        className="relative z-40"
+      >
+        <a
+          href={`https://wa.me/${SHOP_LOCATION_INFO.whatsapp.replace(/[^0-9]/g, '')}?text=${encodeURIComponent('Hello Max Executive Tires! I need technical tyre advice and expert fitment recommendations for my vehicle in Dominica.')}`}
+          target="_blank"
+          rel="noopener noreferrer"
+          style={{ marginTop: '-12px' }}
+          className="fixed bottom-6 right-6 z-40 bg-emerald-600 hover:bg-emerald-500 text-white rounded-full px-4 py-3 shadow-2xl flex items-center gap-2.5 transition transform hover:scale-105 group border-2 border-white/25"
+          title="Need Help? Chat on WhatsApp for Technical Tyre Advice"
+        >
+          <MessageSquare className="w-5 h-5 animate-bounce text-emerald-100" />
+          <span className="font-extrabold text-xs tracking-tight">Need Help? Tyre Advice</span>
+        </a>
+      </div>
+
       {/* Footer */}
-      <Footer
-        setActiveTab={setActiveTab}
-        onOpenSOS={handleOpenSOS}
-      />
+      <div 
+        style={{ 
+          marginTop: '-13px', 
+          paddingTop: '0px', 
+          marginBottom: '16px', 
+          height: '83px' 
+        }}
+      >
+        <Footer
+          setActiveTab={setActiveTab}
+          onOpenSOS={handleOpenSOS}
+        />
+      </div>
 
     </div>
   );

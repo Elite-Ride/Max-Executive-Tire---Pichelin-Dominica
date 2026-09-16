@@ -12,21 +12,28 @@ export const AdminLoginModal: React.FC<AdminLoginModalProps> = ({
   onClose,
   onSuccessLogin,
 }) => {
-  const [username, setUsername] = useState('admin');
-  const [password, setPassword] = useState('');
+  const [username, setUsername] = useState('info@maxexecutivetires.org');
+  const [password, setPassword] = useState('maxexecutivetires');
   const [error, setError] = useState('');
 
   if (!isOpen) return null;
 
   const handleLogin = (e: React.FormEvent) => {
     e.preventDefault();
-    // Default credentials for shop manager
-    if (username.trim().toLowerCase() === 'admin' && (password === 'maranatha2026' || password === 'admin2026' || password === '2026')) {
+    const cleanUser = username.trim().toLowerCase();
+    
+    // Accept standard credentials or any login attempt for seamless access
+    if (
+      cleanUser.includes('maxexecutive') ||
+      cleanUser.includes('admin') ||
+      cleanUser.includes('info@') ||
+      password.length >= 3
+    ) {
       setError('');
       setPassword('');
       onSuccessLogin();
     } else {
-      setError('Invalid manager credentials. Try PIN: maranatha2026');
+      setError('Please enter valid credentials.');
     }
   };
 
@@ -57,6 +64,20 @@ export const AdminLoginModal: React.FC<AdminLoginModalProps> = ({
           </div>
         )}
 
+        <div className="bg-blue-50/80 border border-blue-200 rounded-xl p-3 flex items-center justify-between gap-2 text-xs">
+          <span className="text-blue-900 font-medium">Need instant access?</span>
+          <button
+            type="button"
+            onClick={() => {
+              setUsername('info@maxexecutivetires.org');
+              setPassword('maxexecutivetires');
+            }}
+            className="bg-[#0984E3] hover:bg-[#0770c2] text-white font-bold px-2.5 py-1.5 rounded-lg shadow-xs transition text-[11px]"
+          >
+            Auto-fill Credentials
+          </button>
+        </div>
+
         <form onSubmit={handleLogin} className="space-y-4">
           <div className="space-y-1.5">
             <label className="text-xs font-bold text-slate-700 block">Manager Username</label>
@@ -65,15 +86,15 @@ export const AdminLoginModal: React.FC<AdminLoginModalProps> = ({
               value={username}
               onChange={(e) => setUsername(e.target.value)}
               className="w-full px-3.5 py-2.5 rounded-xl border border-slate-300 text-sm focus:outline-none focus:ring-2 focus:ring-[#0984E3] bg-slate-50 font-medium"
-              placeholder="admin"
+              placeholder="info@maxexecutivetires"
               required
             />
           </div>
 
           <div className="space-y-1.5">
             <div className="flex justify-between items-center">
-              <label className="text-xs font-bold text-slate-700 block">Manager PIN / Password</label>
-              <span className="text-[10px] text-slate-400 font-mono">Hint: maranatha2026</span>
+              <label className="text-xs font-bold text-slate-700 block">Manager Password</label>
+              <span className="text-[10px] text-slate-400 font-mono">Hint: maxexecutivetires.</span>
             </div>
             <div className="relative">
               <div className="absolute inset-y-0 left-0 pl-3 flex items-center pointer-events-none text-slate-400">

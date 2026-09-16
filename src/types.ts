@@ -1,5 +1,4 @@
 export type TyreCondition = 'new' | 'used';
-export type Currency = 'XCD' | 'USD';
 export type BackgroundTheme = 'tarmac' | 'carbon' | 'light';
 
 export type TyreCategory = 
@@ -29,7 +28,6 @@ export interface Tyre {
   originalTreadMm: number;
   category: TyreCategory;
   priceXCD: number; // Eastern Caribbean Dollars (EC$)
-  priceUSD: number;
   stockCount: number;
   image: string;
   features: string[];
@@ -51,7 +49,6 @@ export interface TyreService {
   name: string;
   category: 'Fitting & Mounting' | 'Alignment & Safety' | 'Puncture & Repair' | 'Maintenance & Safety' | 'Emergency Rescue' | 'Environmental Sustainability';
   priceXCD: number;
-  priceUSD: number;
   durationMinutes: number;
   description: string;
   inclusions: string[];
@@ -83,7 +80,6 @@ export interface ServiceBooking {
   customerLocation: string;
   notes?: string;
   totalXCD: number;
-  totalUSD: number;
 }
 
 export interface RoadsideRescueRequest {
@@ -108,4 +104,4 @@ export interface DominicaVehiclePreset {
   photo?: string;
 }
 
-export const EXCHANGE_RATE_USD_TO_XCD = 2.70;
+

@@ -21,7 +21,7 @@ import {
   Download,
   Mail
 } from 'lucide-react';
-import { CartItem, Currency } from '../types';
+import { CartItem } from '../types';
 import { SHOP_LOCATION_INFO } from '../data/servicesData';
 import { StripePaymentModal } from './StripePaymentModal';
 
@@ -29,7 +29,6 @@ interface CartDrawerProps {
   isOpen: boolean;
   onClose: () => void;
   cartItems: CartItem[];
-  currency: Currency;
   onUpdateQuantity: (id: string, delta: number) => void;
   onRemoveItem: (id: string) => void;
   onToggleService: (id: string, serviceKey: 'mounting' | 'valves') => void;
@@ -53,7 +52,6 @@ export const CartDrawer: React.FC<CartDrawerProps> = ({
   isOpen,
   onClose,
   cartItems,
-  currency,
   onUpdateQuantity,
   onRemoveItem,
   onToggleService,
@@ -115,7 +113,6 @@ export const CartDrawer: React.FC<CartDrawerProps> = ({
   };
 
   const totalCartXCD = cartItems.reduce((sum, item) => sum + calculateItemSubtotalXCD(item), 0);
-  const totalCartUSD = totalCartXCD / 2.70;
 
   const tyreSubtotalXCD = cartItems.reduce((sum, item) => sum + (item.tyre.priceXCD * item.quantity), 0);
   const serviceSubtotalXCD = cartItems.reduce((sum, item) => {
@@ -196,7 +193,7 @@ export const CartDrawer: React.FC<CartDrawerProps> = ({
     doc.setFontSize(12);
     doc.setTextColor(9, 132, 227);
     doc.text("Total Amount:", 14, y);
-    doc.text(`EC$ ${totalCartXCD} ($${totalCartUSD.toFixed(2)} USD)`, 170, y, { align: 'right' });
+    doc.text(`EC$ ${totalCartXCD}`, 170, y, { align: 'right' });
     
     doc.save("Max_Executive_Tires_Summary.pdf");
   };
@@ -223,7 +220,6 @@ export const CartDrawer: React.FC<CartDrawerProps> = ({
         preferredDate,
         items: [...cartItems],
         totalXCD: totalCartXCD,
-        totalUSD: totalCartUSD,
         paymentMethod: 'Pay at Shop / WhatsApp',
       });
     }
@@ -254,7 +250,6 @@ export const CartDrawer: React.FC<CartDrawerProps> = ({
         preferredDate,
         items: [...cartItems],
         totalXCD: totalCartXCD,
-        totalUSD: totalCartUSD,
         paymentMethod: 'Stripe Online',
       });
     }
@@ -280,7 +275,7 @@ export const CartDrawer: React.FC<CartDrawerProps> = ({
         `   Subtotal: EC$ ${calculateItemSubtotalXCD(item)}\n`;
     });
 
-    text += `\n*ESTIMATED TOTAL:* EC$ ${totalCartXCD} ($${totalCartUSD.toFixed(2)} USD)\n` +
+    text += `\n*ESTIMATED TOTAL:* EC$ ${totalCartXCD}\n` +
       `*Shop Location:* Maranatha Square, Pichelin, Dominica\n` +
       `Please reserve my stock for fitting!`;
 
@@ -318,7 +313,7 @@ export const CartDrawer: React.FC<CartDrawerProps> = ({
     });
 
     receiptContent += `--------------------------------------------------\n`;
-    receiptContent += `TOTAL AMOUNT: EC$ ${totalCartXCD} ($${totalCartUSD.toFixed(2)} USD)\n`;
+    receiptContent += `TOTAL AMOUNT: EC$ ${totalCartXCD}\n`;
     receiptContent += `Payment Terms: Pay upon fitting / inspection in Pichelin\n`;
     receiptContent += `==================================================\n`;
     receiptContent += `Thank you for choosing Max Executive Tires!\n`;
@@ -372,6 +367,104 @@ export const CartDrawer: React.FC<CartDrawerProps> = ({
 
         {/* Drawer Content */}
         <div className="p-6 flex-1 overflow-y-auto space-y-6">
+          {/* Print-Only Formal Letterhead Receipt */}
+          <div className="hidden print:block p-8 bg-white text-slate-900 font-sans space-y-6">
+            <div className="border-b-2 border-slate-900 pb-4 flex justify-between items-start">
+              <div>
+                <h1 className="text-2xl font-black text-[#0984E3] uppercase tracking-wide">Max Executive Tires</h1>
+                <p className="text-xs font-bold text-slate-700 mt-0.5">Maranatha Square • Pichelin, Dominica</p>
+                <p className="text-xs text-slate-500">Tel: (767) 275-8973 • Email: info@maxexecutivetires.org</p>
+              </div>
+              <div className="text-right">
+                <div className="text-sm font-bold text-slate-900">OFFICIAL SALES & FITTING RECEIPT</div>
+                <div className="text-xs font-mono text-slate-600 mt-1">Ref: {reservationCode || 'PENDING'}</div>
+                <div className="text-xs text-slate-500">{new Date().toLocaleString()}</div>
+              </div>
+            </div>
+
+            <div className="grid grid-cols-2 gap-4 text-xs bg-slate-50 p-3 rounded-lg border border-slate-200">
+              <div>
+                <span className="font-bold text-slate-500 block uppercase">Customer Details:</span>
+                <p className="font-bold text-slate-900 text-sm mt-0.5">{customerName || 'Valued Customer'}</p>
+                <p className="text-slate-600">Phone: {customerPhone || 'N/A'}</p>
+                <p className="text-slate-600">Email: {customerEmail || 'N/A'}</p>
+              </div>
+              <div>
+                <span className="font-bold text-slate-500 block uppercase">Vehicle & Schedule:</span>
+                <p className="font-bold text-slate-900 text-sm mt-0.5">Vehicle: {vehicleInfo || 'General Fitment'}</p>
+                <p className="text-slate-600">Fitting Date: {preferredDate || 'Fast Lane (Today)'}</p>
+              </div>
+            </div>
+
+            <div className="space-y-3">
+              <h3 className="text-xs font-bold uppercase tracking-wider text-slate-500 border-b border-slate-200 pb-1">Itemized Purchased & Service Breakdown</h3>
+              <table className="w-full text-xs text-left">
+                <thead>
+                  <tr className="border-b border-slate-300 text-slate-700">
+                    <th className="py-2">Item / Model</th>
+                    <th className="py-2 text-center">Condition</th>
+                    <th className="py-2 text-center">Qty</th>
+                    <th className="py-2 text-right">Unit Price</th>
+                    <th className="py-2 text-right">Subtotal</th>
+                  </tr>
+                </thead>
+                <tbody className="divide-y divide-slate-100">
+                  {cartItems.map((item, idx) => (
+                    <tr key={idx}>
+                      <td className="py-2 font-medium">
+                        {item.tyre.brand} {item.tyre.modelName} ({item.tyre.size})
+                        {(item.includeMounting || item.includeNewValves || item.includeShredding) && (
+                          <div className="text-[10px] text-slate-500 font-normal">
+                            Services: {[item.includeMounting && 'Mounting', item.includeNewValves && 'Valves', item.includeShredding && 'Shredder'].filter(Boolean).join(', ')}
+                          </div>
+                        )}
+                      </td>
+                      <td className="py-2 text-center uppercase font-bold text-[10px]">{item.tyre.condition}</td>
+                      <td className="py-2 text-center">{item.quantity}</td>
+                      <td className="py-2 text-right">EC$ {item.tyre.priceXCD}</td>
+                      <td className="py-2 text-right font-bold">EC$ {calculateItemSubtotalXCD(item)}</td>
+                    </tr>
+                  ))}
+                </tbody>
+              </table>
+            </div>
+
+            <div className="flex justify-end pt-2 border-t border-slate-200">
+              <div className="w-64 space-y-1 text-xs">
+                <div className="flex justify-between text-slate-600">
+                  <span>Tyres Subtotal:</span>
+                  <span className="font-mono">EC$ {tyreSubtotalXCD}</span>
+                </div>
+                <div className="flex justify-between text-slate-600">
+                  <span>Workshop Services:</span>
+                  <span className="font-mono">EC$ {serviceSubtotalXCD}</span>
+                </div>
+                <div className="flex justify-between text-sm font-black text-slate-900 pt-2 border-t border-slate-300">
+                  <span>Total Amount:</span>
+                  <span className="font-mono">EC$ {totalCartXCD}</span>
+                </div>
+              </div>
+            </div>
+
+            <div className="grid grid-cols-2 gap-8 pt-8 border-t border-slate-200 mt-12 items-end">
+              <div className="space-y-2">
+                <div className="w-20 h-20 bg-white border border-slate-300 p-1 rounded">
+                  <svg viewBox="0 0 25 25" className="w-full h-full fill-slate-900">
+                    <path d="M0 0h7v7H0zM2 2h3v3H2zM18 0h7v7h-7zM20 2h3v3h-3zM0 18h7v7H0zM2 20h3v3H2zM9 2h2v3H9zM13 2h3v2h-3zM9 7h2v2H9zM14 6h3v3h-3zM6 9h3v2H6zM11 9h2v2h-2zM16 9h3v2H3zM2 11h2v3H2zM7 11h2v2H7zM11 12h3v2h-3zM15 12h2v2h-2zM9 15h2v3H9zM13 15h3v2h-3zM18 14h3v3h-3zM22 18h3v2h-3zM6 18h2v2H6zM11 18h2v3h-2zM15 18h2v2H-2zM2 22h3v3H2zM18 22h7v3h-7z"/>
+                  </svg>
+                </div>
+                <p className="text-[10px] text-slate-500">Scan for Maranatha Square GPS & WhatsApp Support in Pichelin.</p>
+              </div>
+
+              <div className="text-right space-y-6">
+                <div className="border-b border-slate-400 pb-1">
+                  <span className="text-transparent">signature</span>
+                </div>
+                <p className="text-xs font-bold text-slate-700">Customer Signature / Acceptance</p>
+              </div>
+            </div>
+          </div>
+
           {isSubmitted ? (
             <div className="bg-emerald-50 border border-emerald-300 rounded-xl p-6 text-center space-y-4 animate-fade-in">
               <div className="w-14 h-14 bg-emerald-600 text-white rounded-full flex items-center justify-center mx-auto shadow-xs">
@@ -769,9 +862,8 @@ export const CartDrawer: React.FC<CartDrawerProps> = ({
           isOpen={isStripeModalOpen}
           onClose={() => setIsStripeModalOpen(false)}
           cartItems={cartItems}
-          currency={currency}
+          
           totalXCD={totalCartXCD}
-          totalUSD={totalCartUSD}
           customerName={customerName}
           customerPhone={customerPhone}
           onPaymentSuccess={handleStripeSuccess}

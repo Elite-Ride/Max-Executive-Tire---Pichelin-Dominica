@@ -13,49 +13,28 @@ import {
   PackageCheck,
   Tag
 } from 'lucide-react';
-import { Tyre, Currency } from '../types';
+import { Tyre } from '../types';
 import { getRepresentativeVehicleForTyre } from '../data/tyresData';
 
 interface TireCatalogProps {
   tyres: Tyre[];
-  currency: Currency;
   onSelectTyre: (tyre: Tyre) => void;
   onAddToCart: (tyre: Tyre) => void;
 }
 
 export const TireCatalog: React.FC<TireCatalogProps> = ({
   tyres,
-  currency,
   onSelectTyre,
   onAddToCart,
 }) => {
+  const [isCollapsed, setIsCollapsed] = React.useState(false);
+
   const formatPrice = (priceXCD: number) => {
     return `EC$ ${priceXCD.toLocaleString()}`;
   };
 
   return (
     <div id="tyres-catalog-grid" className="space-y-6">
-      {/* Seasonal Promotions Banner */}
-      <div className="bg-gradient-to-r from-emerald-600 via-teal-600 to-[#0984E3] text-white p-5 rounded-2xl shadow-md relative overflow-hidden flex flex-col sm:flex-row items-center justify-between gap-4">
-        <div className="absolute -right-10 -bottom-10 opacity-10 text-9xl font-black">🌴</div>
-        <div className="space-y-1 relative z-10 text-center sm:text-left">
-          <div className="inline-flex items-center gap-1.5 bg-white/20 text-white text-[11px] font-extrabold uppercase px-2.5 py-0.5 rounded-full tracking-wider">
-            <span>✨ Island Special Bundle</span>
-          </div>
-          <h3 className="text-lg sm:text-xl font-extrabold tracking-tight">
-            Hurricane Preparedness & Mountain Commuter Season
-          </h3>
-          <p className="text-xs sm:text-sm text-blue-100 max-w-2xl leading-relaxed">
-            Free high-speed computer balancing and brand-new valve stems included with every 2+ tyre reservation. Special flat-rate EC$135–EC$160 pricing across top commercial & SUV grades.
-          </p>
-        </div>
-        <div className="relative z-10 shrink-0">
-          <span className="inline-flex items-center gap-1.5 bg-white text-emerald-800 font-extrabold text-xs px-4 py-2.5 rounded-xl shadow-xs">
-            <span>🏷️ Limited Time Deals</span>
-          </span>
-        </div>
-      </div>
-
       <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-2">
         <div>
           <h2 className="text-2xl font-bold tracking-tight" style={{ color: '#0dec5a' }}>
@@ -66,9 +45,17 @@ export const TireCatalog: React.FC<TireCatalogProps> = ({
           </p>
         </div>
 
-        <div className="flex items-center gap-2 text-xs font-semibold text-slate-600 bg-slate-100 px-3 py-1.5 rounded-lg border border-slate-200 self-start sm:self-auto">
-          <ShieldCheck className="w-4 h-4 text-emerald-600" />
-          <span>All used tyres 100% leak & pressure tested</span>
+        <div className="flex items-center gap-3">
+          <button
+            onClick={() => setIsCollapsed(!isCollapsed)}
+            className="px-3 py-1.5 bg-slate-200 hover:bg-slate-300 text-slate-800 text-xs font-bold rounded-lg transition"
+          >
+            {isCollapsed ? 'Expand Items ▾' : 'Collapse Items ▴'}
+          </button>
+          <div className="flex items-center gap-2 text-xs font-semibold text-slate-600 bg-slate-100 px-3 py-1.5 rounded-lg border border-slate-200">
+            <ShieldCheck className="w-4 h-4 text-emerald-600" />
+            <span>All used tyres 100% leak tested</span>
+          </div>
         </div>
       </div>
 
@@ -83,6 +70,10 @@ export const TireCatalog: React.FC<TireCatalogProps> = ({
           <p className="text-sm text-slate-500 max-w-md mx-auto">
             We frequently receive new shipments of new and pre-owned tyres at Maranatha Square. Contact us directly or reset your filters.
           </p>
+        </div>
+      ) : isCollapsed ? (
+        <div className="bg-slate-50 border border-slate-200 rounded-2xl p-4 text-center text-xs text-slate-600">
+          Items collapsed ({tyres.length} items hidden). Click <button onClick={() => setIsCollapsed(false)} className="text-[#0984E3] font-bold underline">Expand Items</button> to view.
         </div>
       ) : (
         <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-6">
@@ -107,7 +98,7 @@ export const TireCatalog: React.FC<TireCatalogProps> = ({
                   />
                   <div className="absolute inset-0 bg-gradient-to-t from-slate-950/80 via-transparent to-black/40"></div>
 
-                  {/* Condition Badge (Type: New vs Used) */}
+                  {/* Condition & Low Stock Badges */}
                   <div className="absolute top-3 left-3 flex flex-col gap-1.5">
                     {isNew ? (
                       <span className="bg-[#0984E3] text-white text-xs font-bold uppercase px-2.5 py-1 rounded-md shadow-xs">
@@ -122,6 +113,12 @@ export const TireCatalog: React.FC<TireCatalogProps> = ({
                     {tyre.isSpecialDeal && (
                       <span className="bg-[#E17055] text-white text-[11px] font-bold px-2 py-0.5 rounded-md shadow-xs">
                         🔥 Special Value
+                      </span>
+                    )}
+
+                    {tyre.stockCount <= 2 && (
+                      <span className="bg-red-600 text-white text-[11px] font-extrabold px-2.5 py-1 rounded-md shadow-md animate-pulse flex items-center gap-1">
+                        ⚠️ Low Stock: Only {tyre.stockCount} left!
                       </span>
                     )}
                   </div>

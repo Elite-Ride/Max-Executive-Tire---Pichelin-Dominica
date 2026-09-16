@@ -11,17 +11,15 @@ import {
   MapPin,
   Compass
 } from 'lucide-react';
-import { Currency } from '../types';
+import {  } from '../types';
 import { TYRE_SERVICES, SHOP_LOCATION_INFO } from '../data/servicesData';
 
 interface ServicesSectionProps {
-  currency: Currency;
   onOpenSOS: () => void;
   servicePrices: Record<string, number>;
 }
 
 export const ServicesSection: React.FC<ServicesSectionProps> = ({
-  currency,
   onOpenSOS,
   servicePrices,
 }) => {

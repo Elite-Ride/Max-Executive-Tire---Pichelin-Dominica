@@ -123,27 +123,29 @@ export const RoadsideRescueSOS: React.FC<RoadsideRescueSOSProps> = ({ onClose })
 
       <div className="p-6 sm:p-8 space-y-6">
         {/* Direct Call Header */}
-        <div className="bg-red-950/30 border border-red-800/60 rounded-xl p-4 sm:p-5 flex flex-col sm:flex-row items-center justify-between gap-4">
-          <div className="space-y-1 text-center sm:text-left">
-            <span className="text-xs font-bold text-red-400 uppercase tracking-wider">
-              Emergency Technician On Call in Pichelin
-            </span>
-            <div className="text-xl sm:text-2xl font-bold text-white">
-              {SHOP_LOCATION_INFO.phonePrimary} / {SHOP_LOCATION_INFO.phoneMobile}
+        {SHOP_LOCATION_INFO.phonePrimary && (
+          <div className="bg-red-950/30 border border-red-800/60 rounded-xl p-4 sm:p-5 flex flex-col sm:flex-row items-center justify-between gap-4">
+            <div className="space-y-1 text-center sm:text-left">
+              <span className="text-xs font-bold text-red-400 uppercase tracking-wider">
+                Emergency Technician On Call in Pichelin
+              </span>
+              <div className="text-xl sm:text-2xl font-bold text-white">
+                {SHOP_LOCATION_INFO.phonePrimary} / {SHOP_LOCATION_INFO.phoneMobile}
+              </div>
+              <p className="text-xs text-slate-400">
+                Mobile van equipped with 3-ton pneumatic jack, impact wrenches, and spare tyres.
+              </p>
             </div>
-            <p className="text-xs text-slate-400">
-              Mobile van equipped with 3-ton pneumatic jack, impact wrenches, and spare tyres.
-            </p>
-          </div>
 
-          <a
-            href={`tel:${SHOP_LOCATION_INFO.phonePrimary.replace(/[^0-9+]/g, '')}`}
-            className="inline-flex items-center gap-2 bg-red-600 hover:bg-red-500 text-white font-bold text-sm px-6 py-3.5 rounded-lg shadow-xs transition transform active:scale-95"
-          >
-            <PhoneCall className="w-4 h-4" />
-            <span>Call Hotline Now</span>
-          </a>
-        </div>
+            <a
+              href={`tel:${SHOP_LOCATION_INFO.phonePrimary.replace(/[^0-9+]/g, '')}`}
+              className="inline-flex items-center gap-2 bg-red-600 hover:bg-red-500 text-white font-bold text-sm px-6 py-3.5 rounded-lg shadow-xs transition transform active:scale-95"
+            >
+              <PhoneCall className="w-4 h-4" />
+              <span>Call Hotline Now</span>
+            </a>
+          </div>
+        )}
 
         {dispatchSent ? (
           <div className="bg-slate-900 border border-emerald-500/60 rounded-xl p-6 text-center space-y-4">

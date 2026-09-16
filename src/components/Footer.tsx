@@ -21,7 +21,18 @@ interface FooterProps {
 export const Footer: React.FC<FooterProps> = ({ setActiveTab, onOpenSOS }) => {
   return (
     <footer className="bg-slate-950 text-slate-300 border-t border-slate-800">
-      <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 py-12 md:py-16 space-y-12">
+      <div 
+        style={{ 
+          marginTop: '-21px',
+          marginBottom: '6px',
+          paddingTop: '65px',
+          width: '841px',
+          marginLeft: '0px',
+          marginRight: '-12px',
+          paddingBottom: '56px' 
+        }}
+        className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 space-y-12"
+      >
         
         {/* Main Footer Grid */}
         <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-8">
@@ -140,7 +151,18 @@ export const Footer: React.FC<FooterProps> = ({ setActiveTab, onOpenSOS }) => {
         </div>
 
         {/* Bottom Bar */}
-        <div className="pt-8 border-t border-slate-900 flex flex-col sm:flex-row items-center justify-between gap-4 text-xs text-slate-500">
+        <div 
+          style={{ 
+            height: '65px',
+            marginTop: '-32px',
+            paddingTop: '31px', 
+            paddingBottom: '3px', 
+            paddingLeft: '0px', 
+            paddingRight: '1px', 
+            marginBottom: '-1px' 
+          }}
+          className="border-t border-slate-900 flex flex-col sm:flex-row items-center justify-between gap-4 text-xs text-slate-500"
+        >
           <p>
             © {new Date().getFullYear()} Max Executive Tires. Maranatha Square, Pichelin, Commonwealth of Dominica. All rights reserved.
           </p>

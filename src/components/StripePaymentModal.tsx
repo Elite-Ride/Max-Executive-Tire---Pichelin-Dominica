@@ -2,7 +2,7 @@ import React, { useState, useEffect } from 'react';
 import { loadStripe } from '@stripe/stripe-js';
 import { Elements, CardElement, useStripe, useElements } from '@stripe/react-stripe-js';
 import { X, ShieldCheck, CreditCard, Lock, CheckCircle2, Loader2, AlertCircle } from 'lucide-react';
-import { CartItem, Currency } from '../types';
+import { CartItem } from '../types';
 
 const publishableKey = (import.meta as any).env.VITE_STRIPE_PUBLISHABLE_KEY || 'pk_test_maxexecutivetires';
 const stripePromise = loadStripe(publishableKey);
@@ -11,9 +11,7 @@ interface StripePaymentModalProps {
   isOpen: boolean;
   onClose: () => void;
   cartItems: CartItem[];
-  currency: Currency;
   totalXCD: number;
-  totalUSD: number;
   customerName: string;
   customerPhone: string;
   onPaymentSuccess: (paymentId: string) => void;
@@ -21,14 +19,12 @@ interface StripePaymentModalProps {
 
 const CheckoutForm: React.FC<{
   cartItems: CartItem[];
-  currency: Currency;
   totalXCD: number;
-  totalUSD: number;
   customerName: string;
   customerPhone: string;
   onSuccess: (paymentId: string) => void;
   onCancel: () => void;
-}> = ({ cartItems, currency, totalXCD, totalUSD, customerName, customerPhone, onSuccess, onCancel }) => {
+}> = ({ cartItems, totalXCD, customerName, customerPhone, onSuccess, onCancel }) => {
   const stripe = useStripe();
   const elements = useElements();
 
@@ -44,7 +40,6 @@ const CheckoutForm: React.FC<{
       headers: { 'Content-Type': 'application/json' },
       body: JSON.stringify({
         items: cartItems,
-        currency: 'usd',
         customerName,
       }),
     })
@@ -118,7 +113,7 @@ const CheckoutForm: React.FC<{
         <div className="pt-2 border-t border-slate-200 flex justify-between items-center text-sm font-bold text-slate-900">
           <span>Total Payable Amount:</span>
           <span className="text-emerald-600 text-base">
-            {currency === 'XCD' ? `EC$ ${totalXCD}` : `$${totalUSD.toFixed(2)} USD`}
+            EC$ {totalXCD}
           </span>
         </div>
       </div>
@@ -189,7 +184,7 @@ const CheckoutForm: React.FC<{
           ) : (
             <>
               <ShieldCheck className="w-4 h-4" />
-              Pay {currency === 'XCD' ? `EC$ ${totalXCD}` : `$${totalUSD.toFixed(2)} USD`}
+              Pay EC$ {totalXCD}
             </>
           )}
         </button>
@@ -208,7 +203,6 @@ export const StripePaymentModal: React.FC<StripePaymentModalProps> = ({
   isOpen,
   onClose,
   cartItems,
-  currency,
   totalXCD,
   totalUSD,
   customerName,
@@ -240,9 +234,7 @@ export const StripePaymentModal: React.FC<StripePaymentModalProps> = ({
         <Elements stripe={stripePromise}>
           <CheckoutForm
             cartItems={cartItems}
-            currency={currency}
             totalXCD={totalXCD}
-            totalUSD={totalUSD}
             customerName={customerName}
             customerPhone={customerPhone}
             onSuccess={(pid) => {

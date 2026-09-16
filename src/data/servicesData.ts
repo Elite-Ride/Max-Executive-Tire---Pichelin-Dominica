@@ -6,7 +6,6 @@ export const TYRE_SERVICES: TyreService[] = [
     name: 'Emergency Mobile Roadside Tyre Rescue (SOS)',
     category: 'Emergency Rescue',
     priceXCD: 80,
-    priceUSD: 29.63,
     durationMinutes: 30,
     description: 'Rapid mobile rescue dispatched directly from Maranatha Square. We come to your breakdown location with jacks, impact tools, air, and spare tyres.',
     inclusions: [
@@ -24,7 +23,6 @@ export const TYRE_SERVICES: TyreService[] = [
     name: 'Eco-Friendly Tyre Shredder & Green Recycling',
     category: 'Environmental Sustainability',
     priceXCD: 1,
-    priceUSD: 0.37,
     durationMinutes: 10,
     description: 'State-of-the-art commercial mechanical tyre shredding. Destroys scrap and old bald tyres into clean rubber chips, eliminating vector-borne mosquito breeding sites and zero landfill impact in Dominica’s lush biosphere.',
     inclusions: [
@@ -53,9 +51,9 @@ export const SHOP_LOCATION_INFO = {
   name: 'Max Executive Tires',
   address: 'Maranatha Square, Main Highway, Pichelin',
   parish: 'St. Patrick, Commonwealth of Dominica',
-  phonePrimary: '+1 (767) 616-0155',
-  phoneMobile: '+1 (767) 616-0155',
-  whatsapp: '+17676160155',
+  phonePrimary: '',
+  phoneMobile: '',
+  whatsapp: '',
   email: 'maxexecutivetires.dm@gmail.com',
   landmarks: 'Centrally located at Maranatha Square in Pichelin, right off the Grand Bay-Roseau link road, opposite the community center with easy drive-in workshop bays.',
   serviceAreas: [

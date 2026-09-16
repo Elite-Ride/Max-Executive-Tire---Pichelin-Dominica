@@ -14,15 +14,13 @@ import {
   Bell,
   Calendar
 } from 'lucide-react';
-import { Currency, BackgroundTheme } from '../types';
+import { BackgroundTheme } from '../types';
 import { SHOP_LOCATION_INFO } from '../data/servicesData';
 import { BrandLogo } from './BrandLogo';
 
 interface NavbarProps {
   activeTab: string;
   setActiveTab: (tab: string) => void;
-  currency: Currency;
-  setCurrency: (c: Currency) => void;
   bgTheme: BackgroundTheme;
   setBgTheme: (t: BackgroundTheme) => void;
   cartCount: number;
@@ -35,8 +33,6 @@ interface NavbarProps {
 export const Navbar: React.FC<NavbarProps> = ({
   activeTab,
   setActiveTab,
-  currency,
-  setCurrency,
   bgTheme,
   setBgTheme,
   cartCount,
@@ -49,9 +45,6 @@ export const Navbar: React.FC<NavbarProps> = ({
 
   const navItems = [
     { id: 'inventory', label: 'Tyre Inventory', icon: ShoppingBag },
-    { id: 'services', label: 'Services & Pricing', icon: Wrench },
-    { id: 'orders', label: 'My Orders', icon: Calendar },
-    { id: 'guide', label: 'Dominica Road Guide', icon: Compass },
     { id: 'location', label: 'Location & Hours', icon: MapPin },
   ];
 
@@ -79,16 +72,18 @@ export const Navbar: React.FC<NavbarProps> = ({
             </span>
           </div>
 
-          <div className="flex items-center gap-2 text-xs text-slate-300">
-            <span className="hidden sm:inline text-slate-400">Direct Hotline:</span>
-            <a 
-              href={`tel:${SHOP_LOCATION_INFO.phonePrimary.replace(/[^0-9+]/g, '')}`}
-              className="inline-flex items-center justify-center text-[#0984E3] hover:text-blue-400 hover:underline font-bold px-3 py-1 bg-slate-950/60 rounded-md border border-slate-800 transition"
-              style={{ minHeight: '32px' }}
-            >
-              {SHOP_LOCATION_INFO.phonePrimary}
-            </a>
-          </div>
+          {SHOP_LOCATION_INFO.phonePrimary && (
+            <div className="flex items-center gap-2 text-xs text-slate-300">
+              <span className="hidden sm:inline text-slate-400">Direct Hotline:</span>
+              <a 
+                href={`tel:${SHOP_LOCATION_INFO.phonePrimary.replace(/[^0-9+]/g, '')}`}
+                className="inline-flex items-center justify-center text-[#0984E3] hover:text-blue-400 hover:underline font-bold px-3 py-1 bg-slate-950/60 rounded-md border border-slate-800 transition"
+                style={{ minHeight: '32px' }}
+              >
+                {SHOP_LOCATION_INFO.phonePrimary}
+              </a>
+            </div>
+          )}
         </div>
       </div>
 
@@ -131,13 +126,13 @@ export const Navbar: React.FC<NavbarProps> = ({
             {/* Admin Notifications Button */}
             <button
               onClick={openAdminOrders}
-              className="relative inline-flex items-center gap-1.5 bg-slate-900 hover:bg-slate-850 text-slate-200 text-xs font-bold px-3 py-2.5 rounded-lg border border-slate-700 transition"
-              title="Shop Admin Order Notifications"
+              className="relative inline-flex items-center gap-2 bg-amber-600 hover:bg-amber-500 text-white text-xs sm:text-sm font-extrabold px-4 py-2.5 rounded-xl border border-amber-400 shadow-md transition transform hover:scale-105"
+              title="Shop Admin Order Notifications & Management"
             >
-              <Bell className="w-4 h-4 text-amber-400" />
-              <span className="hidden sm:inline">Admin Orders</span>
+              <Bell className="w-4 h-4 text-amber-100 animate-bounce" />
+              <span>Admin Portal ({adminOrdersCount})</span>
               {adminOrdersCount > 0 && (
-                <span className="w-5 h-5 rounded-full bg-red-600 text-white text-[10px] font-bold flex items-center justify-center animate-pulse">
+                <span className="absolute -top-1.5 -right-1.5 w-5 h-5 rounded-full bg-red-600 text-white text-[10px] font-black flex items-center justify-center animate-pulse">
                   {adminOrdersCount}
                 </span>
               )}
@@ -147,13 +142,13 @@ export const Navbar: React.FC<NavbarProps> = ({
             <button
               id="cart-button-nav"
               onClick={openCart}
-              className="relative inline-flex items-center gap-2 bg-[#0984E3] hover:bg-[#0873c4] text-white text-sm font-bold px-3.5 py-2.5 rounded-lg shadow-sm transition"
+              className="relative inline-flex items-center gap-2 bg-emerald-600 hover:bg-emerald-500 text-white text-sm font-extrabold px-4 py-2.5 rounded-xl shadow-md border border-emerald-400 transition transform hover:scale-105"
               aria-label="View reserved tyres and services"
             >
               <ShoppingBag className="w-4 h-4 text-white" />
-              <span className="hidden md:inline">Reserve</span>
+              <span>Cart & Reserve</span>
               {cartCount > 0 && (
-                <span className="w-5 h-5 rounded-full bg-white text-[#0984E3] text-xs font-black flex items-center justify-center">
+                <span className="w-5 h-5 rounded-full bg-white text-emerald-700 text-xs font-black flex items-center justify-center">
                   {cartCount}
                 </span>
               )}

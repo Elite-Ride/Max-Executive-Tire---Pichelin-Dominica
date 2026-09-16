@@ -15,13 +15,12 @@ import {
   Gauge,
   Bell
 } from 'lucide-react';
-import { Tyre, Currency } from '../types';
+import { Tyre } from '../types';
 import { SHOP_LOCATION_INFO } from '../data/servicesData';
 import { getRepresentativeVehicleForTyre } from '../data/tyresData';
 
 interface TireDetailModalProps {
   tyre: Tyre | null;
-  currency: Currency;
   onClose: () => void;
   servicePrices: Record<string, number>;
   onAddToCartWithServices: (
@@ -35,7 +34,6 @@ interface TireDetailModalProps {
 
 export const TireDetailModal: React.FC<TireDetailModalProps> = ({
   tyre,
-  currency,
   onClose,
   servicePrices,
   onAddToCartWithServices,
@@ -76,7 +74,6 @@ export const TireDetailModal: React.FC<TireDetailModalProps> = ({
     (includeShredding ? shreddingCostXCD : 0);
 
   const totalCostXCD = (tyre.priceXCD + unitServiceCostXCD) * quantity;
-  const totalCostUSD = totalCostXCD / 2.70;
 
   const handleAdd = () => {
     onAddToCartWithServices(
