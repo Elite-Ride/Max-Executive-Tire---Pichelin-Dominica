@@ -12,7 +12,8 @@ import {
   MapPin, 
   Info,
   Layers,
-  Gauge
+  Gauge,
+  Bell
 } from 'lucide-react';
 import { Tyre, Currency } from '../types';
 import { SHOP_LOCATION_INFO } from '../data/servicesData';
@@ -45,6 +46,25 @@ export const TireDetailModal: React.FC<TireDetailModalProps> = ({
   const [includeMounting, setIncludeMounting] = useState(true);
   const [includeValves, setIncludeValves] = useState(true);
   const [includeShredding, setIncludeShredding] = useState(true);
+  const [showNotifyForm, setShowNotifyForm] = useState(false);
+  const [notifyEmail, setNotifyEmail] = useState('');
+  const [notifyPhone, setNotifyPhone] = useState('');
+  const [notifySubmitted, setNotifySubmitted] = useState(false);
+
+  const handleNotifySubmit = (e: React.FormEvent) => {
+    e.preventDefault();
+    if (!notifyEmail && !notifyPhone) return;
+    const existing = JSON.parse(localStorage.getItem('max_executive_price_alerts') || '[]');
+    existing.push({
+      tyreId: tyre.id,
+      tyreName: `${tyre.brand} ${tyre.modelName} (${tyre.size})`,
+      email: notifyEmail,
+      phone: notifyPhone,
+      timestamp: new Date().toISOString()
+    });
+    localStorage.setItem('max_executive_price_alerts', JSON.stringify(existing));
+    setNotifySubmitted(true);
+  };
 
   const mountingCostXCD = servicePrices['mounting'] ?? 20;
   const valveCostXCD = servicePrices['valves'] ?? 15;
@@ -138,14 +158,70 @@ export const TireDetailModal: React.FC<TireDetailModalProps> = ({
               </p>
 
               {/* Price Display */}
-              <div className="bg-slate-50 p-3.5 rounded-xl border border-slate-200/80 flex items-baseline justify-between">
+              <div className="bg-slate-50 p-3.5 rounded-xl border border-slate-200/80 flex flex-col sm:flex-row items-start sm:items-center justify-between gap-3">
                 <div>
                   <span className="text-xs text-slate-500 block">Unit Tyre Price:</span>
                   <span className="text-2xl font-black text-[#2D3436]">
                     EC$ {tyre.priceXCD}
                   </span>
                 </div>
+                <button
+                  type="button"
+                  onClick={() => setShowNotifyForm(!showNotifyForm)}
+                  className="inline-flex items-center gap-1.5 text-xs font-bold text-[#0984E3] bg-blue-50 hover:bg-blue-100 px-3 py-2 rounded-lg border border-blue-200 transition"
+                >
+                  <Bell className="w-3.5 h-3.5" />
+                  <span>Notify Me (Price Drop & Restock)</span>
+                </button>
               </div>
+
+              {showNotifyForm && (
+                <div className="bg-blue-50/70 p-4 rounded-xl border border-blue-200 text-xs space-y-3 animate-fade-in">
+                  <div className="font-bold text-slate-800 flex items-center justify-between">
+                    <span>🔔 Set Price & Restock Alert for {tyre.brand} {tyre.size}</span>
+                    <button 
+                      type="button" 
+                      onClick={() => setShowNotifyForm(false)} 
+                      className="text-slate-400 hover:text-slate-700"
+                    >
+                      <X className="w-4 h-4" />
+                    </button>
+                  </div>
+                  {notifySubmitted ? (
+                    <div className="p-3 bg-emerald-50 text-emerald-700 rounded-lg border border-emerald-200 font-medium">
+                      ✓ Success! You will receive instant notifications when this tyre goes on sale or is restocked at Maranatha Square.
+                    </div>
+                  ) : (
+                    <form onSubmit={handleNotifySubmit} className="space-y-2">
+                      <p className="text-slate-600">Get notified instantly via email or WhatsApp SMS when price drops or new shipment arrives.</p>
+                      <div className="grid grid-cols-1 sm:grid-cols-2 gap-2">
+                        <input
+                          type="email"
+                          placeholder="Email address"
+                          value={notifyEmail}
+                          onChange={(e) => setNotifyEmail(e.target.value)}
+                          className="px-3 py-2 bg-white rounded-lg border border-slate-300 text-slate-900 focus:outline-none focus:ring-2 focus:ring-[#0984E3]"
+                        />
+                        <input
+                          type="text"
+                          placeholder="WhatsApp / Phone (e.g. 767...)"
+                          value={notifyPhone}
+                          onChange={(e) => setNotifyPhone(e.target.value)}
+                          className="px-3 py-2 bg-white rounded-lg border border-slate-300 text-slate-900 focus:outline-none focus:ring-2 focus:ring-[#0984E3]"
+                        />
+                      </div>
+                      <div className="flex justify-end gap-2 pt-1">
+                        <button
+                          type="submit"
+                          className="bg-[#0984E3] hover:bg-[#0770c2] text-white font-bold px-4 py-2 rounded-lg transition"
+                        >
+                          Enable Alert
+                        </button>
+                      </div>
+                    </form>
+                  )}
+                </div>
+              )}
             </div>
           </div>
 

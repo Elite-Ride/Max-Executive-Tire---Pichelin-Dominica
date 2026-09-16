@@ -35,6 +35,27 @@ export const TireCatalog: React.FC<TireCatalogProps> = ({
 
   return (
     <div id="tyres-catalog-grid" className="space-y-6">
+      {/* Seasonal Promotions Banner */}
+      <div className="bg-gradient-to-r from-emerald-600 via-teal-600 to-[#0984E3] text-white p-5 rounded-2xl shadow-md relative overflow-hidden flex flex-col sm:flex-row items-center justify-between gap-4">
+        <div className="absolute -right-10 -bottom-10 opacity-10 text-9xl font-black">🌴</div>
+        <div className="space-y-1 relative z-10 text-center sm:text-left">
+          <div className="inline-flex items-center gap-1.5 bg-white/20 text-white text-[11px] font-extrabold uppercase px-2.5 py-0.5 rounded-full tracking-wider">
+            <span>✨ Island Special Bundle</span>
+          </div>
+          <h3 className="text-lg sm:text-xl font-extrabold tracking-tight">
+            Hurricane Preparedness & Mountain Commuter Season
+          </h3>
+          <p className="text-xs sm:text-sm text-blue-100 max-w-2xl leading-relaxed">
+            Free high-speed computer balancing and brand-new valve stems included with every 2+ tyre reservation. Special flat-rate EC$135–EC$160 pricing across top commercial & SUV grades.
+          </p>
+        </div>
+        <div className="relative z-10 shrink-0">
+          <span className="inline-flex items-center gap-1.5 bg-white text-emerald-800 font-extrabold text-xs px-4 py-2.5 rounded-xl shadow-xs">
+            <span>🏷️ Limited Time Deals</span>
+          </span>
+        </div>
+      </div>
+
       <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-2">
         <div>
           <h2 className="text-2xl font-bold tracking-tight" style={{ color: '#0dec5a' }}>
@@ -82,6 +103,7 @@ export const TireCatalog: React.FC<TireCatalogProps> = ({
                     alt={`${tyre.brand} ${tyre.modelName} ${tyre.size}`}
                     className="w-full h-full object-cover group-hover:scale-105 transition-transform duration-500 opacity-90"
                     referrerPolicy="no-referrer"
+                    loading="lazy"
                   />
                   <div className="absolute inset-0 bg-gradient-to-t from-slate-950/80 via-transparent to-black/40"></div>
 

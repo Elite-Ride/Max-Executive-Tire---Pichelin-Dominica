@@ -55,3 +55,33 @@
 .animate-slide-left {
   animation: slideLeft 0.3s cubic-bezier(0.16, 1, 0.3, 1) forwards;
 }
+
+@media print {
+  body {
+    background: white !important;
+    color: black !important;
+  }
+  body > * {
+    display: none !important;
+  }
+  #cart-reservation-drawer-box {
+    display: block !important;
+    position: absolute !important;
+    left: 0 !important;
+    top: 0 !important;
+    width: 100% !important;
+    height: auto !important;
+    box-shadow: none !important;
+    border: none !important;
+    background: white !important;
+    color: black !important;
+  }
+  #cart-reservation-drawer-box button,
+  #cart-reservation-drawer-box form {
+    display: none !important;
+  }
+  #cart-reservation-drawer-box * {
+    color: black !important;
+    background: transparent !important;
+  }
+}

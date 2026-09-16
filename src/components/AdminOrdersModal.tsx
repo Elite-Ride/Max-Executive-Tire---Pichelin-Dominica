@@ -368,6 +368,18 @@ export const AdminOrdersModal: React.FC<AdminOrdersModalProps> = ({
     customer: o.customerName,
   }));
 
+  const brandFrequencyMap: Record<string, number> = {};
+  orders.forEach(order => {
+    order.items.forEach(item => {
+      const brand = item.tyre.brand || 'Other';
+      brandFrequencyMap[brand] = (brandFrequencyMap[brand] || 0) + item.quantity;
+    });
+  });
+
+  const brandChartData = Object.entries(brandFrequencyMap)
+    .map(([brand, count]) => ({ brand, count }))
+    .sort((a, b) => b.count - a.count);
+
   const handleDownloadSpreadsheet = () => {
     const headers = ['Reservation Code', 'Customer Name', 'Phone', 'Email', 'Vehicle', 'Preferred Date', 'Payment Method', 'Payment Status', 'Dispatch Status', 'Items Summary', 'Total XCD', 'Total USD', 'Timestamp'];
     const rows = orders.map(o => [
@@ -391,6 +403,26 @@ export const AdminOrdersModal: React.FC<AdminOrdersModalProps> = ({
     const link = document.createElement('a');
     link.setAttribute('href', encodedUri);
     link.setAttribute('download', `maranatha_tyres_order_history_${new Date().toISOString().split('T')[0]}.csv`);
+    document.body.appendChild(link);
+    link.click();
+    document.body.removeChild(link);
+  };
+
+  const handleDownloadActivityLogCsv = () => {
+    const headers = ['Log ID', 'Timestamp', 'Admin Name', 'Action Type', 'Description'];
+    const rows = adminActivityLog.map(log => [
+      log.id,
+      `"${log.timestamp}"`,
+      `"${log.adminName}"`,
+      log.actionType,
+      `"${log.description.replace(/"/g, '""')}"`
+    ]);
+
+    const csvContent = 'data:text/csv;charset=utf-8,' + [headers.join(','), ...rows.map(e => e.join(','))].join('\n');
+    const encodedUri = encodeURI(csvContent);
+    const link = document.createElement('a');
+    link.setAttribute('href', encodedUri);
+    link.setAttribute('download', `max_executive_admin_activity_log_${new Date().toISOString().split('T')[0]}.csv`);
     document.body.appendChild(link);
     link.click();
     document.body.removeChild(link);
@@ -779,6 +811,18 @@ export const AdminOrdersModal: React.FC<AdminOrdersModalProps> = ({
           </button>
 
           <button
+            onClick={() => setActiveModalTab('activity')}
+            className={`inline-flex items-center gap-2 px-4 py-2 rounded-xl text-xs sm:text-sm font-bold transition ${
+              activeModalTab === 'activity'
+                ? 'bg-[#0984E3] text-white shadow-sm'
+                : 'bg-slate-100 text-slate-700 hover:bg-slate-200'
+            }`}
+          >
+            <ShieldCheck className="w-4 h-4" />
+            <span>Activity Log ({adminActivityLog.length})</span>
+          </button>
+
+          <button
             onClick={() => setActiveModalTab('settings')}
             className={`inline-flex items-center gap-2 px-4 py-2 rounded-xl text-xs sm:text-sm font-bold transition ${
               activeModalTab === 'settings'
@@ -985,35 +1029,70 @@ export const AdminOrdersModal: React.FC<AdminOrdersModalProps> = ({
             </div>
 
             {historySubTab === 'analytics' ? (
-              <div className="bg-white border border-slate-200 rounded-2xl p-5 space-y-4 animate-fade-in">
-                <div className="flex items-center justify-between">
-                  <div>
-                    <h5 className="text-sm font-bold text-slate-900 flex items-center gap-2">
-                      <BarChart3 className="w-4 h-4 text-[#0984E3]" />
-                      Revenue Distribution per Order / Reservation
-                    </h5>
-                    <p className="text-xs text-slate-500">Visualizing total order values across past tyre sales and services.</p>
+              <div className="space-y-6 animate-fade-in">
+                {/* Revenue Chart */}
+                <div className="bg-white border border-slate-200 rounded-2xl p-5 space-y-4">
+                  <div className="flex items-center justify-between">
+                    <div>
+                      <h5 className="text-sm font-bold text-slate-900 flex items-center gap-2">
+                        <BarChart3 className="w-4 h-4 text-[#0984E3]" />
+                        Revenue Distribution per Order / Reservation
+                      </h5>
+                      <p className="text-xs text-slate-500">Visualizing total order values across past tyre sales and services.</p>
+                    </div>
                   </div>
+
+                  {orders.length === 0 ? (
+                    <div className="text-center py-12 text-slate-400 text-xs">No analytics data available yet.</div>
+                  ) : (
+                    <div className="w-full h-72 pt-4">
+                      <ResponsiveContainer width="100%" height="100%">
+                        <BarChart data={chartData}>
+                          <CartesianGrid strokeDasharray="3 3" stroke="#f1f5f9" />
+                          <XAxis dataKey="name" tick={{ fontSize: 11 }} />
+                          <YAxis tick={{ fontSize: 11 }} />
+                          <Tooltip 
+                            formatter={(value: any) => [`EC$ ${value}`, 'Revenue']}
+                            contentStyle={{ backgroundColor: '#1e293b', color: '#fff', borderRadius: '8px', fontSize: '12px' }}
+                          />
+                          <Bar dataKey="revenue" fill="#0984E3" radius={[6, 6, 0, 0]} />
+                        </BarChart>
+                      </ResponsiveContainer>
+                    </div>
+                  )}
                 </div>
 
-                {orders.length === 0 ? (
-                  <div className="text-center py-12 text-slate-400 text-xs">No analytics data available yet.</div>
-                ) : (
-                  <div className="w-full h-72 pt-4">
-                    <ResponsiveContainer width="100%" height="100%">
-                      <BarChart data={chartData}>
-                        <CartesianGrid strokeDasharray="3 3" stroke="#f1f5f9" />
-                        <XAxis dataKey="name" tick={{ fontSize: 11 }} />
-                        <YAxis tick={{ fontSize: 11 }} />
-                        <Tooltip 
-                          formatter={(value: any) => [`EC$ ${value}`, 'Revenue']}
-                          contentStyle={{ backgroundColor: '#1e293b', color: '#fff', borderRadius: '8px', fontSize: '12px' }}
-                        />
-                        <Bar dataKey="revenue" fill="#0984E3" radius={[6, 6, 0, 0]} />
-                      </BarChart>
-                    </ResponsiveContainer>
+                {/* Frequently Purchased Tyre Brands Chart */}
+                <div className="bg-white border border-slate-200 rounded-2xl p-5 space-y-4">
+                  <div className="flex items-center justify-between">
+                    <div>
+                      <h5 className="text-sm font-bold text-slate-900 flex items-center gap-2">
+                        <TrendingUp className="w-4 h-4 text-emerald-600" />
+                        Most Frequently Purchased Tyre Brands (Last Month / All Time)
+                      </h5>
+                      <p className="text-xs text-slate-500">Aggregated quantities ordered per tyre brand across customer reservations.</p>
+                    </div>
                   </div>
-                )}
+
+                  {brandChartData.length === 0 ? (
+                    <div className="text-center py-12 text-slate-400 text-xs">No brand purchase data available yet.</div>
+                  ) : (
+                    <div className="w-full h-72 pt-4">
+                      <ResponsiveContainer width="100%" height="100%">
+                        <BarChart data={brandChartData}>
+                          <CartesianGrid strokeDasharray="3 3" stroke="#f1f5f9" />
+                          <XAxis dataKey="brand" tick={{ fontSize: 11 }} />
+                          <YAxis tick={{ fontSize: 11 }} allowDecimals={false} />
+                          <Tooltip 
+                            formatter={(value: any) => [`${value} tyres`, 'Total Quantity']}
+                            contentStyle={{ backgroundColor: '#1e293b', color: '#fff', borderRadius: '8px', fontSize: '12px' }}
+                          />
+                          <Bar dataKey="count" fill="#10b981" radius={[6, 6, 0, 0]} />
+                        </BarChart>
+                      </ResponsiveContainer>
+                    </div>
+                  )}
+                </div>
               </div>
             ) : (
               <div className="space-y-3">
@@ -1221,6 +1300,65 @@ export const AdminOrdersModal: React.FC<AdminOrdersModalProps> = ({
                     );
                   })
                 )}
+              </div>
+            )}
+          </div>
+        ) : activeModalTab === 'activity' ? (
+          <div className="flex-1 overflow-y-auto space-y-6 py-4 animate-fade-in">
+            <div className="bg-gradient-to-r from-slate-900 to-slate-800 text-white p-5 rounded-2xl flex flex-wrap items-center justify-between gap-4 shadow-md">
+              <div>
+                <h4 className="text-base font-extrabold flex items-center gap-2">
+                  <ShieldCheck className="w-5 h-5 text-emerald-400" />
+                  Admin Activity Audit Log
+                </h4>
+                <p className="text-xs text-slate-300 mt-0.5">
+                  Track all administrative actions, status changes, price adjustments, and system events.
+                </p>
+              </div>
+              <button
+                onClick={handleDownloadActivityLogCsv}
+                className="inline-flex items-center gap-2 bg-[#0984E3] hover:bg-[#0873c4] text-white font-bold text-xs px-4 py-2.5 rounded-xl shadow-md transition"
+              >
+                <Download className="w-4 h-4" />
+                <span>Export Activity Log (CSV)</span>
+              </button>
+            </div>
+
+            {adminActivityLog.length === 0 ? (
+              <div className="text-center py-16 bg-white border border-slate-200 rounded-2xl text-slate-400 text-xs">
+                No administrative activity logged yet.
+              </div>
+            ) : (
+              <div className="bg-white border border-slate-200 rounded-2xl overflow-hidden shadow-xs">
+                <table className="w-full text-left border-collapse text-xs">
+                  <thead>
+                    <tr className="bg-slate-50 border-b border-slate-200 text-slate-500 font-bold">
+                      <th className="p-3.5">Timestamp</th>
+                      <th className="p-3.5">Admin</th>
+                      <th className="p-3.5">Action Type</th>
+                      <th className="p-3.5">Description</th>
+                    </tr>
+                  </thead>
+                  <tbody className="divide-y divide-slate-100">
+                    {adminActivityLog.map((log) => (
+                      <tr key={log.id} className="hover:bg-slate-50/80 transition">
+                        <td className="p-3.5 text-slate-500 font-mono whitespace-nowrap">{log.timestamp}</td>
+                        <td className="p-3.5 font-bold text-slate-800">{log.adminName}</td>
+                        <td className="p-3.5">
+                          <span className={`inline-block px-2 py-0.5 rounded text-[10px] font-bold uppercase ${
+                            log.actionType === 'PRICE_UPDATE' ? 'bg-amber-100 text-amber-800' :
+                            log.actionType === 'ORDER_DELETION' ? 'bg-red-100 text-red-800' :
+                            log.actionType === 'BULK_ACTION' ? 'bg-purple-100 text-purple-800' :
+                            'bg-blue-100 text-blue-800'
+                          }`}>
+                            {log.actionType}
+                          </span>
+                        </td>
+                        <td className="p-3.5 text-slate-700">{log.description}</td>
+                      </tr>
+                    ))}
+                  </tbody>
+                </table>
               </div>
             )}
           </div>
