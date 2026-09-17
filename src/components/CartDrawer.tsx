@@ -49,7 +49,6 @@ interface CartDrawerProps {
     preferredDate: string;
     items: CartItem[];
     totalXCD: number;
-    totalUSD: number;
     paymentMethod: 'Stripe Online' | 'Pay at Shop / WhatsApp';
   }) => void;
   onNavigateToOrders?: () => void;

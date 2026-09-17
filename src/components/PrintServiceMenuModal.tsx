@@ -149,7 +149,6 @@ export const PrintServiceMenuModal: React.FC<PrintServiceMenuModalProps> = ({
             <div className="text-left sm:text-right border-t sm:border-t-0 pt-2 sm:pt-0 text-xs text-slate-600">
               <div className="font-bold text-slate-900">Valid As Of: {currentDate}</div>
               <div>Currency: Eastern Caribbean Dollar (EC$)</div>
-              <div className="text-[11px] text-slate-500 font-serif">USD Fixed Peg: US$ 1.00 = EC$ 2.70</div>
             </div>
           </div>
 
@@ -191,7 +190,6 @@ export const PrintServiceMenuModal: React.FC<PrintServiceMenuModalProps> = ({
               <tbody className="divide-y divide-slate-200">
                 {TYRE_SERVICES.map((srv) => {
                   const price = servicePrices[srv.id] ?? srv.priceXCD;
-                  const priceUSD = (price / 2.70).toFixed(2);
                   return (
                     <tr key={srv.id} className="hover:bg-slate-50">
                       <td className="p-2.5 border-r border-slate-200 align-top">
@@ -210,7 +208,6 @@ export const PrintServiceMenuModal: React.FC<PrintServiceMenuModalProps> = ({
                       </td>
                       <td className="p-2.5 text-right align-top whitespace-nowrap">
                         <div className="font-bold text-slate-900 text-sm">EC$ {price}</div>
-                        <div className="text-[10px] text-slate-500">~US$ {priceUSD}</div>
                       </td>
                     </tr>
                   );
@@ -250,10 +247,10 @@ export const PrintServiceMenuModal: React.FC<PrintServiceMenuModalProps> = ({
                         <tr key={sIdx} className="py-1">
                           <td className="py-1 font-mono font-bold text-slate-800">{s.size}</td>
                           <td className="py-1 text-right font-semibold text-slate-900">
-                            EC$ {s.newPrice} <span className="text-[10px] text-slate-400 font-normal">(${(s.newPrice / 2.7).toFixed(0)})</span>
+                            EC$ {s.newPrice}
                           </td>
                           <td className="py-1 text-right text-emerald-700 font-semibold">
-                            EC$ {s.usedPrice} <span className="text-[10px] text-slate-400 font-normal">(${(s.usedPrice / 2.7).toFixed(0)})</span>
+                            EC$ {s.usedPrice}
                           </td>
                         </tr>
                       ))}

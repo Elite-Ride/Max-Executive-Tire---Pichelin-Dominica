@@ -31,7 +31,7 @@ async function startServer() {
       status: "ok",
       shop: "Max Executive Tires",
       location: "Maranatha Square, Pichelin, Dominica",
-      currency: "XCD / USD",
+      currency: "XCD",
     });
   });
 
@@ -93,27 +93,27 @@ Keep the tone warm, Caribbean-friendly, knowledgeable, concise, and structured w
   // API Route: Create Stripe Payment Intent
   app.post("/api/create-payment-intent", async (req, res) => {
     try {
-      const { items, currency = "usd", customerName } = req.body;
+      const { items, customerName } = req.body;
       
-      let totalUSD = 0;
+      let totalXCD = 0;
       if (items && Array.isArray(items)) {
         items.forEach((item: any) => {
           let unitServices = 0;
-          if (item.includeMounting) unitServices += 20 / 2.7;
-          if (item.includeNewValves) unitServices += 15 / 2.7;
-          const itemPriceUSD = (item.tyre.priceUSD + unitServices);
-          totalUSD += itemPriceUSD * item.quantity;
+          if (item.includeMounting) unitServices += 20;
+          if (item.includeNewValves) unitServices += 15;
+          const itemPriceXCD = ((item.tyre?.priceXCD || 100) + unitServices);
+          totalXCD += itemPriceXCD * item.quantity;
         });
       } else {
-        totalUSD = 50;
+        totalXCD = 100;
       }
 
-      const amountCents = Math.round(totalUSD * 100);
+      const amountCents = Math.round(totalXCD * 100);
       const stripe = getStripe();
       
       const paymentIntent = await stripe.paymentIntents.create({
         amount: amountCents > 50 ? amountCents : 5000,
-        currency: currency.toLowerCase(),
+        currency: "xcd",
         metadata: {
           shop: "Max Executive Tires Inc.",
           location: "Maranatha Square, Pichelin, Dominica",
@@ -123,14 +123,14 @@ Keep the tone warm, Caribbean-friendly, knowledgeable, concise, and structured w
 
       res.json({
         clientSecret: paymentIntent.client_secret,
-        amountUSD: (amountCents / 100).toFixed(2),
+        amountXCD: (amountCents / 100).toFixed(2),
       });
     } catch (error: any) {
       console.error("Stripe payment intent error:", error);
       // Fallback response for testing if STRIPE_SECRET_KEY is not yet configured
       res.json({
         clientSecret: "pi_test_mock_secret_" + Math.random().toString(36).substring(7),
-        amountUSD: "100.00",
+        amountXCD: "100.00",
         isMock: true,
         warning: "STRIPE_SECRET_KEY not set in environment. Using test mode simulation.",
       });

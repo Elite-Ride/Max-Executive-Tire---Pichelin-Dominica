@@ -86,7 +86,16 @@
   animation: slideLeft 0.3s cubic-bezier(0.16, 1, 0.3, 1) forwards;
 }
 
+/* Print-only elements: hidden on screen, visible only when printing */
+.print-only {
+  display: none !important;
+}
+
 @media print {
+  .print-only {
+    display: block !important;
+  }
+
   @page {
     size: auto;
     margin: 12mm 15mm;

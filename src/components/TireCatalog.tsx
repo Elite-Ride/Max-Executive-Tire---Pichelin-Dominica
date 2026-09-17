@@ -15,6 +15,7 @@ import {
 } from 'lucide-react';
 import { Tyre } from '../types';
 import { getRepresentativeVehicleForTyre } from '../data/tyresData';
+import { triggerAddToCartHaptic } from '../utils/haptics';
 
 interface TireCatalogProps {
   tyres: Tyre[];
@@ -214,7 +215,10 @@ export const TireCatalog: React.FC<TireCatalogProps> = ({
                       <button
                         type="button"
                         id={`reserve-tyre-${tyre.id}`}
-                        onClick={() => onAddToCart(tyre)}
+                        onClick={() => {
+                          triggerAddToCartHaptic();
+                          onAddToCart(tyre);
+                        }}
                         className="inline-flex items-center justify-center gap-1.5 bg-[#0984E3] hover:bg-[#0873c4] text-white text-xs font-bold py-2.5 px-3 rounded-lg shadow-xs transition transform active:scale-95"
                       >
                         <Plus className="w-4 h-4" />

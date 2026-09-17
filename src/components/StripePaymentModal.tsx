@@ -204,7 +204,6 @@ export const StripePaymentModal: React.FC<StripePaymentModalProps> = ({
   onClose,
   cartItems,
   totalXCD,
-  totalUSD,
   customerName,
   customerPhone,
   onPaymentSuccess,

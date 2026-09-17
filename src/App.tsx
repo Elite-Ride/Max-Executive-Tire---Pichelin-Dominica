@@ -26,6 +26,7 @@ import {
   RotateCcw
 } from 'lucide-react';
 import { SHOP_LOCATION_INFO } from './data/servicesData';
+import { triggerAddToCartHaptic, triggerSOSHaptic } from './utils/haptics';
 
 export default function App() {
   const [activeTab, setActiveTab] = useState<string>('inventory');
@@ -52,6 +53,7 @@ export default function App() {
   const [isSOSOpen, setIsSOSOpen] = useState(false);
 
   const handleOpenSOS = () => {
+    triggerSOSHaptic();
     setIsSOSOpen(true);
     setActiveTab('location');
     setTimeout(() => {
@@ -647,6 +649,7 @@ export default function App() {
 
   // Cart operations
   const handleAddToCart = (tyre: Tyre) => {
+    triggerAddToCartHaptic();
     setCartItems((prev) => {
       const existing = prev.find((item) => item.tyre.id === tyre.id);
       if (existing) {
@@ -675,6 +678,7 @@ export default function App() {
     includeValves: boolean,
     includeShredding: boolean
   ) => {
+    triggerAddToCartHaptic();
     setCartItems((prev) => {
       const existing = prev.find((item) => item.tyre.id === tyre.id);
       if (existing) {

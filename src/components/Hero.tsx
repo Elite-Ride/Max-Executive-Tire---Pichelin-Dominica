@@ -15,9 +15,11 @@ import {
   Flame,
   ArrowRight,
   Shield,
-  Gauge
+  Gauge,
+  AlertTriangle
 } from 'lucide-react';
 import { SHOP_LOCATION_INFO } from '../data/servicesData';
+import { triggerSOSHaptic } from '../utils/haptics';
 
 interface HeroProps {
   onSearchClick: () => void;
@@ -114,6 +116,18 @@ export const Hero: React.FC<HeroProps> = ({
             >
               <Wrench className="w-5 h-5 text-[#0984E3]" />
               <span>Workshop Services</span>
+            </button>
+
+            <button
+              id="hero-sos-btn"
+              onClick={() => {
+                triggerSOSHaptic();
+                onSOSClick();
+              }}
+              className="inline-flex items-center justify-center gap-2 bg-red-600 hover:bg-red-500 text-white font-bold text-sm sm:text-base px-6 py-4 rounded-xl shadow-lg shadow-red-600/20 transition transform active:scale-95"
+            >
+              <AlertTriangle className="w-5 h-5 text-amber-300 animate-pulse" />
+              <span>Roadside SOS Rescue</span>
             </button>
           </div>
 

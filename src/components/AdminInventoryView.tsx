@@ -123,7 +123,7 @@ export const AdminInventoryView: React.FC<AdminInventoryViewProps> = ({
   };
 
   const handleExportCSV = () => {
-    const headers = ['ID', 'Brand', 'Model', 'Size', 'Condition', 'Category', 'Price_XCD', 'Price_USD', 'Stock_Count'];
+    const headers = ['ID', 'Brand', 'Model', 'Size', 'Condition', 'Category', 'Price_XCD', 'Stock_Count'];
     const rows = filteredTyres.map(t => [
       t.id,
       `"${t.brand}"`,
@@ -132,7 +132,6 @@ export const AdminInventoryView: React.FC<AdminInventoryViewProps> = ({
       t.condition,
       `"${t.category}"`,
       t.priceXCD,
-      (t.priceXCD / 2.70).toFixed(2),
       t.stockCount
     ]);
     const csvContent = [headers.join(','), ...rows.map(r => r.join(','))].join('\n');
@@ -194,8 +193,7 @@ export const AdminInventoryView: React.FC<AdminInventoryViewProps> = ({
               <th>Size</th>
               <th>Category</th>
               <th>Condition</th>
-              <th>Price (XCD)</th>
-              <th>Price (USD)</th>
+              <th>Price (EC$)</th>
               <th>Stock Qty</th>
               <th>Audit Verified</th>
             </tr>
@@ -209,7 +207,6 @@ export const AdminInventoryView: React.FC<AdminInventoryViewProps> = ({
                 <td>${t.category}</td>
                 <td><span class="${t.condition === 'new' ? 'badge-new' : 'badge-used'}">${t.condition === 'new' ? 'BRAND NEW' : 'INSPECTED USED'}</span></td>
                 <td>EC$ ${t.priceXCD.toFixed(2)}</td>
-                <td>US$ ${(t.priceXCD / 2.70).toFixed(2)}</td>
                 <td style="font-weight: bold; font-size: 12px;">${t.stockCount}</td>
                 <td style="border-bottom: 1px dashed #cbd5e1; width: 80px;">[ &nbsp; ]</td>
               </tr>
@@ -609,9 +606,6 @@ export const AdminInventoryView: React.FC<AdminInventoryViewProps> = ({
                               <span className="font-black text-slate-900 text-xs block">
                                 EC$ {tyre.priceXCD.toFixed(2)}
                               </span>
-                              <span className="text-[10px] text-slate-500 font-medium">
-                                ~ US$ {(tyre.priceXCD / 2.70).toFixed(2)}
-                              </span>
                             </div>
                             {onUpdateTyrePrice && (
                               <button
@@ -847,9 +841,6 @@ export const AdminInventoryView: React.FC<AdminInventoryViewProps> = ({
                       className="w-full pl-11 pr-3 py-2 bg-slate-50 border border-slate-300 rounded-lg text-xs font-bold focus:outline-hidden focus:ring-2 focus:ring-[#0984E3]"
                     />
                   </div>
-                  <span className="text-[10px] text-slate-400 mt-0.5 block">
-                    ~ US$ {(newPriceXCD / 2.70).toFixed(2)} USD
-                  </span>
                 </div>
 
                 <div>

@@ -13,11 +13,13 @@ import {
   MessageSquare,
   Bell,
   Calendar,
-  FileText
+  FileText,
+  AlertTriangle
 } from 'lucide-react';
 import { BackgroundTheme } from '../types';
 import { SHOP_LOCATION_INFO } from '../data/servicesData';
 import { BrandLogo } from './BrandLogo';
+import { triggerSOSHaptic } from '../utils/haptics';
 
 interface NavbarProps {
   activeTab: string;
@@ -47,9 +49,7 @@ export const Navbar: React.FC<NavbarProps> = ({
   const [mobileMenuOpen, setMobileMenuOpen] = useState(false);
 
   const navItems = [
-    { id: 'inventory', label: 'Tyre Catalog', icon: ShoppingBag },
     { id: 'services', label: 'Workshop Services & Guide', icon: Wrench },
-    { id: 'location', label: 'Location & Hours', icon: MapPin },
   ];
 
   const handleNavClick = (tabId: string) => {
@@ -148,7 +148,7 @@ export const Navbar: React.FC<NavbarProps> = ({
             <button
               id="cart-button-nav"
               onClick={openCart}
-              className="relative inline-flex items-center gap-2 bg-emerald-600 hover:bg-emerald-500 text-white text-sm font-extrabold px-4 py-2.5 rounded-xl shadow-md border border-emerald-400 transition transform hover:scale-105"
+              className="relative inline-flex items-center gap-2 bg-emerald-600 hover:bg-emerald-500 text-white text-sm font-extrabold px-3.5 sm:px-4 py-2.5 rounded-xl shadow-md border border-emerald-400 transition transform hover:scale-105"
               aria-label="View reserved tyres and services"
             >
               <ShoppingBag className="w-4 h-4 text-white" />
@@ -158,6 +158,22 @@ export const Navbar: React.FC<NavbarProps> = ({
                   {cartCount}
                 </span>
               )}
+            </button>
+
+            {/* Roadside Rescue SOS Quick Button */}
+            <button
+              id="nav-sos-btn"
+              onClick={() => {
+                triggerSOSHaptic();
+                openSOS();
+              }}
+              className="inline-flex items-center gap-1.5 bg-red-600 hover:bg-red-500 text-white text-xs sm:text-sm font-extrabold px-3 sm:px-3.5 py-2.5 rounded-xl shadow-md border border-red-400 transition transform hover:scale-105 active:scale-95"
+              title="Emergency Roadside Puncture Rescue (Maranatha Square, Pichelin)"
+              aria-label="Emergency Roadside Rescue SOS"
+            >
+              <AlertTriangle className="w-4 h-4 text-white animate-pulse" />
+              <span className="hidden sm:inline">SOS</span>
+              <span className="sm:hidden font-black">SOS</span>
             </button>
 
             {/* Mobile Menu Toggle Button */}
@@ -210,6 +226,25 @@ export const Navbar: React.FC<NavbarProps> = ({
               </div>
               <span className="text-[10px] bg-slate-800 text-blue-400 border border-slate-700 px-2 py-0.5 rounded-md font-semibold">
                 In Cart
+              </span>
+            </button>
+
+            {/* Emergency Roadside SOS (Mobile Drawer) */}
+            <button
+              id="mobile-drawer-sos-btn"
+              onClick={() => {
+                setMobileMenuOpen(false);
+                triggerSOSHaptic();
+                openSOS();
+              }}
+              className="w-full flex items-center justify-between px-4 py-3 rounded-lg text-sm font-bold text-left bg-red-600/15 border border-red-500/30 text-red-400 hover:bg-red-600/25 transition active:scale-95"
+            >
+              <div className="flex items-center gap-3">
+                <AlertTriangle className="w-5 h-5 text-red-500 animate-pulse" />
+                <span className="text-white">Roadside Rescue SOS</span>
+              </div>
+              <span className="text-[10px] bg-red-600 text-white font-black px-2 py-0.5 rounded-md">
+                EMERGENCY
               </span>
             </button>
           </div>

@@ -89,7 +89,6 @@ export const ReceiptPrintModal: React.FC<ReceiptPrintModalProps> = ({
   }, 0);
 
   const grandTotalXCD = order.totalXCD || (tyresSubtotalXCD + servicesSubtotalXCD);
-  const approxUSD = (grandTotalXCD / 2.70).toFixed(2);
   const issueDate = order.timestamp || new Date().toLocaleString();
 
   const handleTriggerPrint = () => {
@@ -177,7 +176,16 @@ export const ReceiptPrintModal: React.FC<ReceiptPrintModalProps> = ({
     doc.setFontSize(12);
     doc.setTextColor(9, 132, 227);
     doc.text(`Total Payable:`, 14, y);
-    doc.text(`EC$ ${grandTotalXCD} (approx US$ ${approxUSD})`, 170, y, { align: 'right' });
+    doc.text(`EC$ ${grandTotalXCD}`, 170, y, { align: 'right' });
+    y += 12;
+
+    doc.setFontSize(10);
+    doc.setTextColor(30, 41, 59);
+    doc.text("Thank you for choosing Max Executive!", 105, y, { align: 'center' });
+    y += 5;
+    doc.setFontSize(8);
+    doc.setTextColor(100, 116, 139);
+    doc.text("Where quality meets the road • Maranatha Square, Pichelin, Dominica", 105, y, { align: 'center' });
 
     doc.save(`Receipt_${order.reservationCode}.pdf`);
   };
@@ -185,7 +193,7 @@ export const ReceiptPrintModal: React.FC<ReceiptPrintModalProps> = ({
   return (
     <div 
       id="receipt-modal-backdrop" 
-      className="fixed inset-0 z-50 flex items-center justify-center p-3 sm:p-6 bg-slate-950/80 backdrop-blur-sm overflow-y-auto"
+      className="fixed inset-0 z-[100] flex items-center justify-center p-3 sm:p-6 bg-slate-950/80 backdrop-blur-sm overflow-y-auto"
     >
       {/* Container holding action controls (screen-only) and the clean printable receipt sheet */}
       <div className="relative w-full max-w-3xl my-auto bg-white rounded-2xl shadow-2xl border border-slate-200 overflow-hidden flex flex-col max-h-[92vh]">
@@ -243,27 +251,39 @@ export const ReceiptPrintModal: React.FC<ReceiptPrintModalProps> = ({
             id="printable-receipt-sheet"
             className="printable-receipt-sheet bg-white p-6 sm:p-10 rounded-xl border border-slate-200 text-slate-900 shadow-sm max-w-2xl mx-auto font-sans"
           >
-            {/* Header Letterhead */}
+            {/* Header Letterhead with Shop Logo and Contact Details */}
             <div className="border-b-2 border-slate-900 pb-5 mb-6">
               <div className="flex flex-col sm:flex-row sm:items-start justify-between gap-4">
-                <div>
-                  <div className="flex items-center gap-2">
-                    <span className="text-2xl font-black tracking-tight text-slate-900 uppercase">
-                      MAX EXECUTIVE TIRES
-                    </span>
+                <div className="flex items-start gap-3.5">
+                  <div className="w-16 h-16 sm:w-20 sm:h-20 shrink-0 p-1.5 bg-white rounded-xl border border-slate-200 shadow-xs flex items-center justify-center">
+                    <img 
+                      src="/logo.svg" 
+                      alt="Max Executive Tires Inc." 
+                      className="w-full h-full object-contain"
+                    />
                   </div>
-                  <div className="text-xs font-semibold text-slate-700 mt-1">
-                    {SHOP_LOCATION_INFO.address}
-                  </div>
-                  <div className="text-xs text-slate-600">
-                    {SHOP_LOCATION_INFO.parish}
-                  </div>
-                  <div className="text-xs text-slate-600 mt-0.5">
-                    Hotline: <strong>{SHOP_LOCATION_INFO.phonePrimary}</strong> • WhatsApp: {SHOP_LOCATION_INFO.whatsapp}
+                  <div>
+                    <div className="flex items-center gap-2">
+                      <span className="text-xl sm:text-2xl font-black tracking-tight text-slate-900 uppercase font-sans">
+                        MAX EXECUTIVE TIRES
+                      </span>
+                    </div>
+                    <div className="text-[11px] sm:text-xs font-semibold text-slate-700 mt-1">
+                      {SHOP_LOCATION_INFO.address}
+                    </div>
+                    <div className="text-[11px] sm:text-xs text-slate-600">
+                      {SHOP_LOCATION_INFO.parish}
+                    </div>
+                    <div className="text-[11px] sm:text-xs text-slate-600 mt-0.5">
+                      Hotline: <strong>{SHOP_LOCATION_INFO.phonePrimary}</strong> • WhatsApp: {SHOP_LOCATION_INFO.whatsapp}
+                    </div>
+                    <div className="text-[11px] sm:text-xs text-slate-600">
+                      Email: {SHOP_LOCATION_INFO.email}
+                    </div>
                   </div>
                 </div>
 
-                <div className="text-left sm:text-right">
+                <div className="text-left sm:text-right shrink-0">
                   <span className="inline-block px-2.5 py-1 bg-slate-900 text-white text-[10px] font-black uppercase tracking-wider rounded">
                     Official Workshop Receipt
                   </span>
@@ -272,6 +292,9 @@ export const ReceiptPrintModal: React.FC<ReceiptPrintModalProps> = ({
                   </div>
                   <div className="text-[11px] text-slate-500 mt-0.5">
                     Issued: {issueDate}
+                  </div>
+                  <div className="text-[10px] text-slate-400 mt-0.5">
+                    Maranatha Square, Pichelin
                   </div>
                 </div>
               </div>
@@ -407,9 +430,6 @@ export const ReceiptPrintModal: React.FC<ReceiptPrintModalProps> = ({
                     <span className="text-sm uppercase">Total Amount:</span>
                     <span className="text-base font-mono text-[#0984E3]">EC$ {grandTotalXCD}</span>
                   </div>
-                  <div className="text-right text-[10px] text-slate-500 font-mono">
-                    Approx. US$ {approxUSD} (EC$ 2.70 = $1 USD)
-                  </div>
                 </div>
               </div>
             </div>
@@ -440,6 +460,22 @@ export const ReceiptPrintModal: React.FC<ReceiptPrintModalProps> = ({
                   </div>
                 </div>
               </div>
+            </div>
+
+            {/* Print-Only Receipt Footer (Only appears when printing) */}
+            <div className="print-only mt-8 pt-5 border-t-2 border-slate-900 text-center space-y-1.5 avoid-break">
+              <p className="text-base font-black text-slate-900 tracking-wider uppercase font-sans">
+                Thank you for choosing Max Executive!
+              </p>
+              <p className="text-xs text-slate-600 font-medium">
+                Where quality meets the road • Maranatha Square, Main Highway, Pichelin, Dominica
+              </p>
+              <p className="text-[11px] text-slate-500">
+                Hotline: {SHOP_LOCATION_INFO.phonePrimary} • WhatsApp: {SHOP_LOCATION_INFO.whatsapp} • Email: {SHOP_LOCATION_INFO.email}
+              </p>
+              <p className="text-[10px] text-slate-400 italic pt-1">
+                Please retain this receipt for official warranty records and future complimentary tyre inspections.
+              </p>
             </div>
 
           </div>

@@ -18,6 +18,7 @@ import {
 import { Tyre } from '../types';
 import { SHOP_LOCATION_INFO } from '../data/servicesData';
 import { getRepresentativeVehicleForTyre } from '../data/tyresData';
+import { triggerAddToCartHaptic } from '../utils/haptics';
 
 interface TireDetailModalProps {
   tyre: Tyre | null;
@@ -76,6 +77,7 @@ export const TireDetailModal: React.FC<TireDetailModalProps> = ({
   const totalCostXCD = (tyre.priceXCD + unitServiceCostXCD) * quantity;
 
   const handleAdd = () => {
+    triggerAddToCartHaptic();
     onAddToCartWithServices(
       tyre, 
       quantity, 

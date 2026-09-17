@@ -14,6 +14,7 @@ import {
   Car
 } from 'lucide-react';
 import { SHOP_LOCATION_INFO } from '../data/servicesData';
+import { triggerSOSHaptic } from '../utils/haptics';
 
 interface RoadsideRescueSOSProps {
   onClose?: () => void;
@@ -82,6 +83,7 @@ export const RoadsideRescueSOS: React.FC<RoadsideRescueSOSProps> = ({ onClose })
 
   const handleSOSSubmit = (e: React.FormEvent) => {
     e.preventDefault();
+    triggerSOSHaptic();
     setDispatchSent(true);
     // Open WhatsApp automatically
     window.open(constructWhatsAppSOSUrl(), '_blank');
