@@ -60,7 +60,7 @@ export const Footer: React.FC<FooterProps> = ({ setActiveTab, onOpenSOS }) => {
           </div>
 
           {/* Col 2: Quick Links */}
-          <div className="space-y-3">
+          <div className="space-y-3" style={{ paddingLeft: '26px' }}>
             <h4 className="text-xs font-bold uppercase tracking-wider text-white">
               Shop & Services
             </h4>

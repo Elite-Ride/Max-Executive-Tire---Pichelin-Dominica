@@ -72,18 +72,20 @@ export const Navbar: React.FC<NavbarProps> = ({
             </span>
           </div>
 
-          {SHOP_LOCATION_INFO.phonePrimary && (
-            <div className="flex items-center gap-2 text-xs text-slate-300">
-              <span className="hidden sm:inline text-slate-400">Direct Hotline:</span>
-              <a 
-                href={`tel:${SHOP_LOCATION_INFO.phonePrimary.replace(/[^0-9+]/g, '')}`}
-                className="inline-flex items-center justify-center text-[#0984E3] hover:text-blue-400 hover:underline font-bold px-3 py-1 bg-slate-950/60 rounded-md border border-slate-800 transition"
-                style={{ minHeight: '32px' }}
-              >
-                {SHOP_LOCATION_INFO.phonePrimary}
-              </a>
-            </div>
-          )}
+          <div className="flex items-center gap-2 text-xs text-slate-300">
+            <span className="hidden sm:inline-flex items-center gap-1.5 text-slate-400">
+              <Phone className="w-3.5 h-3.5 text-[#0984E3]" />
+              Direct:
+            </span>
+            <a 
+              href="tel:+17676160155"
+              className="inline-flex items-center gap-1.5 justify-center text-[#0984E3] hover:text-blue-300 hover:underline font-bold px-3 py-1 bg-slate-950/80 rounded-md border border-slate-700/80 transition"
+              style={{ minHeight: '32px' }}
+            >
+              <Phone className="w-3.5 h-3.5 sm:hidden text-[#0984E3]" />
+              +1 767 616 0155
+            </a>
+          </div>
         </div>
       </div>
 

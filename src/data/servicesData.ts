@@ -51,9 +51,9 @@ export const SHOP_LOCATION_INFO = {
   name: 'Max Executive Tires',
   address: 'Maranatha Square, Main Highway, Pichelin',
   parish: 'St. Patrick, Commonwealth of Dominica',
-  phonePrimary: '',
-  phoneMobile: '',
-  whatsapp: '',
+  phonePrimary: '+1 767 616 0155',
+  phoneMobile: '+1 767 616 0155',
+  whatsapp: '+1 767 616 0155',
   email: 'maxexecutivetires.dm@gmail.com',
   landmarks: 'Centrally located at Maranatha Square in Pichelin, right off the Grand Bay-Roseau link road, opposite the community center with easy drive-in workshop bays.',
   serviceAreas: [
