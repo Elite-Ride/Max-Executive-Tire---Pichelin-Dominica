@@ -24,6 +24,7 @@ import {
 import { CartItem } from '../types';
 import { SHOP_LOCATION_INFO } from '../data/servicesData';
 import { StripePaymentModal } from './StripePaymentModal';
+import { ReceiptPrintModal } from './ReceiptPrintModal';
 
 interface CartDrawerProps {
   isOpen: boolean;
@@ -46,6 +47,7 @@ interface CartDrawerProps {
     totalUSD: number;
     paymentMethod: 'Stripe Online' | 'Pay at Shop / WhatsApp';
   }) => void;
+  onNavigateToOrders?: () => void;
 }
 
 export const CartDrawer: React.FC<CartDrawerProps> = ({
@@ -58,6 +60,7 @@ export const CartDrawer: React.FC<CartDrawerProps> = ({
   onClearCart,
   servicePrices,
   onOrderSubmitted,
+  onNavigateToOrders,
 }) => {
   const [customerName, setCustomerName] = useState('');
   const [customerPhone, setCustomerPhone] = useState('');
@@ -67,6 +70,7 @@ export const CartDrawer: React.FC<CartDrawerProps> = ({
   const [isSubmitted, setIsSubmitted] = useState(false);
   const [reservationCode, setReservationCode] = useState('');
   const [isStripeModalOpen, setIsStripeModalOpen] = useState(false);
+  const [isPrintModalOpen, setIsPrintModalOpen] = useState(false);
   const [emailSent, setEmailSent] = useState(false);
   const [emailSending, setEmailSending] = useState(false);
 
@@ -331,7 +335,7 @@ export const CartDrawer: React.FC<CartDrawerProps> = ({
   };
 
   const handlePrintReceipt = () => {
-    window.print();
+    setIsPrintModalOpen(true);
   };
 
   return (
@@ -529,21 +533,39 @@ export const CartDrawer: React.FC<CartDrawerProps> = ({
                   <button
                     type="button"
                     onClick={handlePrintReceipt}
-                    className="flex items-center justify-center gap-1.5 bg-slate-900 hover:bg-slate-800 text-white font-bold py-2.5 px-3 rounded-lg text-xs transition shadow-xs"
+                    className="flex items-center justify-center gap-1.5 bg-blue-600 hover:bg-blue-500 text-white font-bold py-2.5 px-3 rounded-lg text-xs transition shadow-xs transform hover:scale-[1.02]"
+                    title="Print clean official receipt with browser print"
                   >
-                    <Printer className="w-3.5 h-3.5 text-blue-400" />
+                    <Printer className="w-3.5 h-3.5 text-white" />
                     <span>Print Receipt</span>
                   </button>
 
                   <button
                     type="button"
                     onClick={handleDownloadReceipt}
-                    className="flex items-center justify-center gap-1.5 bg-blue-600 hover:bg-blue-500 text-white font-bold py-2.5 px-3 rounded-lg text-xs transition shadow-xs"
+                    className="flex items-center justify-center gap-1.5 bg-slate-900 hover:bg-slate-800 text-white font-bold py-2.5 px-3 rounded-lg text-xs transition shadow-xs"
+                    title="Download text copy"
                   >
-                    <Download className="w-3.5 h-3.5 text-white" />
-                    <span>Download Receipt</span>
+                    <Download className="w-3.5 h-3.5 text-blue-400" />
+                    <span>Download TXT</span>
                   </button>
                 </div>
+
+                {onNavigateToOrders && (
+                  <button
+                    type="button"
+                    onClick={() => {
+                      onClearCart();
+                      setIsSubmitted(false);
+                      onClose();
+                      onNavigateToOrders();
+                    }}
+                    className="w-full flex items-center justify-center gap-1.5 bg-slate-100 hover:bg-slate-200 text-slate-800 font-bold py-2.5 px-3 rounded-lg text-xs border border-slate-300 transition shadow-xs"
+                  >
+                    <ShoppingBag className="w-3.5 h-3.5 text-[#0984E3]" />
+                    <span>View in My Orders & Tracking</span>
+                  </button>
+                )}
 
                 <button
                   type="button"
@@ -552,7 +574,7 @@ export const CartDrawer: React.FC<CartDrawerProps> = ({
                     setIsSubmitted(false);
                     onClose();
                   }}
-                  className="w-full text-xs font-bold text-slate-600 hover:text-slate-900 py-2"
+                  className="w-full text-xs font-bold text-slate-600 hover:text-slate-900 py-1.5"
                 >
                   Done / Close Reservation
                 </button>
@@ -867,6 +889,27 @@ export const CartDrawer: React.FC<CartDrawerProps> = ({
           customerName={customerName}
           customerPhone={customerPhone}
           onPaymentSuccess={handleStripeSuccess}
+        />
+
+        {/* Printer-Friendly Receipt Modal */}
+        <ReceiptPrintModal
+          isOpen={isPrintModalOpen}
+          onClose={() => setIsPrintModalOpen(false)}
+          order={{
+            reservationCode,
+            customerName: customerName || 'Valued Customer',
+            customerPhone: customerPhone || 'N/A',
+            customerEmail,
+            vehicleInfo: vehicleInfo || 'General Fitment',
+            preferredDate: preferredDate || 'Fast Lane Priority',
+            paymentMethod: reservationCode.startsWith('STRIPE') ? 'Stripe Online' : 'Pay at Shop / WhatsApp',
+            paymentStatus: reservationCode.startsWith('STRIPE') ? 'Confirmed' : 'Pending',
+            dispatchStatus: 'Pending Dispatch',
+            items: cartItems,
+            totalXCD: totalCartXCD,
+          }}
+          servicePrices={servicePrices}
+          autoPrint={true}
         />
 
         {/* Drawer Footer summary if not submitted */}

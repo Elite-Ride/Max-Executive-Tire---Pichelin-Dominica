@@ -1,0 +1,19 @@
+{
+  "name": "Max Executive Tires - Dominica",
+  "short_name": "Max Tires",
+  "description": "New and tested pre-owned tyre sales, wheel balancing, and 24/7 roadside assistance at Maranatha Square, Pichelin, Dominica.",
+  "start_url": "/",
+  "display": "standalone",
+  "background_color": "#020617",
+  "theme_color": "#0984E3",
+  "orientation": "portrait-primary",
+  "icons": [
+    {
+      "src": "/logo.svg",
+      "sizes": "192x192 512x512",
+      "type": "image/svg+xml",
+      "purpose": "any maskable"
+    }
+  ],
+  "categories": ["shopping", "automotive", "business"]
+}

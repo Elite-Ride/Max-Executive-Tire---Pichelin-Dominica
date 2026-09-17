@@ -30,7 +30,10 @@ import {
   CreditCard,
   Plus,
   Minus,
-  Wrench
+  Wrench,
+  Smartphone,
+  Apple,
+  Bot
 } from 'lucide-react';
 import { BarChart, Bar, XAxis, YAxis, Tooltip, ResponsiveContainer, CartesianGrid } from 'recharts';
 import { CartItem, Tyre } from '../types';
@@ -95,6 +98,7 @@ interface AdminOrdersModalProps {
   onBulkUpdateTyrePrices?: (category: string, newPriceXCD: number, mode: 'set' | 'add' | 'subtract') => void;
   onAddOrder?: (orderData: Omit<AdminOrder, 'id' | 'timestamp'>) => void;
   tyres?: Tyre[];
+  onOpenDeviceSimulator?: (platform?: 'ios' | 'android') => void;
 }
 
 export const AdminOrdersModal: React.FC<AdminOrdersModalProps> = ({
@@ -116,6 +120,7 @@ export const AdminOrdersModal: React.FC<AdminOrdersModalProps> = ({
   onBulkUpdateTyrePrices,
   onAddOrder,
   tyres = TYRES_DATA,
+  onOpenDeviceSimulator,
 }) => {
   const [activeModalTab, setActiveModalTab] = useState<'orders' | 'history' | 'pos' | 'prices' | 'activity' | 'trends' | 'settings' | 'services' | 'myorders'>('orders');
   const [customWhatsAppInput, setCustomWhatsAppInput] = useState(whatsappCustomMessage);
@@ -1008,6 +1013,24 @@ export const AdminOrdersModal: React.FC<AdminOrdersModalProps> = ({
                     <FileText className="w-4 h-4 text-[#0984E3]" />
                     <span>Export List PDF</span>
                   </button>
+                  {onOpenDeviceSimulator && (
+                    <button
+                      onClick={() => {
+                        setIsAdminActionsMenuOpen(false);
+                        onOpenDeviceSimulator('ios');
+                      }}
+                      className="w-full text-left px-3 py-2 rounded-lg hover:bg-blue-50 text-blue-900 font-bold flex items-center justify-between transition border-t border-slate-100 mt-1"
+                    >
+                      <div className="flex items-center gap-2">
+                        <Smartphone className="w-4 h-4 text-[#0984E3]" />
+                        <span>Preview in iOS & Android</span>
+                      </div>
+                      <div className="flex items-center gap-1">
+                        <Apple className="w-3.5 h-3.5 text-blue-600" />
+                        <Bot className="w-3.5 h-3.5 text-emerald-600" />
+                      </div>
+                    </button>
+                  )}
                   <button
                     onClick={() => { onLogoff(); setIsAdminActionsMenuOpen(false); }}
                     className="w-full text-left px-3 py-2 rounded-lg hover:bg-red-50 text-red-700 font-bold flex items-center gap-2 transition border-t border-slate-100 mt-1"

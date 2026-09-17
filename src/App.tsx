@@ -11,6 +11,7 @@ import { MyOrdersView } from './components/MyOrdersView';
 import { CartDrawer } from './components/CartDrawer';
 import { AdminOrdersModal, AdminOrder } from './components/AdminOrdersModal';
 import { AdminLoginModal } from './components/AdminLoginModal';
+import { DeviceSimulatorModal, DevicePlatform } from './components/DeviceSimulatorModal';
 import { Footer } from './components/Footer';
 import { TYRES_DATA } from './data/tyresData';
 import { Tyre, CartItem, DominicaVehiclePreset, TyreCondition, BackgroundTheme } from './types';
@@ -22,7 +23,10 @@ import {
   ShieldCheck, 
   MapPin,
   Car,
-  RotateCcw
+  RotateCcw,
+  Smartphone,
+  Apple,
+  Bot
 } from 'lucide-react';
 import { SHOP_LOCATION_INFO } from './data/servicesData';
 
@@ -61,6 +65,21 @@ export default function App() {
   };
   const [isAdminOrdersOpen, setIsAdminOrdersOpen] = useState(false);
   const [isAdminLoginOpen, setIsAdminLoginOpen] = useState(false);
+  const [isDeviceSimulatorOpen, setIsDeviceSimulatorOpen] = useState(false);
+  const [deviceSimulatorPlatform, setDeviceSimulatorPlatform] = useState<DevicePlatform>('ios');
+
+  const isInsideSimulator = useMemo(() => {
+    try {
+      return typeof window !== 'undefined' && new URLSearchParams(window.location.search).get('sim') === '1';
+    } catch {
+      return false;
+    }
+  }, []);
+
+  const handleOpenDeviceSimulator = (platform: DevicePlatform = 'ios') => {
+    setDeviceSimulatorPlatform(platform);
+    setIsDeviceSimulatorOpen(true);
+  };
   const [isAdminLoggedIn, setIsAdminLoggedIn] = useState<boolean>(() => {
     try {
       return localStorage.getItem('max_executive_admin_logged_in') === 'true';
@@ -544,6 +563,7 @@ export default function App() {
         openSOS={handleOpenSOS}
         adminOrdersCount={adminOrders.length}
         openAdminOrders={handleOpenAdmin}
+        onOpenDeviceSimulator={handleOpenDeviceSimulator}
       />
 
       {/* Main Content Area */}
@@ -613,6 +633,16 @@ export default function App() {
               className="animate-fade-in space-y-12"
             >
               <LocationSection />
+            </div>
+          )}
+
+          {/* TAB 3: My Orders & Receipts */}
+          {activeTab === 'orders' && (
+            <div className="animate-fade-in space-y-8">
+              <MyOrdersView
+                orders={adminOrders}
+                servicePrices={servicePrices}
+              />
             </div>
           )}
 
@@ -699,6 +729,7 @@ export default function App() {
         onClearCart={handleClearCart}
         servicePrices={servicePrices}
         onOrderSubmitted={handleOrderSubmitted}
+        onNavigateToOrders={() => setActiveTab('orders')}
       />
 
       {/* Admin Login Modal */}
@@ -731,8 +762,44 @@ export default function App() {
         onBulkUpdateTyrePrices={handleBulkUpdateTyrePrices}
         onAddOrder={handleOrderSubmitted}
         tyres={tyresWithOverrides}
-        
+        onOpenDeviceSimulator={handleOpenDeviceSimulator}
       />
+
+      {/* iOS & Android Device Simulator Modal */}
+      <DeviceSimulatorModal
+        isOpen={isDeviceSimulatorOpen}
+        onClose={() => setIsDeviceSimulatorOpen(false)}
+        initialPlatform={deviceSimulatorPlatform}
+      />
+
+      {/* Floating Device View Switcher for Desktop / Tablet View */}
+      {!isInsideSimulator && (
+        <aside 
+          aria-label="Device view simulator toggle"
+          className="hidden md:flex fixed bottom-6 left-6 z-40 items-center gap-1.5 p-1.5 bg-slate-900/95 backdrop-blur-md rounded-2xl border border-slate-700/80 shadow-2xl"
+        >
+          <div className="flex items-center gap-1.5 px-2.5 py-1 text-xs font-extrabold text-slate-300">
+            <Smartphone className="w-3.5 h-3.5 text-[#0984E3]" />
+            <span>Device View:</span>
+          </div>
+          <button
+            onClick={() => handleOpenDeviceSimulator('ios')}
+            className="flex items-center gap-1.5 px-3 py-1.5 bg-slate-800 hover:bg-slate-700 text-white rounded-xl text-xs font-bold border border-slate-600 transition transform hover:scale-105"
+            title="Preview in Apple iOS (iPhone 16 Pro, iPad)"
+          >
+            <Apple className="w-3.5 h-3.5 text-blue-400" />
+            <span>iOS</span>
+          </button>
+          <button
+            onClick={() => handleOpenDeviceSimulator('android')}
+            className="flex items-center gap-1.5 px-3 py-1.5 bg-emerald-950/90 hover:bg-emerald-900 text-emerald-300 rounded-xl text-xs font-bold border border-emerald-700/60 transition transform hover:scale-105"
+            title="Preview in Google Pixel & Samsung Galaxy"
+          >
+            <Bot className="w-3.5 h-3.5 text-emerald-400" />
+            <span>Android</span>
+          </button>
+        </aside>
+      )}
 
       {/* Need Help? Floating Bubble for Technical Tyre Advice */}
       <div 

@@ -57,31 +57,98 @@
 }
 
 @media print {
-  body {
-    background: white !important;
-    color: black !important;
+  @page {
+    size: auto;
+    margin: 12mm 15mm;
   }
-  body > * {
+
+  html, body {
+    background: #ffffff !important;
+    color: #111827 !important;
+    margin: 0 !important;
+    padding: 0 !important;
+    height: auto !important;
+    overflow: visible !important;
+    -webkit-print-color-adjust: exact !important;
+    print-color-adjust: exact !important;
+  }
+
+  /* Hide common chrome and interactive controls during print */
+  header,
+  footer,
+  nav,
+  aside,
+  button,
+  input,
+  form,
+  .no-print {
     display: none !important;
   }
+
+  /* Make modal backdrops transparent and full page in print */
+  #receipt-modal-backdrop {
+    position: static !important;
+    background: transparent !important;
+    padding: 0 !important;
+    margin: 0 !important;
+    display: block !important;
+  }
+
+  #receipt-modal-backdrop > div {
+    max-height: none !important;
+    box-shadow: none !important;
+    border: none !important;
+    background: transparent !important;
+    width: 100% !important;
+    max-width: 100% !important;
+  }
+
+  #receipt-modal-backdrop .flex-1 {
+    padding: 0 !important;
+    background: transparent !important;
+    overflow: visible !important;
+  }
+
+  /* Clean printer sheet styling */
+  .printable-receipt-sheet,
+  #printable-receipt-sheet {
+    display: block !important;
+    width: 100% !important;
+    max-width: 100% !important;
+    margin: 0 !important;
+    padding: 0 !important;
+    background: #ffffff !important;
+    color: #111827 !important;
+    box-shadow: none !important;
+    border: none !important;
+  }
+
+  /* Preserve table structure and borders */
+  .printable-receipt-sheet table {
+    width: 100% !important;
+    border-collapse: collapse !important;
+  }
+
+  .printable-receipt-sheet th,
+  .printable-receipt-sheet td {
+    padding: 8px 6px !important;
+  }
+
+  .avoid-break {
+    page-break-inside: avoid !important;
+    break-inside: avoid !important;
+  }
+
+  /* Fallback cart drawer box print rules if printing from cart drawer directly */
   #cart-reservation-drawer-box {
     display: block !important;
-    position: absolute !important;
-    left: 0 !important;
-    top: 0 !important;
+    position: static !important;
     width: 100% !important;
     height: auto !important;
     box-shadow: none !important;
     border: none !important;
     background: white !important;
     color: black !important;
-  }
-  #cart-reservation-drawer-box button,
-  #cart-reservation-drawer-box form {
-    display: none !important;
-  }
-  #cart-reservation-drawer-box * {
-    color: black !important;
-    background: transparent !important;
+    overflow: visible !important;
   }
 }

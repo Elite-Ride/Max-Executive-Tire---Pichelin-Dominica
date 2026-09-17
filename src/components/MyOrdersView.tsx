@@ -19,6 +19,7 @@ import { AdminOrder } from './AdminOrdersModal';
 import {  } from '../types';
 import { jsPDF } from 'jspdf';
 import { SHOP_LOCATION_INFO } from '../data/servicesData';
+import { ReceiptPrintModal } from './ReceiptPrintModal';
 
 interface MyOrdersViewProps {
   orders: AdminOrder[];
@@ -32,6 +33,13 @@ export const MyOrdersView: React.FC<MyOrdersViewProps> = ({
   const [searchQuery, setSearchQuery] = useState('');
   const [searchedOrders, setSearchedOrders] = useState<AdminOrder[] | null>(null);
   const [hasSearched, setHasSearched] = useState(false);
+  const [selectedPrintOrder, setSelectedPrintOrder] = useState<AdminOrder | null>(null);
+  const [autoPrintOrder, setAutoPrintOrder] = useState<boolean>(false);
+
+  const handlePrintReceipt = (order: AdminOrder) => {
+    setSelectedPrintOrder(order);
+    setAutoPrintOrder(true);
+  };
 
   const handleSearch = (e: React.FormEvent) => {
     e.preventDefault();
@@ -225,13 +233,23 @@ export const MyOrdersView: React.FC<MyOrdersViewProps> = ({
                       </p>
                     </div>
 
-                    <div className="flex items-center gap-2">
+                    <div className="flex items-center gap-2 flex-wrap">
+                      <button
+                        onClick={() => handlePrintReceipt(order)}
+                        className="flex items-center gap-1.5 bg-blue-600 hover:bg-blue-700 text-white text-xs font-bold px-3.5 py-2 rounded-lg shadow-xs transition transform hover:scale-105"
+                        title="Print clean official receipt using browser print"
+                      >
+                        <Printer className="w-3.5 h-3.5 text-white" />
+                        <span>Print Receipt</span>
+                      </button>
+
                       <button
                         onClick={() => handleExportPDF(order)}
                         className="flex items-center gap-1 bg-slate-900 hover:bg-slate-800 text-white text-xs font-bold px-3.5 py-2 rounded-lg shadow-xs transition"
+                        title="Download PDF version"
                       >
                         <Download className="w-3.5 h-3.5 text-blue-400" />
-                        <span>Download PDF Receipt</span>
+                        <span>Download PDF</span>
                       </button>
                     </div>
                   </div>
@@ -378,6 +396,18 @@ export const MyOrdersView: React.FC<MyOrdersViewProps> = ({
           </div>
         )}
       </div>
+
+      {/* Printer-Friendly Receipt Modal & Print Action */}
+      <ReceiptPrintModal
+        isOpen={selectedPrintOrder !== null}
+        onClose={() => {
+          setSelectedPrintOrder(null);
+          setAutoPrintOrder(false);
+        }}
+        order={selectedPrintOrder}
+        servicePrices={servicePrices}
+        autoPrint={autoPrintOrder}
+      />
     </div>
   );
 };
