@@ -13,9 +13,6 @@ import {
   MessageSquare,
   Bell,
   Calendar,
-  Smartphone,
-  Apple,
-  Bot,
   FileText
 } from 'lucide-react';
 import { BackgroundTheme } from '../types';
@@ -50,8 +47,8 @@ export const Navbar: React.FC<NavbarProps> = ({
   const [mobileMenuOpen, setMobileMenuOpen] = useState(false);
 
   const navItems = [
-    { id: 'inventory', label: 'Tyre Inventory', icon: ShoppingBag },
-    { id: 'orders', label: 'My Orders & Receipts', icon: FileText },
+    { id: 'inventory', label: 'Tyre Catalog', icon: ShoppingBag },
+    { id: 'services', label: 'Workshop Services & Guide', icon: Wrench },
     { id: 'location', label: 'Location & Hours', icon: MapPin },
   ];
 
@@ -132,19 +129,6 @@ export const Navbar: React.FC<NavbarProps> = ({
 
           {/* Action Buttons: Cart Drawer & Mobile Menu */}
           <div className="flex items-center gap-2 sm:gap-2.5">
-            {/* iOS & Android Device View Trigger */}
-            <button
-              onClick={() => onOpenDeviceSimulator?.('ios')}
-              className="hidden md:inline-flex items-center gap-1.5 bg-slate-900 hover:bg-slate-800 text-slate-200 hover:text-white text-xs font-bold px-3 py-2.5 rounded-xl border border-slate-700/80 shadow-xs transition"
-              title="Preview store on iOS (iPhone) and Android (Pixel/Galaxy) view"
-            >
-              <Smartphone className="w-3.5 h-3.5 text-[#0984E3]" />
-              <span className="hidden xl:inline">Devices:</span>
-              <Apple className="w-3 h-3 text-blue-400" />
-              <Bot className="w-3 h-3 text-emerald-400" />
-              <span className="text-slate-300">View</span>
-            </button>
-
             {/* Admin Notifications Button */}
             <button
               onClick={openAdminOrders}
@@ -211,27 +195,26 @@ export const Navbar: React.FC<NavbarProps> = ({
                 </button>
               );
             })}
+
+            {/* My Orders & Receipts in Cart */}
+            <button
+              onClick={() => {
+                setMobileMenuOpen(false);
+                openCart();
+              }}
+              className="w-full flex items-center justify-between px-4 py-3 rounded-lg text-sm font-bold text-left text-slate-300 hover:bg-slate-900"
+            >
+              <div className="flex items-center gap-3">
+                <FileText className="w-5 h-5 text-[#0984E3]" />
+                <span>My Orders & Receipts</span>
+              </div>
+              <span className="text-[10px] bg-slate-800 text-blue-400 border border-slate-700 px-2 py-0.5 rounded-md font-semibold">
+                In Cart
+              </span>
+            </button>
           </div>
 
           <div className="pt-4 border-t border-slate-800 flex flex-col gap-2">
-            {onOpenDeviceSimulator && (
-              <button
-                onClick={() => {
-                  setMobileMenuOpen(false);
-                  onOpenDeviceSimulator('ios');
-                }}
-                className="w-full flex items-center justify-between px-3.5 py-2.5 rounded-lg bg-slate-900 border border-slate-800 text-slate-200 hover:text-white text-xs font-bold"
-              >
-                <div className="flex items-center gap-2">
-                  <Smartphone className="w-4 h-4 text-[#0984E3]" />
-                  <span>Switch to iOS / Android View</span>
-                </div>
-                <div className="flex items-center gap-1.5">
-                  <Apple className="w-3.5 h-3.5 text-blue-400" />
-                  <Bot className="w-3.5 h-3.5 text-emerald-400" />
-                </div>
-              </button>
-            )}
             <a
               href={`https://wa.me/${SHOP_LOCATION_INFO.whatsapp.replace(/[^0-9]/g, '')}?text=Hello%20Max%20Executive%20Tires,%20I%20am%20inquiring%20about%20tyres%20in%20Pichelin`}
               target="_blank"

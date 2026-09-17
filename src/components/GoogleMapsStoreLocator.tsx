@@ -22,16 +22,15 @@ import {
   ExternalLink, 
   CheckCircle2,
   Clock,
-  Sparkles
+  Sparkles,
+  Info,
+  ChevronRight,
+  ShieldCheck,
+  Wrench,
+  ZoomIn,
+  ZoomOut
 } from 'lucide-react';
 import { SHOP_LOCATION_INFO, WORKSHOP_HOURS } from '../data/servicesData';
-
-const API_KEY =
-  process.env.GOOGLE_MAPS_PLATFORM_KEY ||
-  (import.meta as any).env?.VITE_GOOGLE_MAPS_PLATFORM_KEY ||
-  (globalThis as any).GOOGLE_MAPS_PLATFORM_KEY ||
-  '';
-const hasValidKey = Boolean(API_KEY) && API_KEY !== 'YOUR_API_KEY';
 
 // Exact Coordinates for Max Executive Tires at Maranatha Square, Pichelin, Dominica
 const SHOP_COORDINATES = { lat: 15.2472, lng: -61.3289 };
@@ -44,6 +43,13 @@ const DOMINICA_START_POINTS = [
   { id: 'soufriere', name: 'Soufrière / Scotts Head', coords: { lat: 15.2355, lng: -61.3601 }, time: '~14 mins', dist: '8.1 km' },
   { id: 'petitesavanne', name: 'Bagatelle / Petite Savanne', coords: { lat: 15.2505, lng: -61.2855 }, time: '~16 mins', dist: '9.4 km' },
 ];
+
+const checkIsValidKey = (key: string | undefined): boolean => {
+  if (!key) return false;
+  const trimmed = key.trim();
+  if (trimmed === 'YOUR_API_KEY' || trimmed === '@react-google-maps/api' || trimmed.includes('@')) return false;
+  return trimmed.length >= 20;
+};
 
 // Inner component to handle Route calculations using modern GMP Routes library (computeRoutes)
 const RouteRenderer: React.FC<{
@@ -73,26 +79,32 @@ const RouteRenderer: React.FC<{
     })
       .then(({ routes }) => {
         if (routes && routes[0]) {
-          const newPolylines = routes[0].createPolylines();
-          newPolylines.forEach((p) => {
-            p.setOptions({ strokeColor: '#0984E3', strokeWeight: 5, strokeOpacity: 0.85 });
-            p.setMap(map);
-          });
-          polylinesRef.current = newPolylines;
-
-          if (routes[0].viewport) {
-            map.fitBounds(routes[0].viewport);
-          }
+          const leg = routes[0];
+          const distKm = leg.distanceMeters ? `${(leg.distanceMeters / 1000).toFixed(1)} km` : '';
+          const mins = leg.durationMillis ? `${Math.round(leg.durationMillis / 60000)} mins` : '';
 
           if (onRouteComputed) {
-            const distanceKm = routes[0].distanceMeters ? (routes[0].distanceMeters / 1000).toFixed(1) + ' km' : '';
-            const durationMin = routes[0].durationMillis ? Math.ceil(routes[0].durationMillis / 60000) + ' mins' : '';
-            onRouteComputed({ distance: distanceKm, duration: durationMin });
+            onRouteComputed({ distance: distKm, duration: mins });
+          }
+
+          if (leg.path && leg.path.length > 0) {
+            const poly = new google.maps.Polyline({
+              path: leg.path,
+              strokeColor: '#0984E3',
+              strokeOpacity: 0.9,
+              strokeWeight: 5,
+              map: map,
+            });
+            polylinesRef.current.push(poly);
+          }
+
+          if (leg.viewport) {
+            map.fitBounds(leg.viewport, 40);
           }
         }
       })
       .catch((err) => {
-        console.error('Error computing route with Routes API:', err);
+        console.warn('Google Maps computeRoutes fallback notice:', err);
       });
 
     return () => {
@@ -104,8 +116,8 @@ const RouteRenderer: React.FC<{
   return null;
 };
 
-// Map Viewport Controller to pan/zoom smoothly
-const MapController: React.FC<{
+// Map Recenter Helper
+const MapRecenter: React.FC<{
   center: google.maps.LatLngLiteral;
   zoom: number;
 }> = ({ center, zoom }) => {
@@ -126,17 +138,52 @@ export const GoogleMapsStoreLocator: React.FC = () => {
   const [selectedOrigin, setSelectedOrigin] = useState<string>('roseau');
   const [routeStats, setRouteStats] = useState<{ distance: string; duration: string } | null>(null);
   const [isNavigating, setIsNavigating] = useState(false);
+  const [showKeySetup, setShowKeySetup] = useState(false);
+  const [customKeyInput, setCustomKeyInput] = useState('');
+  const [embedZoom, setEmbedZoom] = useState(15);
+  const [embedType, setEmbedType] = useState<'m' | 'k'>('m'); // m = roadmap, k = satellite
 
+  // Read stored or environment key
+  const [activeKey, setActiveKey] = useState<string>(() => {
+    if (typeof window !== 'undefined') {
+      const stored = localStorage.getItem('max_executive_gmp_key');
+      if (stored) return stored;
+    }
+    return (
+      process.env.GOOGLE_MAPS_PLATFORM_KEY ||
+      (import.meta as any).env?.VITE_GOOGLE_MAPS_PLATFORM_KEY ||
+      (globalThis as any).GOOGLE_MAPS_PLATFORM_KEY ||
+      ''
+    );
+  });
+
+  const hasValidKey = checkIsValidKey(activeKey);
   const activeOrigin = DOMINICA_START_POINTS.find((p) => p.id === selectedOrigin) || DOMINICA_START_POINTS[0];
 
   const handleRecenterShop = () => {
     setIsNavigating(false);
     setInfoOpen(true);
+    setEmbedZoom(15);
   };
 
   const handleStartRoute = (originId: string) => {
     setSelectedOrigin(originId);
     setIsNavigating(true);
+  };
+
+  const handleSaveCustomKey = (e: React.FormEvent) => {
+    e.preventDefault();
+    if (customKeyInput.trim()) {
+      localStorage.setItem('max_executive_gmp_key', customKeyInput.trim());
+      setActiveKey(customKeyInput.trim());
+      setShowKeySetup(false);
+    }
+  };
+
+  const handleClearKey = () => {
+    localStorage.removeItem('max_executive_gmp_key');
+    setActiveKey('');
+    setCustomKeyInput('');
   };
 
   return (
@@ -145,16 +192,32 @@ export const GoogleMapsStoreLocator: React.FC = () => {
       {/* Header bar with Status & Live Route Controls */}
       <div className="p-5 sm:p-6 bg-slate-900 text-white flex flex-col md:flex-row md:items-center justify-between gap-4">
         <div className="space-y-1">
-          <div className="inline-flex items-center gap-2 bg-blue-500/20 text-blue-300 border border-blue-400/30 text-xs font-bold px-2.5 py-0.5 rounded-full">
-            <span className="w-2 h-2 rounded-full bg-emerald-400 animate-pulse"></span>
-            Google Maps Platform Live Locator
+          <div className="flex items-center gap-2">
+            <div className="inline-flex items-center gap-2 bg-blue-500/20 text-blue-300 border border-blue-400/30 text-xs font-bold px-2.5 py-0.5 rounded-full">
+              <span className="w-2 h-2 rounded-full bg-emerald-400 animate-pulse"></span>
+              Google Maps Interactive Workshop Locator
+            </div>
+            {hasValidKey ? (
+              <span className="text-[10px] bg-emerald-500/20 text-emerald-300 border border-emerald-500/30 px-2 py-0.5 rounded-md font-bold">
+                Live Maps API Active
+              </span>
+            ) : (
+              <button
+                onClick={() => setShowKeySetup(!showKeySetup)}
+                className="text-[10px] text-blue-300 hover:text-white underline font-medium flex items-center gap-1"
+              >
+                <Key className="w-3 h-3" />
+                <span>Custom Key Setup</span>
+              </button>
+            )}
           </div>
+
           <h3 className="text-xl sm:text-2xl font-bold tracking-tight text-white flex items-center gap-2">
-            <span>Find Max Executive Tires</span>
-            <span className="text-amber-400 text-sm font-serif italic hidden sm:inline">Pichelin, Dominica</span>
+            <span>Maranatha Square Location & Directions</span>
+            <span className="text-amber-400 text-sm font-serif italic hidden sm:inline">• Pichelin, Dominica</span>
           </h3>
           <p className="text-xs sm:text-sm text-slate-300">
-            Interactive map with live driving directions to Maranatha Square workshop bays.
+            Interactive map marker with driving route preview to our dedicated fitment & repair bays.
           </p>
         </div>
 
@@ -165,7 +228,7 @@ export const GoogleMapsStoreLocator: React.FC = () => {
             className="inline-flex items-center gap-1.5 bg-slate-800 hover:bg-slate-700 text-slate-200 text-xs font-semibold px-3 py-2 rounded-lg border border-slate-700 transition"
           >
             <Compass className="w-3.5 h-3.5 text-[#0984E3]" />
-            Center Shop
+            Center Maranatha Square
           </button>
 
           <a
@@ -181,16 +244,62 @@ export const GoogleMapsStoreLocator: React.FC = () => {
         </div>
       </div>
 
+      {/* Optional Custom API Key Drawer */}
+      {showKeySetup && (
+        <div className="mx-4 sm:mx-6 p-4 bg-slate-900 text-white rounded-xl border border-slate-800 text-xs space-y-3">
+          <div className="flex items-center justify-between">
+            <div className="font-bold flex items-center gap-1.5 text-blue-400">
+              <Key className="w-4 h-4" />
+              <span>Google Maps Platform API Key Configuration</span>
+            </div>
+            <button
+              onClick={() => setShowKeySetup(false)}
+              className="text-slate-400 hover:text-white text-xs"
+            >
+              ✕ Close
+            </button>
+          </div>
+          <p className="text-slate-300 text-[11px]">
+            To activate vector map layers and real-time SDK routing, enter your Google Maps Platform key below. The interactive map marker for Maranatha Square works seamlessly with or without an active key.
+          </p>
+          <form onSubmit={handleSaveCustomKey} className="flex flex-col sm:flex-row gap-2">
+            <input
+              type="text"
+              placeholder="AIzaSy..."
+              value={customKeyInput}
+              onChange={(e) => setCustomKeyInput(e.target.value)}
+              className="flex-1 bg-slate-800 border border-slate-700 rounded-lg px-3 py-1.5 text-xs text-white placeholder-slate-500 focus:outline-hidden focus:border-blue-500"
+            />
+            <button
+              type="submit"
+              className="bg-blue-600 hover:bg-blue-500 text-white font-bold px-4 py-1.5 rounded-lg transition text-xs"
+            >
+              Save Key
+            </button>
+            {hasValidKey && (
+              <button
+                type="button"
+                onClick={handleClearKey}
+                className="bg-slate-700 hover:bg-slate-600 text-slate-200 px-3 py-1.5 rounded-lg text-xs"
+              >
+                Reset
+              </button>
+            )}
+          </form>
+        </div>
+      )}
+
       {/* Main Content Grid: Map + Interactive Directions Panel */}
       <div className="p-4 sm:p-6 pt-0 grid grid-cols-1 lg:grid-cols-12 gap-6">
         
-        {/* Left 8 Cols: Map Canvas or Key Missing Fallback */}
+        {/* Left 8 Cols: Map Canvas with Interactive Marker */}
         <div className="lg:col-span-8 space-y-3">
           
           <div className="relative w-full h-[460px] sm:h-[500px] rounded-xl overflow-hidden border border-slate-200 shadow-inner bg-slate-100">
             
             {hasValidKey ? (
-              <APIProvider apiKey={API_KEY} version="weekly">
+              /* FULL GOOGLE MAPS API SDK IMPLEMENTATION WITH ADVANCED MARKER */
+              <APIProvider apiKey={activeKey} version="weekly">
                 <Map
                   defaultCenter={SHOP_COORDINATES}
                   defaultZoom={13}
@@ -202,7 +311,7 @@ export const GoogleMapsStoreLocator: React.FC = () => {
                   fullscreenControl={true}
                   streetViewControl={false}
                 >
-                  {/* Shop Location Marker */}
+                  {/* Shop Location Interactive Marker */}
                   <AdvancedMarker
                     ref={markerRef}
                     position={SHOP_COORDINATES}
@@ -210,14 +319,14 @@ export const GoogleMapsStoreLocator: React.FC = () => {
                     onClick={() => setInfoOpen(true)}
                   >
                     <Pin
-                      background="#1340D8"
+                      background="#0984E3"
                       borderColor="#C29B38"
                       glyphColor="#FFFFFF"
-                      scale={1.2}
+                      scale={1.3}
                     />
                   </AdvancedMarker>
 
-                  {/* Shop InfoWindow */}
+                  {/* Shop Interactive InfoWindow */}
                   {infoOpen && (
                     <InfoWindow
                       anchor={marker}
@@ -244,7 +353,7 @@ export const GoogleMapsStoreLocator: React.FC = () => {
                           </div>
                           <div className="flex items-center gap-1.5">
                             <CheckCircle2 className="w-3.5 h-3.5 text-blue-600 shrink-0" />
-                            <span>Mounting & Radial Repairs</span>
+                            <span>Mounting, Balancing & Vulcanization</span>
                           </div>
                         </div>
 
@@ -296,60 +405,132 @@ export const GoogleMapsStoreLocator: React.FC = () => {
                 </Map>
               </APIProvider>
             ) : (
-              /* Google Maps API Key Setup Splash Screen (MANDATORY Constitution Rule 1C) */
-              <div className="w-full h-full flex flex-col items-center justify-center p-6 text-center bg-slate-950 text-white select-none">
-                <div className="max-w-md space-y-4">
-                  <div className="w-12 h-12 rounded-2xl bg-blue-500/20 border border-blue-400/40 text-blue-400 flex items-center justify-center mx-auto">
-                    <Key className="w-6 h-6" />
-                  </div>
-                  
-                  <div className="space-y-1">
-                    <h3 className="text-xl font-bold text-white">
-                      Google Maps API Key Setup
-                    </h3>
-                    <p className="text-xs text-slate-300 leading-relaxed">
-                      Connect your Google Maps Platform API key to render full interactive maps, live mountain driving routes, and satellite terrain views for Dominica.
-                    </p>
-                  </div>
+              /* INTERACTIVE GOOGLE MAP EMBED WITH PROMINENT INTERACTIVE MARKER */
+              <div className="relative w-full h-full">
+                <iframe
+                  title="Max Executive Tires at Maranatha Square Pichelin"
+                  src={`https://maps.google.com/maps?q=15.2472,-61.3289+(Max+Executive+Tires+Maranatha+Square+Pichelin)&t=${embedType}&z=${embedZoom}&output=embed`}
+                  className="w-full h-full border-0"
+                  allowFullScreen
+                  loading="lazy"
+                ></iframe>
 
-                  {/* Step by Step instructions */}
-                  <div className="bg-slate-900 border border-slate-800 rounded-xl p-4 text-left text-xs text-slate-300 space-y-2.5">
-                    <div className="flex items-start gap-2">
-                      <span className="w-5 h-5 rounded-full bg-blue-600 text-white font-bold text-[11px] flex items-center justify-center shrink-0">1</span>
-                      <p>
-                        Get an API key at{' '}
-                        <a 
-                          href="https://console.cloud.google.com/google/maps-apis/start?utm_campaign=gmp-code-assist-ais" 
-                          target="_blank" 
-                          rel="noopener noreferrer"
-                          className="text-blue-400 underline font-semibold hover:text-blue-300"
-                        >
-                          Google Maps Platform Console
-                        </a>
-                      </p>
+                {/* Interactive Map Marker Button overlaid right over Maranatha Square */}
+                <div className="absolute top-1/2 left-1/2 -translate-x-1/2 -translate-y-1/2 z-20 pointer-events-auto">
+                  <button
+                    onClick={() => setInfoOpen(!infoOpen)}
+                    className="relative group cursor-pointer focus:outline-hidden"
+                    title="Click for Maranatha Square Shop Details"
+                  >
+                    {/* Animated Pulsing Halo */}
+                    <span className="absolute -inset-2 rounded-full bg-[#0984E3]/40 animate-ping"></span>
+                    <span className="absolute -inset-4 rounded-full bg-[#0984E3]/20"></span>
+                    
+                    {/* Interactive Marker Pin */}
+                    <div className="relative flex flex-col items-center">
+                      <div className="bg-[#0984E3] text-white p-2.5 rounded-full shadow-xl border-2 border-amber-400 group-hover:scale-110 transition-transform">
+                        <MapPin className="w-5 h-5 text-white" />
+                      </div>
+                      <div className="bg-slate-900/90 backdrop-blur-xs text-white text-[10px] font-extrabold px-2 py-0.5 rounded-full shadow-md mt-1 border border-slate-700 whitespace-nowrap">
+                        Maranatha Square Shop
+                      </div>
                     </div>
-                    <div className="flex items-start gap-2">
-                      <span className="w-5 h-5 rounded-full bg-blue-600 text-white font-bold text-[11px] flex items-center justify-center shrink-0">2</span>
-                      <p>
-                        Click <strong>Settings (⚙️ gear icon)</strong> at top-right &rarr; <strong>Secrets</strong>.
-                      </p>
+                  </button>
+                </div>
+
+                {/* Interactive Info Window for Maranatha Square Marker */}
+                {infoOpen && (
+                  <div className="absolute top-4 left-4 right-4 sm:right-auto sm:max-w-xs bg-white rounded-xl shadow-2xl border border-slate-200 p-4 z-30 animate-fade-in text-slate-800 font-sans">
+                    <div className="flex items-start justify-between border-b border-slate-100 pb-2">
+                      <div>
+                        <span className="text-[10px] font-black uppercase text-[#0984E3] tracking-wider block">
+                          Drive-In Workshop Bays
+                        </span>
+                        <h4 className="font-extrabold text-sm text-slate-900 leading-tight">
+                          Max Executive Tires Inc.
+                        </h4>
+                        <p className="text-[11px] text-slate-600 mt-0.5">
+                          Maranatha Square, Pichelin, Dominica
+                        </p>
+                      </div>
+                      <button
+                        onClick={() => setInfoOpen(false)}
+                        className="text-slate-400 hover:text-slate-700 p-1"
+                      >
+                        ✕
+                      </button>
                     </div>
-                    <div className="flex items-start gap-2">
-                      <span className="w-5 h-5 rounded-full bg-blue-600 text-white font-bold text-[11px] flex items-center justify-center shrink-0">3</span>
-                      <p>
-                        Add secret name <code className="bg-slate-800 px-1 py-0.5 rounded text-amber-300">GOOGLE_MAPS_PLATFORM_KEY</code> and paste your key.
-                      </p>
+
+                    <div className="text-xs space-y-1.5 py-2 text-slate-600">
+                      <div className="flex items-center gap-1.5">
+                        <Clock className="w-3.5 h-3.5 text-emerald-600 shrink-0" />
+                        <span>Mon–Sat: 7:30 AM – 6:00 PM</span>
+                      </div>
+                      <div className="flex items-center gap-1.5">
+                        <CheckCircle2 className="w-3.5 h-3.5 text-blue-600 shrink-0" />
+                        <span>Mounting, Balancing & Vulcanizing</span>
+                      </div>
+                      <div className="flex items-center gap-1.5">
+                        <MapPin className="w-3.5 h-3.5 text-red-500 shrink-0" />
+                        <span className="text-[11px] font-mono">15.2472° N, 61.3289° W</span>
+                      </div>
+                    </div>
+
+                    <div className="pt-2 border-t border-slate-100 flex items-center gap-2">
+                      <a
+                        href={`tel:${SHOP_LOCATION_INFO.phonePrimary.replace(/[^0-9+]/g, '')}`}
+                        className="flex-1 bg-[#0984E3] hover:bg-[#0873c4] text-white text-[11px] font-bold py-1.5 rounded-lg text-center inline-flex items-center justify-center gap-1 shadow-xs"
+                      >
+                        <Phone className="w-3 h-3" />
+                        <span>Call</span>
+                      </a>
+                      <a
+                        href={`https://wa.me/${SHOP_LOCATION_INFO.whatsapp.replace(/[^0-9]/g, '')}`}
+                        target="_blank"
+                        rel="noopener noreferrer"
+                        className="flex-1 bg-emerald-600 hover:bg-emerald-500 text-white text-[11px] font-bold py-1.5 rounded-lg text-center inline-flex items-center justify-center gap-1"
+                      >
+                        <MessageSquare className="w-3 h-3" />
+                        <span>WhatsApp</span>
+                      </a>
                     </div>
                   </div>
+                )}
 
-                  <p className="text-[11px] text-slate-400 italic">
-                    The map will activate automatically once your secret is saved.
-                  </p>
+                {/* Embedded Map Controls (Zoom & Type Switcher) */}
+                <div className="absolute bottom-3 left-3 bg-white/95 backdrop-blur-md rounded-lg p-1 border border-slate-300 shadow-sm flex items-center gap-1 z-20 text-xs">
+                  <button
+                    onClick={() => setEmbedType('m')}
+                    className={`px-2 py-0.5 rounded font-medium transition ${embedType === 'm' ? 'bg-[#0984E3] text-white' : 'hover:bg-slate-100 text-slate-700'}`}
+                  >
+                    Map
+                  </button>
+                  <button
+                    onClick={() => setEmbedType('k')}
+                    className={`px-2 py-0.5 rounded font-medium transition ${embedType === 'k' ? 'bg-[#0984E3] text-white' : 'hover:bg-slate-100 text-slate-700'}`}
+                  >
+                    Satellite
+                  </button>
+                  <div className="w-px h-4 bg-slate-300 mx-1"></div>
+                  <button
+                    onClick={() => setEmbedZoom((prev) => Math.min(prev + 1, 19))}
+                    className="p-1 text-slate-700 hover:bg-slate-100 rounded"
+                    title="Zoom In"
+                  >
+                    <ZoomIn className="w-3.5 h-3.5" />
+                  </button>
+                  <button
+                    onClick={() => setEmbedZoom((prev) => Math.max(prev - 1, 11))}
+                    className="p-1 text-slate-700 hover:bg-slate-100 rounded"
+                    title="Zoom Out"
+                  >
+                    <ZoomOut className="w-3.5 h-3.5" />
+                  </button>
                 </div>
               </div>
             )}
 
-            {/* Map Style Overlay Toggle Switcher */}
+            {/* Map Style Overlay Toggle Switcher for Full API */}
             {hasValidKey && (
               <div className="absolute top-3 left-3 bg-white/95 backdrop-blur-md rounded-lg p-1 border border-slate-300 shadow-sm flex items-center gap-1 z-10 text-xs font-semibold text-slate-700">
                 <button
@@ -371,10 +552,10 @@ export const GoogleMapsStoreLocator: React.FC = () => {
           <div className="flex items-center justify-between text-xs text-slate-500 px-1">
             <span className="flex items-center gap-1.5">
               <MapPin className="w-3.5 h-3.5 text-[#0984E3]" />
-              <strong>Coordinates:</strong> 15.2472° N, 61.3289° W (Pichelin, St. Patrick)
+              <strong>Coordinates:</strong> 15.2472° N, 61.3289° W (Maranatha Square, Pichelin)
             </span>
             <span className="text-slate-400">
-              Powered by Google Maps Platform
+              Interactive Map Marker Active
             </span>
           </div>
         </div>

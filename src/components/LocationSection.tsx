@@ -1,4 +1,4 @@
-import React from 'react';
+import React, { useState } from 'react';
 import { 
   MapPin, 
   Clock, 
@@ -8,12 +8,22 @@ import {
   Compass, 
   CheckCircle2, 
   Car, 
-  Truck
+  Truck,
+  Printer,
+  Wrench,
+  ShieldCheck,
+  Leaf
 } from 'lucide-react';
 import { SHOP_LOCATION_INFO, WORKSHOP_HOURS } from '../data/servicesData';
 import { GoogleMapsStoreLocator } from './GoogleMapsStoreLocator';
+import { PrintServiceMenuModal } from './PrintServiceMenuModal';
 
-export const LocationSection: React.FC = () => {
+interface LocationSectionProps {
+  onNavigateToServices?: (tab?: 'services' | 'guide' | 'disposal') => void;
+}
+
+export const LocationSection: React.FC<LocationSectionProps> = ({ onNavigateToServices }) => {
+  const [isPrintModalOpen, setIsPrintModalOpen] = useState(false);
   const travelTimes = [
     { from: 'Grand Bay (Berricoa)', time: '5 - 7 mins', dist: '3.8 km' },
     { from: 'Bellevue Chopin', time: '6 - 8 mins', dist: '4.2 km' },
@@ -152,10 +162,50 @@ export const LocationSection: React.FC = () => {
                 ))}
               </ul>
             </div>
+
+            {/* Quick Action Buttons */}
+            <div className="pt-4 border-t border-slate-800 flex flex-col gap-2">
+              <button
+                type="button"
+                onClick={() => setIsPrintModalOpen(true)}
+                className="w-full inline-flex items-center justify-center gap-2 bg-slate-800 hover:bg-slate-700 text-slate-100 font-bold text-xs py-2.5 rounded-xl border border-slate-700 transition"
+              >
+                <Printer className="w-3.5 h-3.5 text-[#0984E3]" />
+                <span>Print Service & Tyre Menu</span>
+              </button>
+
+              {onNavigateToServices && (
+                <>
+                  <button
+                    type="button"
+                    onClick={() => onNavigateToServices('guide')}
+                    className="w-full inline-flex items-center justify-center gap-2 bg-blue-600/20 hover:bg-blue-600/30 text-blue-300 font-bold text-xs py-2.5 rounded-xl border border-blue-500/30 transition"
+                  >
+                    <ShieldCheck className="w-3.5 h-3.5 text-blue-400" />
+                    <span>Puncture Repair & Safety Guide</span>
+                  </button>
+
+                  <button
+                    type="button"
+                    onClick={() => onNavigateToServices('disposal')}
+                    className="w-full inline-flex items-center justify-center gap-2 bg-emerald-600/20 hover:bg-emerald-600/30 text-emerald-300 font-bold text-xs py-2.5 rounded-xl border border-emerald-500/30 transition"
+                  >
+                    <Leaf className="w-3.5 h-3.5 text-emerald-400" />
+                    <span>Eco Tyre Disposal & Shredder (Pichelin)</span>
+                  </button>
+                </>
+              )}
+            </div>
           </div>
         </div>
 
       </div>
+
+      {/* Printer-Friendly Service & Tyre Price Menu Modal */}
+      <PrintServiceMenuModal
+        isOpen={isPrintModalOpen}
+        onClose={() => setIsPrintModalOpen(false)}
+      />
     </section>
   );
 };

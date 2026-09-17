@@ -21,17 +21,15 @@ import {
   AlertTriangle, 
   Wrench, 
   ShieldCheck, 
-  MapPin,
-  Car,
-  RotateCcw,
-  Smartphone,
-  Apple,
-  Bot
+  MapPin, 
+  Car, 
+  RotateCcw
 } from 'lucide-react';
 import { SHOP_LOCATION_INFO } from './data/servicesData';
 
 export default function App() {
   const [activeTab, setActiveTab] = useState<string>('inventory');
+  const [servicesSubTab, setServicesSubTab] = useState<'services' | 'guide' | 'disposal'>('services');
   const [bgTheme, setBgTheme] = useState<BackgroundTheme>(() => {
     try {
       return (localStorage.getItem('max_executive_bg_theme') as BackgroundTheme) || 'tarmac';
@@ -89,10 +87,164 @@ export default function App() {
   });
   const [selectedTyreDetail, setSelectedTyreDetail] = useState<Tyre | null>(null);
 
+  const DEFAULT_INITIAL_RESERVATIONS: AdminOrder[] = useMemo(() => [
+    {
+      id: 'ord-pichelin-01',
+      reservationCode: 'MTC-849201',
+      customerName: 'Marcus Fontaine',
+      customerPhone: '+1 (767) 245-8912',
+      customerEmail: 'mfontaine.dom@gmail.com',
+      vehicleInfo: 'Toyota Hilux 4x4 (Double Cab)',
+      preferredDate: 'Today (Fast-Lane Fitting)',
+      items: [
+        {
+          id: 'cart-1',
+          tyre: TYRES_DATA[0],
+          quantity: 2,
+          includeMounting: true,
+          includeNewValves: true,
+          includeShredding: true
+        }
+      ],
+      totalXCD: (TYRES_DATA[0].priceXCD + 20 + 15 + 1) * 2,
+      paymentMethod: 'Pay at Shop / WhatsApp',
+      timestamp: 'Today, 8:45 AM',
+      paymentStatus: 'Pending',
+      dispatchStatus: 'Pending'
+    },
+    {
+      id: 'ord-pichelin-02',
+      reservationCode: 'MTC-913404',
+      customerName: 'Kervin Charles',
+      customerPhone: '+1 (767) 612-4432',
+      customerEmail: 'kervin.c@dominica.dm',
+      vehicleInfo: 'Nissan X-Trail T32',
+      preferredDate: 'Today, 2:00 PM',
+      items: [
+        {
+          id: 'cart-2',
+          tyre: TYRES_DATA[1] || TYRES_DATA[0],
+          quantity: 2,
+          includeMounting: true,
+          includeNewValves: true,
+          includeShredding: false
+        }
+      ],
+      totalXCD: ((TYRES_DATA[1] || TYRES_DATA[0]).priceXCD + 20 + 15) * 2,
+      paymentMethod: 'Stripe Online',
+      timestamp: 'Yesterday, 3:15 PM',
+      paymentStatus: 'Confirmed',
+      dispatchStatus: 'Ready for Fitting'
+    },
+    {
+      id: 'ord-pichelin-03',
+      reservationCode: 'MTC-724189',
+      customerName: 'Althea St. Jean',
+      customerPhone: '+1 (767) 316-9081',
+      customerEmail: 'althea.stjean@gmail.com',
+      vehicleInfo: 'Suzuki Swift (ZXI Hatchback)',
+      preferredDate: 'Yesterday Morning',
+      items: [
+        {
+          id: 'cart-3',
+          tyre: TYRES_DATA[2] || TYRES_DATA[0],
+          quantity: 4,
+          includeMounting: true,
+          includeNewValves: true,
+          includeShredding: true
+        }
+      ],
+      totalXCD: ((TYRES_DATA[2] || TYRES_DATA[0]).priceXCD + 20 + 15 + 1) * 4,
+      paymentMethod: 'Stripe Online',
+      timestamp: '2 days ago',
+      paymentStatus: 'Confirmed',
+      dispatchStatus: 'Completed'
+    }
+  ], []);
+
   const [adminOrders, setAdminOrders] = useState<AdminOrder[]>(() => {
     try {
       const saved = localStorage.getItem('max_executive_admin_orders');
-      return saved ? JSON.parse(saved) : [];
+      if (saved) {
+        const parsed = JSON.parse(saved);
+        if (Array.isArray(parsed) && parsed.length > 0) {
+          return parsed;
+        }
+      }
+      return [
+        {
+          id: 'ord-pichelin-01',
+          reservationCode: 'MTC-849201',
+          customerName: 'Marcus Fontaine',
+          customerPhone: '+1 (767) 245-8912',
+          customerEmail: 'mfontaine.dom@gmail.com',
+          vehicleInfo: 'Toyota Hilux 4x4 (Double Cab)',
+          preferredDate: 'Today (Fast-Lane Fitting)',
+          items: [
+            {
+              id: 'cart-1',
+              tyre: TYRES_DATA[0],
+              quantity: 2,
+              includeMounting: true,
+              includeNewValves: true,
+              includeShredding: true
+            }
+          ],
+          totalXCD: (TYRES_DATA[0].priceXCD + 20 + 15 + 1) * 2,
+          paymentMethod: 'Pay at Shop / WhatsApp',
+          timestamp: 'Today, 8:45 AM',
+          paymentStatus: 'Pending',
+          dispatchStatus: 'Pending'
+        },
+        {
+          id: 'ord-pichelin-02',
+          reservationCode: 'MTC-913404',
+          customerName: 'Kervin Charles',
+          customerPhone: '+1 (767) 612-4432',
+          customerEmail: 'kervin.c@dominica.dm',
+          vehicleInfo: 'Nissan X-Trail T32',
+          preferredDate: 'Today, 2:00 PM',
+          items: [
+            {
+              id: 'cart-2',
+              tyre: TYRES_DATA[1] || TYRES_DATA[0],
+              quantity: 2,
+              includeMounting: true,
+              includeNewValves: true,
+              includeShredding: false
+            }
+          ],
+          totalXCD: ((TYRES_DATA[1] || TYRES_DATA[0]).priceXCD + 20 + 15) * 2,
+          paymentMethod: 'Stripe Online',
+          timestamp: 'Yesterday, 3:15 PM',
+          paymentStatus: 'Confirmed',
+          dispatchStatus: 'Ready for Fitting'
+        },
+        {
+          id: 'ord-pichelin-03',
+          reservationCode: 'MTC-724189',
+          customerName: 'Althea St. Jean',
+          customerPhone: '+1 (767) 316-9081',
+          customerEmail: 'althea.stjean@gmail.com',
+          vehicleInfo: 'Suzuki Swift (ZXI Hatchback)',
+          preferredDate: 'Yesterday Morning',
+          items: [
+            {
+              id: 'cart-3',
+              tyre: TYRES_DATA[2] || TYRES_DATA[0],
+              quantity: 4,
+              includeMounting: true,
+              includeNewValves: true,
+              includeShredding: true
+            }
+          ],
+          totalXCD: ((TYRES_DATA[2] || TYRES_DATA[0]).priceXCD + 20 + 15 + 1) * 4,
+          paymentMethod: 'Stripe Online',
+          timestamp: '2 days ago',
+          paymentStatus: 'Confirmed',
+          dispatchStatus: 'Completed'
+        }
+      ];
     } catch {
       return [];
     }
@@ -136,11 +288,62 @@ export default function App() {
     }
   });
 
+  const [tyreStockOverrides, setTyreStockOverrides] = useState<Record<string, number>>(() => {
+    try {
+      const saved = localStorage.getItem('max_executive_tyre_stock_overrides');
+      return saved ? JSON.parse(saved) : {};
+    } catch {
+      return {};
+    }
+  });
+
+  const [customTyres, setCustomTyres] = useState<Tyre[]>(() => {
+    try {
+      const saved = localStorage.getItem('max_executive_custom_tyres');
+      return saved ? JSON.parse(saved) : [];
+    } catch {
+      return [];
+    }
+  });
+
   useEffect(() => {
     try {
       localStorage.setItem('max_executive_tyre_price_overrides', JSON.stringify(tyrePriceOverrides));
     } catch {}
   }, [tyrePriceOverrides]);
+
+  useEffect(() => {
+    try {
+      localStorage.setItem('max_executive_tyre_stock_overrides', JSON.stringify(tyreStockOverrides));
+    } catch {}
+  }, [tyreStockOverrides]);
+
+  useEffect(() => {
+    try {
+      localStorage.setItem('max_executive_custom_tyres', JSON.stringify(customTyres));
+    } catch {}
+  }, [customTyres]);
+
+  const handleUpdateSingleTyrePrice = (tyreId: string, newPriceXCD: number) => {
+    setTyrePriceOverrides(prev => ({
+      ...prev,
+      [tyreId]: newPriceXCD
+    }));
+    logActivity('PRICE_UPDATE', `Updated price for tyre ${tyreId} to EC$ ${newPriceXCD}`);
+  };
+
+  const handleUpdateSingleTyreStock = (tyreId: string, newStock: number) => {
+    setTyreStockOverrides(prev => ({
+      ...prev,
+      [tyreId]: newStock
+    }));
+    logActivity('STATUS_CHANGE', `Updated inventory stock for tyre ${tyreId} to ${newStock} units`);
+  };
+
+  const handleAddNewTyreToInventory = (newTyre: Tyre) => {
+    setCustomTyres(prev => [newTyre, ...prev]);
+    logActivity('OTHER', `Added new tyre SKU to inventory: ${newTyre.brand} ${newTyre.modelName} (${newTyre.size})`);
+  };
 
   const handleBulkUpdateTyrePrices = (category: string, newPriceXCD: number, mode: 'set' | 'add' | 'subtract' = 'set') => {
     setTyrePriceOverrides(prev => {
@@ -160,17 +363,17 @@ export default function App() {
   };
 
   const tyresWithOverrides = useMemo(() => {
-    return TYRES_DATA.map(t => {
-      const override = tyrePriceOverrides[t.id];
-      if (override !== undefined) {
-        return {
-          ...t,
-          priceXCD: override,
-        };
-      }
-      return t;
+    const allTyres = [...customTyres, ...TYRES_DATA];
+    return allTyres.map(t => {
+      const priceOverride = tyrePriceOverrides[t.id];
+      const stockOverride = tyreStockOverrides[t.id];
+      return {
+        ...t,
+        priceXCD: priceOverride !== undefined ? priceOverride : t.priceXCD,
+        stockCount: stockOverride !== undefined ? stockOverride : t.stockCount,
+      };
     });
-  }, [tyrePriceOverrides]);
+  }, [tyrePriceOverrides, tyreStockOverrides, customTyres]);
 
   const [adminActivityLog, setAdminActivityLog] = useState<Array<{
     id: string;
@@ -563,7 +766,6 @@ export default function App() {
         openSOS={handleOpenSOS}
         adminOrdersCount={adminOrders.length}
         openAdminOrders={handleOpenAdmin}
-        onOpenDeviceSimulator={handleOpenDeviceSimulator}
       />
 
       {/* Main Content Area */}
@@ -622,6 +824,18 @@ export default function App() {
             </div>
           )}
 
+          {/* TAB: Workshop Services, Print Menu, Safety Guide & Eco Tyre Disposal */}
+          {activeTab === 'services' && (
+            <div className="animate-fade-in space-y-12">
+              <ServicesSection
+                onOpenSOS={handleOpenSOS}
+                servicePrices={servicePrices}
+                tyres={tyresWithOverrides}
+                initialTab={servicesSubTab}
+              />
+            </div>
+          )}
+
           {/* TAB 2: Location & Workshop Schedule */}
           {activeTab === 'location' && (
             <div 
@@ -632,16 +846,27 @@ export default function App() {
               }} 
               className="animate-fade-in space-y-12"
             >
-              <LocationSection />
+              <LocationSection 
+                onNavigateToServices={(subTab) => {
+                  if (subTab) setServicesSubTab(subTab);
+                  setActiveTab('services');
+                  window.scrollTo({ top: 0, behavior: 'smooth' });
+                }}
+              />
             </div>
           )}
 
           {/* TAB 3: My Orders & Receipts */}
           {activeTab === 'orders' && (
-            <div className="animate-fade-in space-y-8">
+            <div className="animate-fade-in space-y-6">
               <MyOrdersView
                 orders={adminOrders}
                 servicePrices={servicePrices}
+                compact={false}
+                onBrowseInventory={() => setActiveTab('inventory')}
+                onUpdateOrderStatus={(orderId, status) => {
+                  handleUpdateOrder(orderId, { dispatchStatus: status });
+                }}
               />
             </div>
           )}
@@ -722,14 +947,16 @@ export default function App() {
         isOpen={isCartOpen}
         onClose={() => setIsCartOpen(false)}
         cartItems={cartItems}
-        
+        orders={adminOrders}
         onUpdateQuantity={handleUpdateQuantity}
         onRemoveItem={handleRemoveItem}
         onToggleService={handleToggleService}
         onClearCart={handleClearCart}
         servicePrices={servicePrices}
         onOrderSubmitted={handleOrderSubmitted}
-        onNavigateToOrders={() => setActiveTab('orders')}
+        onUpdateOrderStatus={(orderId, status) => {
+          handleUpdateOrder(orderId, { dispatchStatus: status });
+        }}
       />
 
       {/* Admin Login Modal */}
@@ -763,43 +990,17 @@ export default function App() {
         onAddOrder={handleOrderSubmitted}
         tyres={tyresWithOverrides}
         onOpenDeviceSimulator={handleOpenDeviceSimulator}
+        onUpdateTyrePrice={handleUpdateSingleTyrePrice}
+        onUpdateTyreStock={handleUpdateSingleTyreStock}
+        onAddNewTyre={handleAddNewTyreToInventory}
       />
 
-      {/* iOS & Android Device Simulator Modal */}
+      {/* iOS & Android Device Simulator Modal (Available via Admin Portal) */}
       <DeviceSimulatorModal
         isOpen={isDeviceSimulatorOpen}
         onClose={() => setIsDeviceSimulatorOpen(false)}
         initialPlatform={deviceSimulatorPlatform}
       />
-
-      {/* Floating Device View Switcher for Desktop / Tablet View */}
-      {!isInsideSimulator && (
-        <aside 
-          aria-label="Device view simulator toggle"
-          className="hidden md:flex fixed bottom-6 left-6 z-40 items-center gap-1.5 p-1.5 bg-slate-900/95 backdrop-blur-md rounded-2xl border border-slate-700/80 shadow-2xl"
-        >
-          <div className="flex items-center gap-1.5 px-2.5 py-1 text-xs font-extrabold text-slate-300">
-            <Smartphone className="w-3.5 h-3.5 text-[#0984E3]" />
-            <span>Device View:</span>
-          </div>
-          <button
-            onClick={() => handleOpenDeviceSimulator('ios')}
-            className="flex items-center gap-1.5 px-3 py-1.5 bg-slate-800 hover:bg-slate-700 text-white rounded-xl text-xs font-bold border border-slate-600 transition transform hover:scale-105"
-            title="Preview in Apple iOS (iPhone 16 Pro, iPad)"
-          >
-            <Apple className="w-3.5 h-3.5 text-blue-400" />
-            <span>iOS</span>
-          </button>
-          <button
-            onClick={() => handleOpenDeviceSimulator('android')}
-            className="flex items-center gap-1.5 px-3 py-1.5 bg-emerald-950/90 hover:bg-emerald-900 text-emerald-300 rounded-xl text-xs font-bold border border-emerald-700/60 transition transform hover:scale-105"
-            title="Preview in Google Pixel & Samsung Galaxy"
-          >
-            <Bot className="w-3.5 h-3.5 text-emerald-400" />
-            <span>Android</span>
-          </button>
-        </aside>
-      )}
 
       {/* Need Help? Floating Bubble for Technical Tyre Advice */}
       <div 

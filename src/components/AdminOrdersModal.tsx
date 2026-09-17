@@ -33,7 +33,10 @@ import {
   Wrench,
   Smartphone,
   Apple,
-  Bot
+  Bot,
+  Package,
+  Send,
+  Award
 } from 'lucide-react';
 import { BarChart, Bar, XAxis, YAxis, Tooltip, ResponsiveContainer, CartesianGrid } from 'recharts';
 import { CartItem, Tyre } from '../types';
@@ -41,6 +44,7 @@ import { TYRES_DATA } from '../data/tyresData';
 import { SHOP_LOCATION_INFO } from '../data/servicesData';
 import { ServicesSection } from './ServicesSection';
 import { MyOrdersView } from './MyOrdersView';
+import { AdminInventoryView } from './AdminInventoryView';
 
 export interface PriceAdjustment {
   amountXCD: number;
@@ -62,7 +66,7 @@ export interface AdminOrder {
   paymentMethod: 'Stripe Online' | 'Pay at Shop / WhatsApp' | string;
   timestamp: string;
   paymentStatus?: 'Pending' | 'Confirmed';
-  dispatchStatus?: 'Pending Dispatch' | 'Scheduled' | 'Dispatched';
+  dispatchStatus?: 'Pending Dispatch' | 'Pending' | 'Scheduled' | 'Ready for Fitting' | 'Dispatched' | 'Completed';
   dispatchDate?: string;
   dispatchMethod?: string;
   dispatchNotes?: string;
@@ -99,6 +103,9 @@ interface AdminOrdersModalProps {
   onAddOrder?: (orderData: Omit<AdminOrder, 'id' | 'timestamp'>) => void;
   tyres?: Tyre[];
   onOpenDeviceSimulator?: (platform?: 'ios' | 'android') => void;
+  onUpdateTyrePrice?: (tyreId: string, newPriceXCD: number) => void;
+  onUpdateTyreStock?: (tyreId: string, newStock: number) => void;
+  onAddNewTyre?: (newTyre: Tyre) => void;
 }
 
 export const AdminOrdersModal: React.FC<AdminOrdersModalProps> = ({
@@ -121,8 +128,11 @@ export const AdminOrdersModal: React.FC<AdminOrdersModalProps> = ({
   onAddOrder,
   tyres = TYRES_DATA,
   onOpenDeviceSimulator,
+  onUpdateTyrePrice,
+  onUpdateTyreStock,
+  onAddNewTyre,
 }) => {
-  const [activeModalTab, setActiveModalTab] = useState<'orders' | 'history' | 'pos' | 'prices' | 'activity' | 'trends' | 'settings' | 'services' | 'myorders'>('orders');
+  const [activeModalTab, setActiveModalTab] = useState<'orders' | 'inventory' | 'history' | 'pos' | 'prices' | 'activity' | 'trends' | 'settings' | 'services' | 'myorders'>('orders');
   const [customWhatsAppInput, setCustomWhatsAppInput] = useState(whatsappCustomMessage);
   const [savedWhatsAppNotice, setSavedWhatsAppNotice] = useState(false);
 
@@ -325,6 +335,16 @@ export const AdminOrdersModal: React.FC<AdminOrdersModalProps> = ({
   const [isBulkMenuOpen, setIsBulkMenuOpen] = useState(false);
   const [selectedOrderIds, setSelectedOrderIds] = useState<string[]>([]);
   const [selectedOrderForEmailReceipt, setSelectedOrderForEmailReceipt] = useState<AdminOrder | null>(null);
+  const [resendingOrderId, setResendingOrderId] = useState<string | null>(null);
+  const [resendConfirmationModalData, setResendConfirmationModalData] = useState<{
+    order: AdminOrder;
+    email: string;
+    timestamp: string;
+  } | null>(null);
+  const [resendNotificationBanner, setResendNotificationBanner] = useState<{
+    orderCode: string;
+    email: string;
+  } | null>(null);
 
   const toggleExpandOrder = (orderId: string) => {
     setExpandedOrderIds(prev => ({ ...prev, [orderId]: !prev[orderId] }));
@@ -332,6 +352,44 @@ export const AdminOrdersModal: React.FC<AdminOrdersModalProps> = ({
 
   const handleTriggerEmailReceiptModal = (order: AdminOrder) => {
     setSelectedOrderForEmailReceipt(order);
+  };
+
+  const handleResendConfirmation = (order: AdminOrder) => {
+    let email = (order.customerEmail || '').trim();
+    if (!email || !email.includes('@')) {
+      const prompted = prompt(
+        `Enter customer email address to resend confirmation for order #${order.reservationCode}:`,
+        order.customerEmail || ''
+      );
+      if (!prompted || !prompted.includes('@')) {
+        alert('A valid customer email address is required to send confirmation.');
+        return;
+      }
+      email = prompted.trim();
+    }
+
+    setResendingOrderId(order.id);
+
+    // Simulate sending official receipt summary email via notification dispatch system
+    setTimeout(() => {
+      const timestamp = new Date().toLocaleString();
+      onUpdateOrder(order.id, {
+        customerEmail: email,
+        customerNotified: true,
+        notifiedAt: timestamp
+      });
+      setResendingOrderId(null);
+      setResendConfirmationModalData({
+        order: { ...order, customerEmail: email, customerNotified: true, notifiedAt: timestamp },
+        email,
+        timestamp
+      });
+      setResendNotificationBanner({
+        orderCode: order.reservationCode,
+        email
+      });
+      setTimeout(() => setResendNotificationBanner(null), 6000);
+    }, 600);
   };
 
   const handleSendAutomatedEmailReceipt = (order: AdminOrder, targetEmail: string) => {
@@ -549,12 +607,18 @@ export const AdminOrdersModal: React.FC<AdminOrdersModalProps> = ({
     return true;
   });
 
-  const getVisibleOrders = () => {
-    if (activeModalTab === 'orders') return orders;
-    if (activeModalTab === 'history') {
-      return historySubTab === 'analytics' ? [] : filteredHistoryOrders;
+  const getVisibleOrders = (): AdminOrder[] => {
+    if (activeModalTab === 'orders') {
+      return filteredActiveOrders;
     }
-    return [];
+    if (activeModalTab === 'history') {
+      return historySubTab === 'analytics' 
+        ? (historySubTab === 'archived' ? archivedOrders : activeOrders) 
+        : filteredHistoryOrders;
+    }
+    return filteredHistoryOrders.length > 0 
+      ? filteredHistoryOrders 
+      : (filteredActiveOrders.length > 0 ? filteredActiveOrders : orders);
   };
 
   const handleBulkMarkCompleted = () => {
@@ -604,31 +668,90 @@ export const AdminOrdersModal: React.FC<AdminOrdersModalProps> = ({
     .map(([brand, count]) => ({ brand, count }))
     .sort((a, b) => b.count - a.count);
 
-  const handleDownloadSpreadsheet = () => {
-    const headers = ['Reservation Code', 'Customer Name', 'Phone', 'Email', 'Vehicle', 'Preferred Date', 'Payment Method', 'Payment Status', 'Dispatch Status', 'Items Summary', 'Total XCD', 'Timestamp'];
-    const rows = orders.map(o => [
-      o.reservationCode,
-      `"${o.customerName}"`,
-      `"${o.customerPhone}"`,
-      `"${o.customerEmail || 'N/A'}"`,
-      `"${o.vehicleInfo || 'N/A'}"`,
-      o.preferredDate || 'N/A',
-      o.paymentMethod,
-      o.paymentStatus || 'Pending',
-      o.dispatchStatus || 'Pending Dispatch',
-      `"${o.items.map(i => `${i.quantity}x ${i.tyre.brand} ${i.tyre.modelName} (${i.tyre.size})`).join('; ')}"`,
-      o.totalXCD,
-      `"${o.timestamp}"`
-    ]);
+  const handleExportToCsv = () => {
+    const visible = getVisibleOrders();
+    if (visible.length === 0) {
+      alert('No visible orders available to export. Please adjust your search query or filter criteria.');
+      return;
+    }
 
-    const csvContent = 'data:text/csv;charset=utf-8,' + [headers.join(','), ...rows.map(e => e.join(','))].join('\n');
-    const encodedUri = encodeURI(csvContent);
+    const escapeCsv = (val: any): string => {
+      if (val === null || val === undefined) return '""';
+      const str = String(val);
+      return `"${str.replace(/"/g, '""')}"`;
+    };
+
+    const headers = [
+      'Reservation Code',
+      'Customer Name',
+      'Customer Phone',
+      'Customer Email',
+      'Vehicle Information',
+      'Preferred Fitting Date',
+      'Payment Method',
+      'Payment Status',
+      'Dispatch Status',
+      'Dispatch Method',
+      'Fitting Bay / Scheduled Date',
+      'Ordered Tyres & Fitment Services',
+      'Total Amount (XCD)',
+      'Price Adjustments / Refunds',
+      'Order Timestamp',
+      'Customer Notified'
+    ];
+
+    const rows = visible.map(order => {
+      const itemsList = (order.items || []).map(item => {
+        const extraServices: string[] = [];
+        if (item.includeMounting) extraServices.push(`Mounting (EC$${servicePrices['mounting'] ?? 20})`);
+        if (item.includeNewValves) extraServices.push(`Valves (EC$${servicePrices['valves'] ?? 15})`);
+        if (item.includeShredding) extraServices.push(`Eco-Shredding (EC$${servicePrices['shredding'] ?? 1})`);
+        const svcStr = extraServices.length > 0 ? ` + [${extraServices.join(', ')}]` : '';
+        return `${item.quantity}x ${item.tyre?.brand || 'Tyre'} ${item.tyre?.modelName || ''} (${item.tyre?.size || 'Standard'}, ${item.tyre?.condition || 'New'})${svcStr}`;
+      }).join('; ');
+
+      const adjustments = (order.priceAdjustments || []).map(a => 
+        `${a.type === 'refund' ? 'REFUND' : 'CHARGE'}: EC$${a.amountXCD} (${a.reason})`
+      ).join('; ') || 'None';
+
+      return [
+        escapeCsv(order.reservationCode),
+        escapeCsv(order.customerName),
+        escapeCsv(order.customerPhone),
+        escapeCsv(order.customerEmail || 'Not Provided'),
+        escapeCsv(order.vehicleInfo || 'N/A'),
+        escapeCsv(order.preferredDate || 'N/A'),
+        escapeCsv(order.paymentMethod),
+        escapeCsv(order.paymentStatus || 'Pending'),
+        escapeCsv(order.dispatchStatus || 'Pending Dispatch'),
+        escapeCsv(order.dispatchMethod || 'Standard Workshop Fitment'),
+        escapeCsv(order.dispatchDate || 'Fast Lane Bay'),
+        escapeCsv(itemsList),
+        escapeCsv(`EC$ ${order.totalXCD}`),
+        escapeCsv(adjustments),
+        escapeCsv(order.timestamp),
+        escapeCsv(order.customerNotified ? `Yes (Notified: ${order.notifiedAt || 'Delivered'})` : 'No')
+      ].join(',');
+    });
+
+    const csvContent = [headers.map(h => `"${h}"`).join(','), ...rows].join('\r\n');
+    const blob = new Blob([csvContent], { type: 'text/csv;charset=utf-8;' });
+    const url = URL.createObjectURL(blob);
     const link = document.createElement('a');
-    link.setAttribute('href', encodedUri);
-    link.setAttribute('download', `maranatha_tyres_order_history_${new Date().toISOString().split('T')[0]}.csv`);
+    const dateStr = new Date().toISOString().split('T')[0];
+    const sourceLabel = activeModalTab === 'history' 
+      ? (historySubTab === 'archived' ? 'archived_history' : 'active_history')
+      : 'visible_orders';
+    link.setAttribute('href', url);
+    link.setAttribute('download', `maranatha_${sourceLabel}_${dateStr}.csv`);
     document.body.appendChild(link);
     link.click();
     document.body.removeChild(link);
+    URL.revokeObjectURL(url);
+  };
+
+  const handleDownloadSpreadsheet = () => {
+    handleExportToCsv();
   };
 
   const handleDownloadActivityLogCsv = () => {
@@ -911,6 +1034,35 @@ export const AdminOrdersModal: React.FC<AdminOrdersModalProps> = ({
     onUpdateOrder(order.id, { dispatchStatus: 'Dispatched' });
   };
 
+  // Current order list metrics for summary dashboard
+  const currentOrdersForSummary = activeModalTab === 'orders' ? filteredActiveOrders : getVisibleOrders();
+  const summaryTotalRevenue = currentOrdersForSummary.reduce((acc, o) => acc + (o.totalXCD || 0), 0);
+  const summaryPendingOrders = currentOrdersForSummary.filter(
+    o => o.paymentStatus !== 'Confirmed' || o.dispatchStatus !== 'Dispatched'
+  );
+  const summaryPendingCount = summaryPendingOrders.length;
+  const summaryPendingPaymentCount = currentOrdersForSummary.filter(o => o.paymentStatus !== 'Confirmed').length;
+  const summaryPendingDispatchCount = currentOrdersForSummary.filter(o => o.dispatchStatus !== 'Dispatched').length;
+
+  const summaryBrandMap: Record<string, { count: number; totalRevenue: number }> = {};
+  currentOrdersForSummary.forEach(order => {
+    (order.items || []).forEach(item => {
+      const brand = (item.tyre?.brand || 'Tyre').trim();
+      if (!summaryBrandMap[brand]) {
+        summaryBrandMap[brand] = { count: 0, totalRevenue: 0 };
+      }
+      const qty = item.quantity || 1;
+      summaryBrandMap[brand].count += qty;
+      summaryBrandMap[brand].totalRevenue += ((item.tyre?.priceXCD || 0) * qty);
+    });
+  });
+
+  const summaryTopBrands = Object.entries(summaryBrandMap)
+    .map(([brand, data]) => ({ brand, ...data }))
+    .sort((a, b) => b.count - a.count);
+
+  const totalTyresRequestedInList = summaryTopBrands.reduce((acc, b) => acc + b.count, 0);
+
   return (
     <div className="fixed inset-0 z-50 flex flex-col bg-white animate-fade-in overflow-hidden">
       <div 
@@ -965,6 +1117,18 @@ export const AdminOrdersModal: React.FC<AdminOrdersModalProps> = ({
           </div>
 
           <div style={{ marginBottom: '14px', height: '64px' }} className="flex items-center gap-2">
+            {/* Direct Export to CSV Button */}
+            <button
+              id="admin-export-to-csv-btn"
+              type="button"
+              onClick={handleExportToCsv}
+              className="inline-flex items-center gap-1.5 text-xs font-bold text-emerald-800 bg-emerald-50 hover:bg-emerald-100 border border-emerald-300 px-3.5 py-2 rounded-xl shadow-xs transition"
+              title="Export currently visible orders to CSV for record keeping"
+            >
+              <Download className="w-4 h-4 text-emerald-600" />
+              <span>Export to CSV ({getVisibleOrders().length})</span>
+            </button>
+
             {/* Collapsed Admin Actions Menu */}
             <div className="relative">
               <button
@@ -1000,11 +1164,12 @@ export const AdminOrdersModal: React.FC<AdminOrdersModalProps> = ({
                     Export & System
                   </div>
                   <button
-                    onClick={() => { handleDownloadSpreadsheet(); setIsAdminActionsMenuOpen(false); }}
-                    className="w-full text-left px-3 py-2 rounded-lg hover:bg-slate-100 text-slate-800 font-bold flex items-center gap-2 transition"
+                    id="menu-export-to-csv-btn"
+                    onClick={() => { handleExportToCsv(); setIsAdminActionsMenuOpen(false); }}
+                    className="w-full text-left px-3 py-2 rounded-lg hover:bg-emerald-50 text-emerald-900 font-bold flex items-center gap-2 transition"
                   >
-                    <Download className="w-4 h-4 text-[#0984E3]" />
-                    <span>Export CSV Spreadsheet</span>
+                    <Download className="w-4 h-4 text-emerald-600" />
+                    <span>Export to CSV ({getVisibleOrders().length} visible)</span>
                   </button>
                   <button
                     onClick={() => { handleExportCurrentListPdf(); setIsAdminActionsMenuOpen(false); }}
@@ -1070,6 +1235,7 @@ export const AdminOrdersModal: React.FC<AdminOrdersModalProps> = ({
             className="flex items-center gap-2 w-full"
           >
           <button
+            id="admin-tab-orders"
             onClick={() => setActiveModalTab('orders')}
             className={`inline-flex items-center gap-2 px-4 py-2 rounded-xl text-xs sm:text-sm font-bold transition ${
               activeModalTab === 'orders'
@@ -1079,6 +1245,19 @@ export const AdminOrdersModal: React.FC<AdminOrdersModalProps> = ({
           >
             <Bell className="w-4 h-4" />
             <span>Customer Orders ({orders.length})</span>
+          </button>
+
+          <button
+            id="admin-tab-inventory"
+            onClick={() => setActiveModalTab('inventory')}
+            className={`inline-flex items-center gap-2 px-4 py-2 rounded-xl text-xs sm:text-sm font-bold transition ${
+              activeModalTab === 'inventory'
+                ? 'bg-[#0984E3] text-white shadow-sm'
+                : 'bg-slate-100 text-slate-700 hover:bg-slate-200'
+            }`}
+          >
+            <Package className="w-4 h-4" />
+            <span>Tyre Inventory ({tyres.length})</span>
           </button>
 
           <button
@@ -1215,7 +1394,20 @@ export const AdminOrdersModal: React.FC<AdminOrdersModalProps> = ({
         )}
 
         {/* TAB CONTENT */}
-        {activeModalTab === 'trends' ? (
+        {activeModalTab === 'inventory' ? (
+          <div className="flex-1 overflow-y-auto py-2">
+            <AdminInventoryView
+              tyres={tyres}
+              onUpdateTyrePrice={onUpdateTyrePrice}
+              onUpdateTyreStock={onUpdateTyreStock}
+              onAddNewTyre={onAddNewTyre}
+              onAddToPos={(tyre) => {
+                handleAddTyreToPos(tyre);
+                setActiveModalTab('pos');
+              }}
+            />
+          </div>
+        ) : activeModalTab === 'trends' ? (
           <div className="flex-1 overflow-y-auto space-y-6 py-4 animate-fade-in">
             <div className="bg-gradient-to-r from-slate-900 to-blue-950 text-white p-6 rounded-2xl flex flex-wrap items-center justify-between gap-4 shadow-md">
               <div>
@@ -1533,11 +1725,13 @@ export const AdminOrdersModal: React.FC<AdminOrdersModalProps> = ({
 
               <div className="flex items-center gap-3 flex-wrap">
                 <button
-                  onClick={handleDownloadSpreadsheet}
-                  className="inline-flex items-center gap-2 bg-[#0984E3] hover:bg-[#0873c4] text-white font-bold text-xs px-4 py-2.5 rounded-xl shadow-md transition"
+                  id="history-export-to-csv-btn"
+                  onClick={handleExportToCsv}
+                  className="inline-flex items-center gap-2 bg-emerald-600 hover:bg-emerald-700 text-white font-bold text-xs px-4 py-2.5 rounded-xl shadow-md transition"
+                  title="Export currently visible order history to CSV for record keeping"
                 >
                   <Download className="w-4 h-4" />
-                  <span>Download Spreadsheet (CSV)</span>
+                  <span>Export to CSV ({filteredHistoryOrders.length})</span>
                 </button>
                 <button
                   onClick={handleDownloadMonthlyReport}
@@ -1714,6 +1908,21 @@ export const AdminOrdersModal: React.FC<AdminOrdersModalProps> = ({
                   </div>
                 </div>
 
+                <div className="flex items-center justify-between gap-2 flex-wrap px-1 pt-0.5">
+                  <span className="text-xs text-slate-500 font-medium">
+                    Showing <strong>{filteredHistoryOrders.length}</strong> visible order record{filteredHistoryOrders.length === 1 ? '' : 's'} in history
+                  </span>
+                  <button
+                    type="button"
+                    onClick={handleExportToCsv}
+                    className="inline-flex items-center gap-1.5 text-xs font-bold text-emerald-800 hover:text-emerald-900 bg-emerald-50 hover:bg-emerald-100 border border-emerald-200 px-3 py-1.5 rounded-lg transition shadow-xs"
+                    title="Export currently visible filtered order history to CSV"
+                  >
+                    <Download className="w-3.5 h-3.5 text-emerald-600" />
+                    <span>Export to CSV ({filteredHistoryOrders.length})</span>
+                  </button>
+                </div>
+
                 {filteredHistoryOrders.length === 0 ? (
                   <div className="text-center py-16 space-y-3">
                     <div className="w-14 h-14 bg-slate-100 text-slate-400 rounded-full flex items-center justify-center mx-auto">
@@ -1768,6 +1977,19 @@ export const AdminOrdersModal: React.FC<AdminOrdersModalProps> = ({
                             )}
                             <div className="flex items-center gap-2 flex-wrap pt-2 w-full">
                               <button
+                                onClick={() => onUpdateOrder(order.id, { dispatchStatus: 'Pending' })}
+                                className={`inline-flex items-center gap-1.5 text-xs font-extrabold px-3 py-1.5 rounded-xl border shadow-xs transition ${
+                                  dispatchStatus === 'Pending' || dispatchStatus === 'Pending Dispatch'
+                                    ? 'bg-amber-600 text-white border-amber-700 shadow-sm'
+                                    : 'bg-amber-50 text-amber-800 hover:bg-amber-100 border-amber-300'
+                                }`}
+                                title="Reset status to Pending"
+                              >
+                                <Clock className="w-3.5 h-3.5" />
+                                <span>⏳ Set to Pending</span>
+                              </button>
+
+                              <button
                                 onClick={() => onUpdateOrder(order.id, { dispatchStatus: 'Ready for Fitting' })}
                                 className={`inline-flex items-center gap-1.5 text-xs font-extrabold px-3 py-1.5 rounded-xl border shadow-xs transition ${
                                   dispatchStatus === 'Ready for Fitting'
@@ -1782,7 +2004,7 @@ export const AdminOrdersModal: React.FC<AdminOrdersModalProps> = ({
                               <button
                                 onClick={() => onUpdateOrder(order.id, { dispatchStatus: 'Dispatched' })}
                                 className={`inline-flex items-center gap-1.5 text-xs font-extrabold px-3 py-1.5 rounded-xl border shadow-xs transition ${
-                                  dispatchStatus === 'Dispatched'
+                                  dispatchStatus === 'Dispatched' || dispatchStatus === 'Completed'
                                     ? 'bg-emerald-600 text-white border-emerald-700 shadow-sm'
                                     : 'bg-emerald-50 text-emerald-800 hover:bg-emerald-100 border-emerald-300'
                                 }`}
@@ -1895,6 +2117,17 @@ export const AdminOrdersModal: React.FC<AdminOrdersModalProps> = ({
                             >
                               <FileText className="w-3.5 h-3.5" />
                               <span>Automated Email Receipt</span>
+                            </button>
+                            <button
+                              id={`history-resend-confirmation-${order.id}`}
+                              type="button"
+                              onClick={() => handleResendConfirmation(order)}
+                              disabled={resendingOrderId === order.id}
+                              className="inline-flex items-center gap-1.5 bg-sky-50 hover:bg-sky-100 text-sky-800 font-bold text-xs px-3 py-1.5 rounded-lg transition border border-sky-300 disabled:opacity-50"
+                              title={`Resend confirmation receipt summary to ${order.customerEmail || 'customer'}`}
+                            >
+                              <Send className={`w-3.5 h-3.5 text-sky-600 ${resendingOrderId === order.id ? 'animate-pulse' : ''}`} />
+                              <span>{resendingOrderId === order.id ? 'Sending...' : 'Resend Confirmation'}</span>
                             </button>
                             <button
                               onClick={() => {
@@ -2109,6 +2342,132 @@ export const AdminOrdersModal: React.FC<AdminOrdersModalProps> = ({
           </div>
         ) : (
           <div className="flex-1 overflow-y-auto space-y-4 pr-1">
+            {/* Resend Confirmation Notification Alert */}
+            {resendNotificationBanner && (
+              <div className="bg-sky-50 border border-sky-300 text-sky-950 px-4 py-3 rounded-2xl flex items-center justify-between gap-3 shadow-xs animate-fade-in">
+                <div className="flex items-center gap-2.5">
+                  <CheckCircle2 className="w-5 h-5 text-sky-600 shrink-0" />
+                  <span className="text-xs font-semibold">
+                    Simulated receipt confirmation successfully sent for Order <strong>#{resendNotificationBanner.orderCode}</strong> to <strong>{resendNotificationBanner.email}</strong>!
+                  </span>
+                </div>
+                <button
+                  type="button"
+                  onClick={() => setResendNotificationBanner(null)}
+                  className="text-sky-700 hover:text-sky-950 text-xs font-bold px-2 py-1 rounded-lg hover:bg-sky-100 transition"
+                >
+                  Dismiss
+                </button>
+              </div>
+            )}
+
+            {/* Summary Dashboard at the Top of Current Order List */}
+            <div id="admin-orders-summary-dashboard" className="bg-gradient-to-r from-slate-900 via-slate-800 to-slate-900 text-white rounded-2xl p-4 sm:p-5 shadow-sm border border-slate-700/80 space-y-4">
+              <div className="flex flex-wrap items-center justify-between gap-3 border-b border-slate-700/80 pb-3">
+                <div className="flex items-center gap-2.5">
+                  <div className="w-9 h-9 rounded-xl bg-[#0984E3] text-white flex items-center justify-center font-bold shadow-xs">
+                    <BarChart3 className="w-5 h-5" />
+                  </div>
+                  <div>
+                    <h3 className="text-sm font-bold text-white flex items-center gap-2">
+                      <span>Order Summary Dashboard</span>
+                      <span className="text-[10px] bg-slate-700 text-slate-200 px-2 py-0.5 rounded-full font-mono">
+                        {currentOrdersForSummary.length} {currentOrdersForSummary.length === 1 ? 'Record' : 'Records'} Active
+                      </span>
+                    </h3>
+                    <p className="text-[11px] text-slate-400">
+                      Live key figures for the current order list at Maranatha Square
+                    </p>
+                  </div>
+                </div>
+
+                <div className="flex items-center gap-2">
+                  <span className="text-[11px] font-medium text-slate-300 bg-slate-800 px-2.5 py-1 rounded-lg border border-slate-700">
+                    Filter: <strong>{activeOrdersSearch ? `"${activeOrdersSearch}"` : 'All Visible'}</strong>
+                  </span>
+                </div>
+              </div>
+
+              {/* Metric Cards Grid */}
+              <div className="grid grid-cols-1 sm:grid-cols-3 gap-3.5">
+                {/* Metric 1: Total Revenue */}
+                <div className="bg-slate-800/90 border border-slate-700 rounded-xl p-3.5 space-y-1 shadow-xs">
+                  <div className="flex items-center justify-between text-slate-400 text-xs font-semibold">
+                    <span>Total Revenue</span>
+                    <DollarSign className="w-4 h-4 text-emerald-400" />
+                  </div>
+                  <div className="text-xl sm:text-2xl font-black text-emerald-400 font-mono tracking-tight">
+                    EC$ {summaryTotalRevenue.toLocaleString()}
+                  </div>
+                  <div className="text-[11px] text-slate-400 flex items-center justify-between pt-1 border-t border-slate-700/60 mt-1">
+                    <span>Current list total</span>
+                    <span className="text-slate-300 font-medium">
+                      Avg: EC$ {currentOrdersForSummary.length > 0 ? Math.round(summaryTotalRevenue / currentOrdersForSummary.length) : 0}
+                    </span>
+                  </div>
+                </div>
+
+                {/* Metric 2: Count of Pending Orders */}
+                <div className="bg-slate-800/90 border border-slate-700 rounded-xl p-3.5 space-y-1 shadow-xs">
+                  <div className="flex items-center justify-between text-slate-400 text-xs font-semibold">
+                    <span>Pending Orders</span>
+                    <Clock className="w-4 h-4 text-amber-400" />
+                  </div>
+                  <div className="text-xl sm:text-2xl font-black text-amber-400 font-mono tracking-tight flex items-baseline gap-2">
+                    <span>{summaryPendingCount}</span>
+                    <span className="text-xs font-normal text-slate-400">
+                      of {currentOrdersForSummary.length} orders
+                    </span>
+                  </div>
+                  <div className="text-[10px] text-slate-300 flex items-center gap-1.5 pt-1 border-t border-slate-700/60 mt-1 flex-wrap">
+                    <span className="inline-flex items-center gap-1 text-amber-300 bg-amber-950/70 px-1.5 py-0.5 rounded border border-amber-800/60 font-medium">
+                      {summaryPendingPaymentCount} Unpaid
+                    </span>
+                    <span className="inline-flex items-center gap-1 text-sky-300 bg-sky-950/70 px-1.5 py-0.5 rounded border border-sky-800/60 font-medium">
+                      {summaryPendingDispatchCount} Awaiting Dispatch
+                    </span>
+                  </div>
+                </div>
+
+                {/* Metric 3: Most Requested Tyre Brands */}
+                <div className="bg-slate-800/90 border border-slate-700 rounded-xl p-3.5 space-y-1 shadow-xs">
+                  <div className="flex items-center justify-between text-slate-400 text-xs font-semibold">
+                    <span>Most Requested Brands</span>
+                    <Award className="w-4 h-4 text-sky-400" />
+                  </div>
+                  {summaryTopBrands.length === 0 ? (
+                    <div className="text-xs text-slate-400 py-2">No tyre items in current list</div>
+                  ) : (
+                    <div className="space-y-1.5 pt-0.5">
+                      <div className="flex items-center gap-1.5 flex-wrap">
+                        {summaryTopBrands.slice(0, 3).map((item, idx) => (
+                          <span
+                            key={item.brand}
+                            className={`text-[11px] font-bold px-2 py-0.5 rounded-lg border flex items-center gap-1 ${
+                              idx === 0
+                                ? 'bg-blue-600/30 text-blue-200 border-blue-500/50'
+                                : 'bg-slate-700/60 text-slate-300 border-slate-600'
+                            }`}
+                          >
+                            <span>{item.brand}</span>
+                            <span className="font-mono text-[10px] text-blue-300">({item.count})</span>
+                          </span>
+                        ))}
+                      </div>
+                      <div className="text-[10px] text-slate-400 flex items-center justify-between pt-1 border-t border-slate-700/60 mt-1">
+                        <span>{totalTyresRequestedInList} tyres ordered</span>
+                        {summaryTopBrands[0] && (
+                          <span className="text-blue-300 font-semibold">
+                            Top: {summaryTopBrands[0].brand} ({Math.round((summaryTopBrands[0].count / (totalTyresRequestedInList || 1)) * 100)}%)
+                          </span>
+                        )}
+                      </div>
+                    </div>
+                  )}
+                </div>
+              </div>
+            </div>
+
             {/* Search & Sort Header Controls */}
             <div className="bg-white border border-slate-200 rounded-2xl p-4 flex flex-wrap items-center justify-between gap-3 shadow-xs">
               <div className="relative flex-1 min-w-[240px]">
@@ -2122,7 +2481,7 @@ export const AdminOrdersModal: React.FC<AdminOrdersModalProps> = ({
                 />
               </div>
 
-              <div className="flex items-center gap-2">
+              <div className="flex items-center gap-2 flex-wrap">
                 <span className="text-xs font-bold text-slate-500">Sort By:</span>
                 <select
                   value={activeOrdersSort}
@@ -2134,6 +2493,17 @@ export const AdminOrdersModal: React.FC<AdminOrdersModalProps> = ({
                   <option value="name-asc">Customer Name (A-Z)</option>
                   <option value="name-desc">Customer Name (Z-A)</option>
                 </select>
+
+                <button
+                  id="active-orders-export-csv-btn"
+                  type="button"
+                  onClick={handleExportToCsv}
+                  className="inline-flex items-center gap-1.5 px-3.5 py-2 rounded-xl bg-emerald-600 hover:bg-emerald-700 text-white text-xs font-bold transition shadow-xs"
+                  title="Export currently visible customer orders to CSV"
+                >
+                  <Download className="w-4 h-4" />
+                  <span>Export to CSV ({filteredActiveOrders.length})</span>
+                </button>
               </div>
             </div>
 
@@ -2503,6 +2873,18 @@ export const AdminOrdersModal: React.FC<AdminOrdersModalProps> = ({
                         </a>
 
                         <button
+                          id={`resend-confirmation-${order.id}`}
+                          type="button"
+                          onClick={() => handleResendConfirmation(order)}
+                          disabled={resendingOrderId === order.id}
+                          className="inline-flex items-center gap-1.5 text-xs font-bold text-sky-800 bg-sky-50 hover:bg-sky-100 px-3.5 py-2 rounded-xl border border-sky-300 transition shadow-xs disabled:opacity-50"
+                          title={`Resend confirmation receipt summary to ${order.customerEmail || 'customer'}`}
+                        >
+                          <Send className={`w-3.5 h-3.5 text-sky-600 ${resendingOrderId === order.id ? 'animate-pulse' : ''}`} />
+                          <span>{resendingOrderId === order.id ? 'Sending...' : 'Resend Confirmation'}</span>
+                        </button>
+
+                        <button
                           onClick={() => {
                             if (confirm(`Are you sure you want to delete order ${order.reservationCode}?`)) {
                               onDeleteOrder(order.id);
@@ -2679,6 +3061,103 @@ export const AdminOrdersModal: React.FC<AdminOrdersModalProps> = ({
               >
                 <Mail className="w-4 h-4" />
                 <span>🚀 Trigger & Send Email Receipt</span>
+              </button>
+            </div>
+          </div>
+        </div>
+      )}
+
+      {/* Resend Confirmation Simulated Email Receipt Modal */}
+      {resendConfirmationModalData && (
+        <div className="fixed inset-0 z-70 flex items-center justify-center p-4 bg-slate-950/80 backdrop-blur-xs overflow-y-auto animate-fade-in">
+          <div className="bg-white rounded-2xl max-w-xl w-full p-6 space-y-5 shadow-2xl border border-slate-200">
+            <div className="flex items-center justify-between border-b border-slate-200 pb-3">
+              <div className="flex items-center gap-2.5">
+                <div className="w-8 h-8 rounded-xl bg-sky-600 text-white flex items-center justify-center">
+                  <Send className="w-4 h-4" />
+                </div>
+                <div>
+                  <h3 className="text-base font-bold text-slate-900">Receipt Confirmation Resent</h3>
+                  <p className="text-xs text-slate-500">Customer notification email simulation complete</p>
+                </div>
+              </div>
+              <button
+                type="button"
+                onClick={() => setResendConfirmationModalData(null)}
+                className="p-1.5 text-slate-400 hover:text-slate-700 rounded-full hover:bg-slate-100 transition"
+              >
+                <X className="w-5 h-5" />
+              </button>
+            </div>
+
+            {/* Email Transmission Header */}
+            <div className="bg-slate-900 text-slate-100 p-4 rounded-xl text-xs space-y-1 font-mono">
+              <div className="text-emerald-400 font-bold flex items-center gap-1.5 pb-1 border-b border-slate-800 mb-1">
+                <CheckCircle2 className="w-3.5 h-3.5" />
+                <span>Simulated delivery via notification dispatch queue: Sent</span>
+              </div>
+              <div><strong>From:</strong> orders@maxexecutivetires.dm (Max Executive Tires, Pichelin)</div>
+              <div><strong>To:</strong> {resendConfirmationModalData.email}</div>
+              <div><strong>Subject:</strong> Official Receipt Summary — Reservation #{resendConfirmationModalData.order.reservationCode}</div>
+              <div><strong>Timestamp:</strong> {resendConfirmationModalData.timestamp}</div>
+            </div>
+
+            {/* Receipt Summary Body */}
+            <div className="bg-slate-50 border border-slate-200 rounded-xl p-4 text-xs space-y-3">
+              <div className="flex justify-between items-center pb-2 border-b border-slate-200">
+                <div>
+                  <span className="text-slate-500 block text-[11px]">Customer</span>
+                  <strong className="text-slate-900 text-sm">{resendConfirmationModalData.order.customerName}</strong>
+                  <span className="text-slate-500 block text-[11px]">{resendConfirmationModalData.order.customerPhone}</span>
+                </div>
+                <div className="text-right">
+                  <span className="text-slate-500 block text-[11px]">Reservation Code</span>
+                  <span className="font-mono font-bold text-sky-700 bg-sky-50 px-2.5 py-1 rounded border border-sky-200 inline-block">
+                    #{resendConfirmationModalData.order.reservationCode}
+                  </span>
+                </div>
+              </div>
+
+              <div>
+                <span className="text-slate-600 font-bold text-[11px] uppercase tracking-wider block mb-1">
+                  Ordered Items & Services:
+                </span>
+                <div className="space-y-1.5 max-h-40 overflow-y-auto">
+                  {resendConfirmationModalData.order.items.map((item, idx) => (
+                    <div key={idx} className="flex justify-between items-center text-xs bg-white p-2.5 rounded-lg border border-slate-200/80">
+                      <div>
+                        <div className="font-bold text-slate-800">
+                          {item.quantity}x {item.tyre.brand} {item.tyre.modelName} ({item.tyre.size})
+                        </div>
+                        <div className="text-[11px] text-slate-500">
+                          Condition: {item.tyre.condition.toUpperCase()}
+                          {item.includeMounting ? ' • Includes Mounting' : ''}
+                          {item.includeNewValves ? ' • Includes Valves' : ''}
+                        </div>
+                      </div>
+                      <span className="font-mono font-bold text-slate-900">
+                        EC$ {(item.tyre.priceXCD + (item.includeMounting ? 20 : 0) + (item.includeNewValves ? 15 : 0)) * item.quantity}
+                      </span>
+                    </div>
+                  ))}
+                </div>
+              </div>
+
+              <div className="flex justify-between items-center pt-2 border-t border-slate-200 text-sm font-black text-slate-900">
+                <span>Total Amount:</span>
+                <span className="text-emerald-700 font-mono text-base">
+                  EC$ {resendConfirmationModalData.order.totalXCD}
+                </span>
+              </div>
+            </div>
+
+            <div className="flex justify-end gap-2 pt-1">
+              <button
+                type="button"
+                onClick={() => setResendConfirmationModalData(null)}
+                className="px-5 py-2.5 rounded-xl bg-slate-900 text-white hover:bg-slate-800 font-bold text-xs transition"
+              >
+                Close Summary
               </button>
             </div>
           </div>

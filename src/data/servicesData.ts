@@ -2,6 +2,101 @@ import { TyreService } from '../types';
 
 export const TYRE_SERVICES: TyreService[] = [
   {
+    id: 'srv-puncture',
+    name: 'BSAU159 Radial Puncture Repair & Mushroom Vulcanization',
+    category: 'Puncture & Repair',
+    priceXCD: 25,
+    durationMinutes: 20,
+    description: 'Permanent interior vulcanized two-piece mushroom combi plug-patch. Restores both airtight butyl inner liner and fills puncture channel to prevent steel belt oxidation.',
+    inclusions: [
+      'Full demount and interior 360° casing inspection',
+      'Carbide injury channel reaming (≤6mm / 1/4" crown puncture limit)',
+      'Chemical vulcanizing cement & lead-wire mushroom stem patch',
+      'High-pressure water dunk tank submersion test & dynamic rim bead seal'
+    ],
+    iconName: 'Wrench',
+    isPopular: true,
+    badge: 'Certified Safety Standard',
+  },
+  {
+    id: 'srv-mounting',
+    name: 'Precision Pneumatic Tyre Mounting & Bead Lubrication',
+    category: 'Fitting & Mounting',
+    priceXCD: 20,
+    durationMinutes: 15,
+    description: 'Heavy-duty non-scratch pneumatic turntable demounting and mounting for standard alloy rims, steelies, and reinforced SUV/truck wheels.',
+    inclusions: [
+      'Rim bead wire wire-brush cleaning and rim lip corrosion removal',
+      'High-grade vegetable-oil mounting paste for leak-proof bead seating',
+      'Standard tyre inflation to vehicle door-jamb OEM pressure specifications',
+      'Visual rim inspection for cracks, dents, or rim runout'
+    ],
+    iconName: 'Disc',
+    isPopular: true,
+  },
+  {
+    id: 'srv-balancing',
+    name: 'Digital Dynamic High-Speed Wheel Balancing',
+    category: 'Alignment & Safety',
+    priceXCD: 25,
+    durationMinutes: 15,
+    description: 'Computerized dual-plane spin balancing eliminating steering vibration and high-speed shudder on Dominica’s coastal and mountain link highways.',
+    inclusions: [
+      'High-precision optical wheel shaft laser measurement',
+      'Removal of legacy degraded wheel weights',
+      'Installation of zinc clip-on or concealed adhesive counter-weights',
+      'Smooth vibration-free highway ride guarantee'
+    ],
+    iconName: 'Sparkles',
+    isPopular: true,
+    badge: 'Vibration-Free Ride',
+  },
+  {
+    id: 'srv-valves',
+    name: 'High-Pressure Rubber Valve Stem & Core Replacement',
+    category: 'Maintenance & Safety',
+    priceXCD: 10,
+    durationMinutes: 10,
+    description: 'Installation of fresh ozone-resistant EPDM rubber snap-in valve stems and brass Schrader cores to eliminate slow bead pressure bleed-down.',
+    inclusions: [
+      'Brand new TR413 / TR414 brass-threaded ozone-resistant valve stems',
+      'New spring-loaded nickel-plated core insertion',
+      'Airtight O-ring dust cap installation',
+      'Soap bubble core tightness leak verification'
+    ],
+    iconName: 'Disc',
+  },
+  {
+    id: 'srv-rotation',
+    name: '4-Wheel Tyre Rotation & Tread Wear Pattern Audit',
+    category: 'Maintenance & Safety',
+    priceXCD: 35,
+    durationMinutes: 25,
+    description: 'Cross-directional tyre rotation extending usable tread life by up to 25%, offsetting Dominica’s steep downhill braking camber and sharp mountain corner wear.',
+    inclusions: [
+      'Forward cross / modified X rotation based on drivetrain (FWD/RWD/4WD)',
+      'Digital depth gauge measurement across all 4 tyres with wear report',
+      'Visual audit for camber wear, cupping, heel-toe feathering, and underinflation',
+      'Hand torque-wrench lug nut fastening to OEM manufacturer specifications'
+    ],
+    iconName: 'Wrench',
+  },
+  {
+    id: 'srv-nitrogen',
+    name: 'Dry Nitrogen Tyre Inflation & Mountain Altitude Tuning',
+    category: 'Maintenance & Safety',
+    priceXCD: 15,
+    durationMinutes: 15,
+    description: '99% pure dry nitrogen purge and fill. Reduces pressure fluctuations between hot coastal driving and cool mountain passes (Freshwater Lake / Soufriere).',
+    inclusions: [
+      'Complete atmospheric air vacuum purge',
+      'Dry inert nitrogen inflation to specified PSI',
+      'Eliminates internal moisture oxidation of steel rim lips',
+      'Signature green high-visibility valve caps'
+    ],
+    iconName: 'Sparkles',
+  },
+  {
     id: 'srv-roadside',
     name: 'Emergency Mobile Roadside Tyre Rescue (SOS)',
     category: 'Emergency Rescue',

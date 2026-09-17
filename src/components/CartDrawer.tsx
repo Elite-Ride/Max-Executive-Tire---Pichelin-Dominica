@@ -19,12 +19,15 @@ import {
   CreditCard,
   Printer,
   Download,
-  Mail
+  Mail,
+  FileText
 } from 'lucide-react';
 import { CartItem } from '../types';
 import { SHOP_LOCATION_INFO } from '../data/servicesData';
 import { StripePaymentModal } from './StripePaymentModal';
 import { ReceiptPrintModal } from './ReceiptPrintModal';
+import { AdminOrder } from './AdminOrdersModal';
+import { MyOrdersView } from './MyOrdersView';
 
 interface CartDrawerProps {
   isOpen: boolean;
@@ -35,6 +38,8 @@ interface CartDrawerProps {
   onToggleService: (id: string, serviceKey: 'mounting' | 'valves') => void;
   onClearCart: () => void;
   servicePrices: Record<string, number>;
+  orders?: AdminOrder[];
+  initialTab?: 'cart' | 'orders';
   onOrderSubmitted?: (order: {
     reservationCode: string;
     customerName: string;
@@ -48,6 +53,7 @@ interface CartDrawerProps {
     paymentMethod: 'Stripe Online' | 'Pay at Shop / WhatsApp';
   }) => void;
   onNavigateToOrders?: () => void;
+  onUpdateOrderStatus?: (orderId: string, status: 'Pending' | 'Ready for Fitting' | 'Completed') => void;
 }
 
 export const CartDrawer: React.FC<CartDrawerProps> = ({
@@ -59,9 +65,13 @@ export const CartDrawer: React.FC<CartDrawerProps> = ({
   onToggleService,
   onClearCart,
   servicePrices,
+  orders = [],
+  initialTab = 'cart',
   onOrderSubmitted,
   onNavigateToOrders,
+  onUpdateOrderStatus,
 }) => {
+  const [activeDrawerTab, setActiveDrawerTab] = useState<'cart' | 'orders'>(initialTab);
   const [customerName, setCustomerName] = useState('');
   const [customerPhone, setCustomerPhone] = useState('');
   const [customerEmail, setCustomerEmail] = useState('');
@@ -369,7 +379,61 @@ export const CartDrawer: React.FC<CartDrawerProps> = ({
           </button>
         </div>
 
+        {/* Drawer Tabs: Cart & Reserve vs My Orders & Receipts */}
+        <div className="flex border-b border-slate-200 bg-white px-5 pt-2.5 shrink-0">
+          <button
+            id="cart-drawer-tab-cart"
+            onClick={() => setActiveDrawerTab('cart')}
+            className={`flex-1 pb-2.5 text-xs sm:text-sm font-bold flex items-center justify-center gap-2 border-b-2 transition ${
+              activeDrawerTab === 'cart'
+                ? 'border-[#0984E3] text-[#0984E3]'
+                : 'border-transparent text-slate-500 hover:text-slate-800'
+            }`}
+          >
+            <ShoppingBag className="w-4 h-4" />
+            <span>Cart & Reserve</span>
+            {cartItems.length > 0 && (
+              <span className={`px-2 py-0.5 rounded-full text-[10px] font-black ${
+                activeDrawerTab === 'cart' ? 'bg-blue-100 text-[#0984E3]' : 'bg-slate-200 text-slate-700'
+              }`}>
+                {cartItems.reduce((sum, item) => sum + item.quantity, 0)}
+              </span>
+            )}
+          </button>
+
+          <button
+            id="cart-drawer-tab-orders"
+            onClick={() => setActiveDrawerTab('orders')}
+            className={`flex-1 pb-2.5 text-xs sm:text-sm font-bold flex items-center justify-center gap-2 border-b-2 transition ${
+              activeDrawerTab === 'orders'
+                ? 'border-[#0984E3] text-[#0984E3]'
+                : 'border-transparent text-slate-500 hover:text-slate-800'
+            }`}
+          >
+            <FileText className="w-4 h-4" />
+            <span>My Orders & Receipts</span>
+            {orders && orders.length > 0 && (
+              <span className={`px-2 py-0.5 rounded-full text-[10px] font-black ${
+                activeDrawerTab === 'orders' ? 'bg-blue-100 text-[#0984E3]' : 'bg-slate-200 text-slate-700'
+              }`}>
+                {orders.length}
+              </span>
+            )}
+          </button>
+        </div>
+
         {/* Drawer Content */}
+        {activeDrawerTab === 'orders' ? (
+          <div className="p-4 sm:p-6 flex-1 overflow-y-auto">
+            <MyOrdersView
+              orders={orders}
+              servicePrices={servicePrices}
+              compact={true}
+              onBrowseInventory={() => setActiveDrawerTab('cart')}
+              onUpdateOrderStatus={onUpdateOrderStatus}
+            />
+          </div>
+        ) : (
         <div className="p-6 flex-1 overflow-y-auto space-y-6">
           {/* Print-Only Formal Letterhead Receipt */}
           <div className="hidden print:block p-8 bg-white text-slate-900 font-sans space-y-6">
@@ -551,21 +615,18 @@ export const CartDrawer: React.FC<CartDrawerProps> = ({
                   </button>
                 </div>
 
-                {onNavigateToOrders && (
-                  <button
-                    type="button"
-                    onClick={() => {
-                      onClearCart();
-                      setIsSubmitted(false);
-                      onClose();
-                      onNavigateToOrders();
-                    }}
-                    className="w-full flex items-center justify-center gap-1.5 bg-slate-100 hover:bg-slate-200 text-slate-800 font-bold py-2.5 px-3 rounded-lg text-xs border border-slate-300 transition shadow-xs"
-                  >
-                    <ShoppingBag className="w-3.5 h-3.5 text-[#0984E3]" />
-                    <span>View in My Orders & Tracking</span>
-                  </button>
-                )}
+                <button
+                  type="button"
+                  onClick={() => {
+                    onClearCart();
+                    setIsSubmitted(false);
+                    setActiveDrawerTab('orders');
+                  }}
+                  className="w-full flex items-center justify-center gap-1.5 bg-blue-50 hover:bg-blue-100 text-[#0984E3] font-bold py-2.5 px-3 rounded-lg text-xs border border-blue-200 transition shadow-xs"
+                >
+                  <FileText className="w-3.5 h-3.5 text-[#0984E3]" />
+                  <span>View in My Orders & Receipts</span>
+                </button>
 
                 <button
                   type="button"
@@ -585,17 +646,27 @@ export const CartDrawer: React.FC<CartDrawerProps> = ({
               <div className="w-16 h-16 bg-slate-100 text-slate-400 rounded-full flex items-center justify-center mx-auto">
                 <ShoppingBag className="w-8 h-8" />
               </div>
-              <h4 className="text-lg font-bold text-slate-800">Your reservation is empty</h4>
+              <h4 className="text-lg font-bold text-slate-800">Your reservation cart is empty</h4>
               <p className="text-xs text-slate-500 max-w-xs mx-auto">
                 Browse our brand new or inspected used tyres in Pichelin and click "Reserve Fitting".
               </p>
-              <button
-                type="button"
-                onClick={onClose}
-                className="bg-[#0984E3] text-white font-bold text-xs px-5 py-2.5 rounded-lg hover:bg-[#0873c4] transition shadow-xs"
-              >
-                Browse Tyres Now
-              </button>
+              <div className="flex flex-col sm:flex-row items-center justify-center gap-2 pt-2">
+                <button
+                  type="button"
+                  onClick={onClose}
+                  className="bg-[#0984E3] text-white font-bold text-xs px-5 py-2.5 rounded-lg hover:bg-[#0873c4] transition shadow-xs"
+                >
+                  Browse Tyres Now
+                </button>
+                <button
+                  type="button"
+                  onClick={() => setActiveDrawerTab('orders')}
+                  className="bg-slate-100 hover:bg-slate-200 text-slate-700 font-bold text-xs px-4 py-2.5 rounded-lg border border-slate-300 transition flex items-center justify-center gap-1.5"
+                >
+                  <FileText className="w-3.5 h-3.5 text-[#0984E3]" />
+                  <span>View My Orders & Receipts</span>
+                </button>
+              </div>
             </div>
           ) : (
             <div className="space-y-6">
@@ -878,6 +949,7 @@ export const CartDrawer: React.FC<CartDrawerProps> = ({
             </div>
           )}
         </div>
+        )}
 
         {/* Stripe Payment Modal */}
         <StripePaymentModal
