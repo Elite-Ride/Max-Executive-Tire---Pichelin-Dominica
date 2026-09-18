@@ -229,6 +229,24 @@ export const Navbar: React.FC<NavbarProps> = ({
               </span>
             </button>
 
+            {/* Admin Portal (Mobile Drawer) */}
+            <button
+              id="mobile-drawer-admin-btn"
+              onClick={() => {
+                setMobileMenuOpen(false);
+                openAdminOrders();
+              }}
+              className="w-full flex items-center justify-between px-4 py-3 rounded-lg text-sm font-bold text-left bg-amber-600/20 border border-amber-500/40 text-amber-300 hover:bg-amber-600/30 transition active:scale-95"
+            >
+              <div className="flex items-center gap-3">
+                <Bell className="w-5 h-5 text-amber-400" />
+                <span className="text-white">Admin Portal</span>
+              </div>
+              <span className="text-[10px] bg-amber-600 text-white font-black px-2 py-0.5 rounded-md">
+                {adminOrdersCount} Orders
+              </span>
+            </button>
+
             {/* Emergency Roadside SOS (Mobile Drawer) */}
             <button
               id="mobile-drawer-sos-btn"

@@ -91,6 +91,26 @@
   display: none !important;
 }
 
+/* Base sheet styles for 8.5" x 11" Paper on screen & preview */
+.avery-5163-sheet,
+.grid-2x4-sheet {
+  width: 8.5in;
+  max-width: 8.5in;
+  height: 11.0in;
+  max-height: 11.0in;
+  min-height: 11.0in;
+  padding: 0.5in 0.15625in;
+  background: #ffffff;
+  display: grid;
+  grid-template-columns: 4.0in 4.0in;
+  grid-template-rows: repeat(5, 2.0in);
+  column-gap: 0.1875in;
+  row-gap: 0in;
+  box-sizing: border-box;
+  margin: 0 auto;
+  overflow: hidden;
+}
+
 @media print {
   .print-only {
     display: block !important;
@@ -99,6 +119,54 @@
   @page {
     size: auto;
     margin: 12mm 15mm;
+  }
+
+  @page barcode-page {
+    size: 8.5in 11in portrait;
+    margin: 0 !important;
+  }
+
+  body.is-printing-barcode-sheet {
+    page: barcode-page;
+    background: #ffffff !important;
+    margin: 0 !important;
+    padding: 0 !important;
+    overflow: visible !important;
+  }
+
+  body.is-printing-barcode-sheet #root > *:not(.fixed),
+  body.is-printing-barcode-sheet header,
+  body.is-printing-barcode-sheet footer,
+  body.is-printing-barcode-sheet nav,
+  body.is-printing-barcode-sheet aside,
+  body.is-printing-barcode-sheet #barcode-center-header,
+  body.is-printing-barcode-sheet #barcode-center-toolbar,
+  body.is-printing-barcode-sheet #barcode-center-footer,
+  body.is-printing-barcode-sheet .no-print {
+    display: none !important;
+  }
+
+  body.is-printing-barcode-sheet,
+  body.is-printing-barcode-sheet #root,
+  body.is-printing-barcode-sheet div.fixed,
+  body.is-printing-barcode-sheet #admin-orders-modal,
+  body.is-printing-barcode-sheet #barcode-center-modal {
+    position: static !important;
+    overflow: visible !important;
+    height: auto !important;
+    max-height: none !important;
+    background: transparent !important;
+    padding: 0 !important;
+    margin: 0 !important;
+    box-shadow: none !important;
+    border: none !important;
+  }
+
+  body.is-printing-barcode-sheet .overflow-y-auto,
+  body.is-printing-barcode-sheet .overflow-hidden {
+    overflow: visible !important;
+    max-height: none !important;
+    height: auto !important;
   }
 
   html, body {
@@ -189,5 +257,164 @@
     background: white !important;
     color: black !important;
     overflow: visible !important;
+  }
+
+  /* Daily Shop Floor Manifest A4 Print Layout */
+  #daily-manifest-preview-modal {
+    position: static !important;
+    background: transparent !important;
+    padding: 0 !important;
+    margin: 0 !important;
+    display: block !important;
+    width: 100% !important;
+    height: auto !important;
+    overflow: visible !important;
+  }
+
+  #daily-manifest-preview-modal > div {
+    max-height: none !important;
+    box-shadow: none !important;
+    border: none !important;
+    background: transparent !important;
+    width: 100% !important;
+    max-width: 100% !important;
+  }
+
+  #daily-manifest-preview-modal .overflow-auto,
+  #daily-manifest-preview-modal .overflow-y-auto {
+    overflow: visible !important;
+    padding: 0 !important;
+    background: transparent !important;
+  }
+
+  .daily-manifest-a4-sheet,
+  #daily-manifest-print-sheet {
+    display: block !important;
+    width: 100% !important;
+    max-width: 100% !important;
+    min-height: auto !important;
+    margin: 0 !important;
+    padding: 0 !important;
+    background: #ffffff !important;
+    color: #0f172a !important;
+    box-shadow: none !important;
+    border: none !important;
+    transform: none !important;
+  }
+
+  .daily-manifest-a4-sheet table {
+    width: 100% !important;
+    border-collapse: collapse !important;
+  }
+
+  .daily-manifest-a4-sheet th {
+    background: #0f172a !important;
+    color: #ffffff !important;
+    -webkit-print-color-adjust: exact !important;
+    print-color-adjust: exact !important;
+  }
+
+  .daily-manifest-a4-sheet tr:nth-child(even) {
+    background: #f8fafc !important;
+    -webkit-print-color-adjust: exact !important;
+    print-color-adjust: exact !important;
+  }
+
+  .daily-manifest-a4-sheet .kpi {
+    background: #f8fafc !important;
+    border: 1px solid #cbd5e1 !important;
+    -webkit-print-color-adjust: exact !important;
+    print-color-adjust: exact !important;
+  }
+
+  .daily-manifest-a4-sheet .tyre-summary-box {
+    background: #f8fafc !important;
+    border: 1px solid #cbd5e1 !important;
+    -webkit-print-color-adjust: exact !important;
+    print-color-adjust: exact !important;
+  }
+
+  .daily-manifest-a4-sheet .signoff-section {
+    page-break-inside: avoid !important;
+    break-inside: avoid !important;
+  }
+
+  /* 2x4 Labels on 8.5x11 Paper (Avery 5163 / 5263 / 8163 standard & 2x4 Grids) */
+  #barcode-center-modal,
+  #single-barcode-print-modal {
+    position: static !important;
+    background: transparent !important;
+    padding: 0 !important;
+    margin: 0 !important;
+    display: block !important;
+    width: 100% !important;
+    height: auto !important;
+    overflow: visible !important;
+  }
+
+  #barcode-center-modal > div,
+  #single-barcode-print-modal > div {
+    max-height: none !important;
+    box-shadow: none !important;
+    border: none !important;
+    background: transparent !important;
+    width: 100% !important;
+    max-width: 100% !important;
+  }
+
+  #barcode-center-modal .overflow-y-auto,
+  #barcode-center-modal .bg-slate-950\/70,
+  #barcode-center-modal .bg-slate-900 {
+    background: transparent !important;
+    overflow: visible !important;
+    padding: 0 !important;
+  }
+
+  .avery-5163-sheet,
+  .grid-2x4-sheet {
+    width: 8.5in !important;
+    height: 11.0in !important;
+    max-width: 8.5in !important;
+    max-height: 11.0in !important;
+    min-height: 11.0in !important;
+    box-sizing: border-box !important;
+    margin: 0 auto !important;
+    padding-top: 0.5in !important;
+    padding-bottom: 0.5in !important;
+    padding-left: 0.15625in !important;
+    padding-right: 0.15625in !important;
+    background: #ffffff !important;
+    display: grid !important;
+    grid-template-columns: 4.0in 4.0in !important;
+    grid-template-rows: repeat(5, 2.0in) !important;
+    column-gap: 0.1875in !important;
+    row-gap: 0in !important;
+    overflow: hidden !important;
+    page-break-inside: avoid !important;
+    break-inside: avoid !important;
+    page-break-after: always !important;
+    break-after: page !important;
+  }
+
+  .avery-5163-sheet:last-of-type,
+  .grid-2x4-sheet:last-of-type {
+    page-break-after: auto !important;
+    break-after: auto !important;
+  }
+
+  .avery-2x4-label,
+  .large-2x4-label {
+    width: 4.0in !important;
+    height: 2.0in !important;
+    max-width: 4.0in !important;
+    max-height: 2.0in !important;
+    box-sizing: border-box !important;
+    page-break-inside: avoid !important;
+    break-inside: avoid !important;
+    background: #ffffff !important;
+    color: #000000 !important;
+    -webkit-print-color-adjust: exact !important;
+    print-color-adjust: exact !important;
+    overflow: hidden !important;
   }
 }

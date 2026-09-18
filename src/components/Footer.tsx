@@ -29,13 +29,17 @@ export const Footer: React.FC<FooterProps> = ({ setActiveTab, onOpenSOS }) => {
           width: '841px',
           marginLeft: '0px',
           marginRight: '-12px',
-          paddingBottom: '56px' 
+          paddingBottom: '56px',
+          backgroundColor: '#151212'
         }}
         className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 space-y-12"
       >
         
         {/* Main Footer Grid */}
-        <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-8">
+        <div 
+          style={{ backgroundColor: '#23706e' }}
+          className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-8"
+        >
           
           {/* Col 1: Brand & Bio */}
           <div className="space-y-4">

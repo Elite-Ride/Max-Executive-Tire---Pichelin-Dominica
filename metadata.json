@@ -1,6 +1,6 @@
 {
   "name": "Max Executive Tires - Pichelin Dominica",
   "description": "New and quality used tyre sales, wheel balancing, fitting, and roadside puncture repairs by Max Executive Tires at Maranatha Square, Pichelin, Dominica.",
-  "requestFramePermissions": ["geolocation"],
+  "requestFramePermissions": ["camera", "geolocation"],
   "majorCapabilities": ["MAJOR_CAPABILITY_SERVER_SIDE_GEMINI_API"]
 }

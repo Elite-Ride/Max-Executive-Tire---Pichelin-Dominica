@@ -17,9 +17,77 @@ import {
   Filter,
   CheckCircle2,
   TrendingUp,
-  DollarSign
+  DollarSign,
+  History,
+  TrendingDown,
+  Clock,
+  Barcode,
+  Camera,
+  ScanLine,
+  CheckSquare,
+  Square
 } from 'lucide-react';
 import { Tyre, TyreCondition, TyreCategory } from '../types';
+import { getTyreBarcodeValue } from '../utils/barcodeGenerator';
+import { TyreBarcodeLabel } from './TyreBarcodeLabel';
+import { InventoryBarcodeCenterModal } from './InventoryBarcodeCenterModal';
+import { BarcodeScannerModal } from './BarcodeScannerModal';
+
+export interface PriceUpdateRecord {
+  id: string;
+  tyreId: string;
+  brand: string;
+  modelName: string;
+  size: string;
+  category: string;
+  oldPriceXCD: number;
+  newPriceXCD: number;
+  diffXCD: number;
+  timestamp: string;
+  updatedBy: string;
+}
+
+const DEFAULT_PRICE_HISTORY: PriceUpdateRecord[] = [
+  {
+    id: 'ph-1',
+    tyreId: 't-1',
+    brand: 'Michelin',
+    modelName: 'Primacy 4+',
+    size: '205/55 R16',
+    category: 'Passenger & Hatchback',
+    oldPriceXCD: 345,
+    newPriceXCD: 365,
+    diffXCD: 20,
+    timestamp: 'Yesterday, 4:15 PM',
+    updatedBy: 'Manager Max'
+  },
+  {
+    id: 'ph-2',
+    tyreId: 't-3',
+    brand: 'Goodyear',
+    modelName: 'Wrangler Duratrac RT',
+    size: '265/70 R17',
+    category: 'All-Terrain (A/T)',
+    oldPriceXCD: 595,
+    newPriceXCD: 620,
+    diffXCD: 25,
+    timestamp: '3 days ago',
+    updatedBy: 'Manager Max'
+  },
+  {
+    id: 'ph-3',
+    tyreId: 't-5',
+    brand: 'Bridgestone',
+    modelName: 'Dueler A/T 001',
+    size: '235/65 R17',
+    category: 'SUV, Crossover & 4x4',
+    oldPriceXCD: 440,
+    newPriceXCD: 425,
+    diffXCD: -15,
+    timestamp: 'Last week',
+    updatedBy: 'Manager Max'
+  }
+];
 
 interface AdminInventoryViewProps {
   tyres: Tyre[];
@@ -27,6 +95,8 @@ interface AdminInventoryViewProps {
   onUpdateTyreStock?: (tyreId: string, newStock: number) => void;
   onAddNewTyre?: (newTyre: Tyre) => void;
   onAddToPos?: (tyre: Tyre) => void;
+  onOpenScanner?: () => void;
+  onOpenBarcodeCenter?: () => void;
 }
 
 export const AdminInventoryView: React.FC<AdminInventoryViewProps> = ({
@@ -35,11 +105,41 @@ export const AdminInventoryView: React.FC<AdminInventoryViewProps> = ({
   onUpdateTyreStock,
   onAddNewTyre,
   onAddToPos,
+  onOpenScanner,
+  onOpenBarcodeCenter,
 }) => {
   const [searchQuery, setSearchQuery] = useState('');
   const [selectedCondition, setSelectedCondition] = useState<'ALL' | 'new' | 'used'>('ALL');
   const [selectedCategory, setSelectedCategory] = useState<string>('ALL');
   const [stockFilter, setStockFilter] = useState<'ALL' | 'LOW' | 'OUT'>('ALL');
+  const [showPriceTrendView, setShowPriceTrendView] = useState(false);
+  const [priceHistorySearch, setPriceHistorySearch] = useState('');
+  const [isBarcodeCenterOpen, setIsBarcodeCenterOpen] = useState(false);
+  const [isScannerOpen, setIsScannerOpen] = useState(false);
+  const [singleTyreToPrint, setSingleTyreToPrint] = useState<Tyre | null>(null);
+  const [selectedTyreIds, setSelectedTyreIds] = useState<string[]>([]);
+  const [batchPrintIds, setBatchPrintIds] = useState<string[] | null>(null);
+
+  // Price history state with localStorage fallback
+  const [priceHistory, setPriceHistory] = useState<PriceUpdateRecord[]>(() => {
+    try {
+      const saved = localStorage.getItem('max_executive_price_history');
+      if (saved) return JSON.parse(saved);
+    } catch (e) {
+      console.error(e);
+    }
+    return DEFAULT_PRICE_HISTORY;
+  });
+
+  // Sync price history to local storage
+  const savePriceHistory = (updated: PriceUpdateRecord[]) => {
+    setPriceHistory(updated);
+    try {
+      localStorage.setItem('max_executive_price_history', JSON.stringify(updated));
+    } catch (e) {
+      console.error(e);
+    }
+  };
 
   // Inline editing state for price and stock
   const [editingPriceId, setEditingPriceId] = useState<string | null>(null);
@@ -103,6 +203,29 @@ export const AdminInventoryView: React.FC<AdminInventoryViewProps> = ({
   const handleSavePrice = (tyreId: string) => {
     const val = parseFloat(editingPriceVal);
     if (!isNaN(val) && val > 0 && onUpdateTyrePrice) {
+      const targetTyre = tyres.find((t) => t.id === tyreId);
+      if (targetTyre && targetTyre.priceXCD !== val) {
+        const diff = Number((val - targetTyre.priceXCD).toFixed(2));
+        const newRecord: PriceUpdateRecord = {
+          id: 'ph-' + Date.now(),
+          tyreId,
+          brand: targetTyre.brand,
+          modelName: targetTyre.modelName,
+          size: targetTyre.size,
+          category: targetTyre.category,
+          oldPriceXCD: targetTyre.priceXCD,
+          newPriceXCD: val,
+          diffXCD: diff,
+          timestamp: new Date().toLocaleDateString('en-GB', {
+            day: 'numeric',
+            month: 'short',
+            hour: '2-digit',
+            minute: '2-digit'
+          }),
+          updatedBy: 'Admin Workshop'
+        };
+        savePriceHistory([newRecord, ...priceHistory]);
+      }
       onUpdateTyrePrice(tyreId, val);
     }
     setEditingPriceId(null);
@@ -120,6 +243,26 @@ export const AdminInventoryView: React.FC<AdminInventoryViewProps> = ({
     if (!onUpdateTyreStock) return;
     const nextStock = Math.max(0, (tyre.stockCount || 0) + delta);
     onUpdateTyreStock(tyre.id, nextStock);
+  };
+
+  const handleToggleSelectTyre = (id: string) => {
+    setSelectedTyreIds(prev =>
+      prev.includes(id) ? prev.filter(item => item !== id) : [...prev, id]
+    );
+  };
+
+  const handleToggleSelectAll = () => {
+    if (selectedTyreIds.length === filteredTyres.length && filteredTyres.length > 0) {
+      setSelectedTyreIds([]);
+    } else {
+      setSelectedTyreIds(filteredTyres.map(t => t.id));
+    }
+  };
+
+  const handlePrintSelectedBarcodes = () => {
+    if (selectedTyreIds.length === 0) return;
+    setBatchPrintIds(selectedTyreIds);
+    setIsBarcodeCenterOpen(true);
   };
 
   const handleExportCSV = () => {
@@ -299,11 +442,51 @@ export const AdminInventoryView: React.FC<AdminInventoryViewProps> = ({
         {/* Quick Action Buttons */}
         <div className="flex items-center gap-2 flex-wrap">
           <button
+            onClick={() => {
+              if (onOpenScanner) onOpenScanner();
+              else setIsScannerOpen(true);
+            }}
+            id="admin-inventory-scanner-btn"
+            className="inline-flex items-center gap-1.5 bg-emerald-600 hover:bg-emerald-500 text-white font-black text-xs px-3.5 py-2 rounded-xl shadow-xs transition active:scale-95 cursor-pointer"
+            title="Open live barcode scanner & inventory intake"
+          >
+            <Camera className="w-4 h-4" />
+            <span>Barcode Scanner</span>
+          </button>
+
+          {/* Print Selected Barcodes Button (Batch Action) */}
+          {selectedTyreIds.length > 0 && (
+            <button
+              onClick={handlePrintSelectedBarcodes}
+              id="admin-inventory-print-selected-barcodes-btn"
+              className="inline-flex items-center gap-1.5 bg-amber-500 hover:bg-amber-400 text-slate-950 font-black text-xs px-3.5 py-2 rounded-xl shadow-md transition active:scale-95 cursor-pointer ring-2 ring-amber-300 animate-pulse"
+              title={`Print barcodes for ${selectedTyreIds.length} selected tyres`}
+            >
+              <Printer className="w-4 h-4 text-slate-950" />
+              <span>Print Selected Barcodes ({selectedTyreIds.length})</span>
+            </button>
+          )}
+
+          <button
+            onClick={() => {
+              setBatchPrintIds(null);
+              if (onOpenBarcodeCenter) onOpenBarcodeCenter();
+              else setIsBarcodeCenterOpen(true);
+            }}
+            id="admin-inventory-barcodes-btn"
+            className="inline-flex items-center gap-1.5 bg-blue-600 hover:bg-blue-500 text-white font-black text-xs px-3.5 py-2 rounded-xl shadow-xs transition active:scale-95 cursor-pointer"
+            title="Generate & print barcodes for all inventory (Tyre Size, Barcode, Retail Price)"
+          >
+            <Barcode className="w-4 h-4 text-blue-200" />
+            <span>Barcode Labels</span>
+          </button>
+
+          <button
             onClick={() => setIsAddModalOpen(true)}
             id="admin-inventory-add-btn"
-            className="inline-flex items-center gap-1.5 bg-[#0984E3] hover:bg-blue-600 text-white font-bold text-xs px-3.5 py-2 rounded-xl shadow-xs transition transform active:scale-95"
+            className="inline-flex items-center gap-1.5 bg-slate-800 hover:bg-slate-700 text-white border border-slate-600 font-bold text-xs px-3.5 py-2 rounded-xl shadow-xs transition transform active:scale-95 cursor-pointer"
           >
-            <Plus className="w-4 h-4" />
+            <Plus className="w-4 h-4 text-blue-400" />
             <span>Add New Tyre</span>
           </button>
 
@@ -326,8 +509,174 @@ export const AdminInventoryView: React.FC<AdminInventoryViewProps> = ({
             <Download className="w-4 h-4 text-emerald-400" />
             <span>Export CSV</span>
           </button>
+
+          <button
+            onClick={() => setShowPriceTrendView(!showPriceTrendView)}
+            id="admin-inventory-price-trends-btn"
+            className={`inline-flex items-center gap-1.5 font-bold text-xs px-3.5 py-2 rounded-xl shadow-xs transition cursor-pointer ${
+              showPriceTrendView
+                ? 'bg-amber-400 text-slate-950 font-black ring-2 ring-amber-300'
+                : 'bg-slate-800 hover:bg-slate-700 text-amber-300 border border-amber-500/40'
+            }`}
+            title="Toggle Price Trend & Update History view"
+          >
+            <TrendingUp className="w-4 h-4 text-amber-400" />
+            <span>{showPriceTrendView ? 'Hide Price Trends' : 'Price Trends & History'}</span>
+            <span className="ml-0.5 px-1.5 py-0.2 bg-amber-500/30 text-amber-200 rounded-full text-[10px] font-extrabold">
+              {priceHistory.length}
+            </span>
+          </button>
         </div>
       </div>
+
+      {/* ============================================================ */}
+      {/* TOGGLEABLE PRICE TREND & REVISION HISTORY VIEW               */}
+      {/* ============================================================ */}
+      {showPriceTrendView && (
+        <div className="bg-gradient-to-b from-amber-500/10 via-white to-white border-2 border-amber-400/80 rounded-3xl p-5 shadow-lg space-y-4 animate-in fade-in slide-in-from-top-2 duration-200">
+          <div className="flex flex-wrap items-center justify-between gap-3 border-b border-amber-200/60 pb-3">
+            <div className="flex items-center gap-2.5">
+              <div className="w-9 h-9 rounded-xl bg-amber-500 text-slate-950 flex items-center justify-center font-black">
+                <TrendingUp className="w-5 h-5" />
+              </div>
+              <div>
+                <h4 className="font-black text-slate-900 text-sm sm:text-base flex items-center gap-2">
+                  Tyre Price Trend & Update History
+                  <span className="text-[10px] bg-amber-200 text-amber-900 font-extrabold px-2 py-0.5 rounded-full">
+                    {priceHistory.length} Updates Logged
+                  </span>
+                </h4>
+                <p className="text-xs text-slate-600">
+                  Track retail price revisions, supplier adjustments, and inflation trends for Dominica
+                </p>
+              </div>
+            </div>
+
+            <div className="flex items-center gap-2">
+              <button
+                type="button"
+                onClick={() => setShowPriceTrendView(false)}
+                className="text-xs font-bold text-slate-600 hover:text-slate-900 bg-white border border-slate-200 hover:bg-slate-50 px-3 py-1.5 rounded-xl transition cursor-pointer"
+              >
+                Close View
+              </button>
+            </div>
+          </div>
+
+          {/* Price Trend Summary Metrics */}
+          <div className="grid grid-cols-2 sm:grid-cols-4 gap-3">
+            <div className="bg-white p-3 rounded-2xl border border-amber-200 shadow-xs">
+              <span className="text-[10px] font-bold text-slate-500 uppercase tracking-wider block">Price Revisions</span>
+              <span className="text-xl font-black text-slate-900 mt-0.5 block">{priceHistory.length}</span>
+              <span className="text-[10px] text-slate-400">Total logged changes</span>
+            </div>
+            <div className="bg-white p-3 rounded-2xl border border-amber-200 shadow-xs">
+              <span className="text-[10px] font-bold text-emerald-600 uppercase tracking-wider block">Price Increases</span>
+              <span className="text-xl font-black text-emerald-700 mt-0.5 block">
+                {priceHistory.filter(h => h.diffXCD > 0).length}
+              </span>
+              <span className="text-[10px] text-emerald-600/80">Supplier / Freight changes</span>
+            </div>
+            <div className="bg-white p-3 rounded-2xl border border-amber-200 shadow-xs">
+              <span className="text-[10px] font-bold text-blue-600 uppercase tracking-wider block">Price Reductions</span>
+              <span className="text-xl font-black text-blue-700 mt-0.5 block">
+                {priceHistory.filter(h => h.diffXCD < 0).length}
+              </span>
+              <span className="text-[10px] text-blue-600/80">Promotions / Clearance</span>
+            </div>
+            <div className="bg-white p-3 rounded-2xl border border-amber-200 shadow-xs">
+              <span className="text-[10px] font-bold text-amber-700 uppercase tracking-wider block">Avg Delta</span>
+              <span className="text-xl font-black text-amber-900 mt-0.5 block">
+                {priceHistory.length > 0 
+                  ? `EC$ ${(priceHistory.reduce((acc, h) => acc + h.diffXCD, 0) / priceHistory.length).toFixed(1)}` 
+                  : 'EC$ 0'}
+              </span>
+              <span className="text-[10px] text-slate-400">Net price variance</span>
+            </div>
+          </div>
+
+          {/* Search Price History */}
+          <div className="relative">
+            <Search className="w-3.5 h-3.5 text-slate-400 absolute left-3 top-1/2 -translate-y-1/2" />
+            <input
+              type="text"
+              placeholder="Search price revision history by brand, model, size..."
+              value={priceHistorySearch}
+              onChange={(e) => setPriceHistorySearch(e.target.value)}
+              className="w-full pl-9 pr-4 py-2 bg-white border border-slate-200 rounded-xl text-xs font-medium focus:outline-hidden focus:ring-2 focus:ring-amber-500/30"
+            />
+          </div>
+
+          {/* History Table */}
+          <div className="bg-white rounded-2xl border border-slate-200 overflow-hidden shadow-xs">
+            <div className="max-h-72 overflow-y-auto">
+              <table className="w-full text-left text-xs border-collapse">
+                <thead>
+                  <tr className="bg-slate-100/90 text-slate-700 font-bold uppercase text-[10px] tracking-wider border-b border-slate-200">
+                    <th className="p-2.5">Tyre Model & Size</th>
+                    <th className="p-2.5">Category</th>
+                    <th className="p-2.5">Old Price</th>
+                    <th className="p-2.5">New Price</th>
+                    <th className="p-2.5">Difference</th>
+                    <th className="p-2.5">Date & Time</th>
+                    <th className="p-2.5">Admin</th>
+                  </tr>
+                </thead>
+                <tbody className="divide-y divide-slate-100">
+                  {priceHistory
+                    .filter(h => {
+                      const q = priceHistorySearch.toLowerCase().trim();
+                      if (!q) return true;
+                      return (
+                        h.brand.toLowerCase().includes(q) ||
+                        h.modelName.toLowerCase().includes(q) ||
+                        h.size.toLowerCase().includes(q) ||
+                        h.category.toLowerCase().includes(q)
+                      );
+                    })
+                    .map((item) => {
+                      const isUp = item.diffXCD > 0;
+                      return (
+                        <tr key={item.id} className="hover:bg-slate-50/80 transition">
+                          <td className="p-2.5 font-semibold text-slate-900">
+                            <div>{item.brand} {item.modelName}</div>
+                            <span className="text-[10px] text-slate-400">{item.size}</span>
+                          </td>
+                          <td className="p-2.5 text-slate-600 text-[11px]">{item.category}</td>
+                          <td className="p-2.5 text-slate-500 font-medium line-through">
+                            EC$ {item.oldPriceXCD.toFixed(2)}
+                          </td>
+                          <td className="p-2.5 font-bold text-slate-900">
+                            EC$ {item.newPriceXCD.toFixed(2)}
+                          </td>
+                          <td className="p-2.5">
+                            <span
+                              className={`inline-flex items-center gap-0.5 text-[10px] font-extrabold px-2 py-0.5 rounded-full border ${
+                                isUp
+                                  ? 'bg-emerald-50 text-emerald-800 border-emerald-300'
+                                  : 'bg-red-50 text-red-800 border-red-300'
+                              }`}
+                            >
+                              {isUp ? <TrendingUp className="w-3 h-3 text-emerald-600" /> : <TrendingDown className="w-3 h-3 text-red-600" />}
+                              {isUp ? '+' : ''}EC$ {item.diffXCD.toFixed(2)}
+                            </span>
+                          </td>
+                          <td className="p-2.5 text-slate-500 text-[11px]">
+                            <div className="flex items-center gap-1">
+                              <Clock className="w-3 h-3 text-slate-400" />
+                              <span>{item.timestamp}</span>
+                            </div>
+                          </td>
+                          <td className="p-2.5 text-slate-500 text-[10px]">{item.updatedBy}</td>
+                        </tr>
+                      );
+                    })}
+                </tbody>
+              </table>
+            </div>
+          </div>
+        </div>
+      )}
 
       {/* Summary KPI Cards */}
       <div className="grid grid-cols-2 sm:grid-cols-5 gap-3">
@@ -462,15 +811,52 @@ export const AdminInventoryView: React.FC<AdminInventoryViewProps> = ({
 
       {/* Tyres Inventory Table */}
       <div className="bg-white rounded-xl border border-slate-200 shadow-xs overflow-hidden">
-        <div className="px-5 py-3.5 border-b border-slate-200 bg-slate-50 flex items-center justify-between">
-          <div className="flex items-center gap-2">
+        <div className="px-5 py-3.5 border-b border-slate-200 bg-slate-50 flex items-center justify-between flex-wrap gap-2">
+          <div className="flex items-center gap-3">
             <span className="text-xs font-bold text-slate-700 uppercase tracking-wider">
               Inventory Listings ({filteredTyres.length} Tyres)
             </span>
+            {selectedTyreIds.length > 0 && (
+              <span className="inline-flex items-center gap-1.5 bg-blue-100 text-blue-900 font-black text-xs px-2.5 py-0.5 rounded-full border border-blue-300">
+                <CheckSquare className="w-3.5 h-3.5 text-blue-700" />
+                {selectedTyreIds.length} Selected
+              </span>
+            )}
           </div>
-          <span className="text-xs text-slate-500 font-medium">
-            Showing matching shop inventory
-          </span>
+
+          <div className="flex items-center gap-2">
+            {selectedTyreIds.length > 0 ? (
+              <>
+                <button
+                  type="button"
+                  onClick={handlePrintSelectedBarcodes}
+                  id="print-selected-barcodes-table-btn"
+                  className="inline-flex items-center gap-1.5 bg-blue-600 hover:bg-blue-700 text-white font-black text-xs px-3 py-1.5 rounded-xl shadow-xs transition active:scale-95 cursor-pointer"
+                  title="Print barcode labels for selected tyres"
+                >
+                  <Barcode className="w-3.5 h-3.5 text-blue-200" />
+                  <span>Print Selected Barcodes ({selectedTyreIds.length})</span>
+                </button>
+                <button
+                  type="button"
+                  onClick={() => setSelectedTyreIds([])}
+                  className="text-slate-500 hover:text-slate-700 font-bold text-xs px-2 py-1 rounded-lg transition cursor-pointer"
+                >
+                  Clear Selection
+                </button>
+              </>
+            ) : (
+              <button
+                type="button"
+                onClick={handleToggleSelectAll}
+                className="text-slate-500 hover:text-slate-800 font-bold text-xs px-2 py-1 rounded-lg transition cursor-pointer flex items-center gap-1"
+                title="Select all filtered tyres"
+              >
+                <Square className="w-3.5 h-3.5" />
+                <span>Select All Filtered</span>
+              </button>
+            )}
+          </div>
         </div>
 
         {filteredTyres.length === 0 ? (
@@ -497,8 +883,27 @@ export const AdminInventoryView: React.FC<AdminInventoryViewProps> = ({
             <table className="w-full text-left border-collapse text-xs">
               <thead>
                 <tr className="bg-slate-100/80 text-slate-600 font-bold border-b border-slate-200 uppercase tracking-wider text-[10px]">
+                  <th className="py-3 px-3 w-10 text-center">
+                    <button
+                      type="button"
+                      onClick={handleToggleSelectAll}
+                      className="p-1 rounded text-slate-500 hover:text-slate-800 transition cursor-pointer inline-flex items-center justify-center"
+                      title={selectedTyreIds.length === filteredTyres.length && filteredTyres.length > 0 ? "Deselect All" : "Select All Filtered Tyres"}
+                    >
+                      {filteredTyres.length > 0 && selectedTyreIds.length === filteredTyres.length ? (
+                        <CheckSquare className="w-4 h-4 text-[#0984E3]" />
+                      ) : selectedTyreIds.length > 0 ? (
+                        <div className="w-4 h-4 rounded bg-[#0984E3] flex items-center justify-center text-white text-[10px] font-bold leading-none">
+                          -
+                        </div>
+                      ) : (
+                        <Square className="w-4 h-4 text-slate-400" />
+                      )}
+                    </button>
+                  </th>
                   <th className="py-3 px-4">Tyre & Model</th>
                   <th className="py-3 px-3">Size & Rim</th>
+                  <th className="py-3 px-3">Barcode of Size</th>
                   <th className="py-3 px-3">Condition</th>
                   <th className="py-3 px-3">Category</th>
                   <th className="py-3 px-3">Price (EC$ / US$)</th>
@@ -512,9 +917,29 @@ export const AdminInventoryView: React.FC<AdminInventoryViewProps> = ({
                   const isEditingStock = editingStockId === tyre.id;
                   const isLow = tyre.stockCount > 0 && tyre.stockCount <= 4;
                   const isOut = tyre.stockCount <= 0;
+                  const isSelected = selectedTyreIds.includes(tyre.id);
 
                   return (
-                    <tr key={tyre.id} className="hover:bg-slate-50/80 transition group">
+                    <tr key={tyre.id} className={`hover:bg-slate-50/80 transition group ${isSelected ? 'bg-blue-50/50' : ''}`}>
+                      {/* Selection Checkbox */}
+                      <td className="py-3 px-3 text-center">
+                        <button
+                          type="button"
+                          onClick={(e) => {
+                            e.stopPropagation();
+                            handleToggleSelectTyre(tyre.id);
+                          }}
+                          className="p-1 rounded text-slate-500 hover:text-slate-800 transition cursor-pointer inline-flex items-center justify-center"
+                          title={isSelected ? "Deselect Tyre" : "Select Tyre for Barcode Printing"}
+                        >
+                          {isSelected ? (
+                            <CheckSquare className="w-4 h-4 text-[#0984E3]" />
+                          ) : (
+                            <Square className="w-4 h-4 text-slate-300 hover:text-slate-500" />
+                          )}
+                        </button>
+                      </td>
+
                       {/* Brand & Model */}
                       <td className="py-3 px-4">
                         <div className="flex items-center gap-3">
@@ -546,6 +971,19 @@ export const AdminInventoryView: React.FC<AdminInventoryViewProps> = ({
                         <span className="text-[10px] text-slate-500 font-medium">
                           Rim: {tyre.rimDiameter}" • {tyre.speedRating}
                         </span>
+                      </td>
+
+                      {/* Barcode of Tyre Size */}
+                      <td className="py-3 px-3">
+                        <button
+                          type="button"
+                          onClick={() => setSingleTyreToPrint(tyre)}
+                          className="group/bc inline-flex items-center gap-1.5 bg-slate-100 hover:bg-blue-50 text-slate-800 hover:text-blue-700 px-2.5 py-1 rounded-lg border border-slate-200 hover:border-blue-300 font-mono text-[10.5px] font-bold transition cursor-pointer"
+                          title="Print Barcode Tag (Tyre Size, Barcode, Retail Price)"
+                        >
+                          <Barcode className="w-3.5 h-3.5 text-slate-500 group-hover/bc:text-blue-600" />
+                          <span>{getTyreBarcodeValue(tyre)}</span>
+                        </button>
                       </td>
 
                       {/* Condition */}
@@ -601,11 +1039,29 @@ export const AdminInventoryView: React.FC<AdminInventoryViewProps> = ({
                             </button>
                           </div>
                         ) : (
-                          <div className="flex items-center gap-1.5">
+                          <div className="flex items-start gap-1.5">
                             <div>
                               <span className="font-black text-slate-900 text-xs block">
                                 EC$ {tyre.priceXCD.toFixed(2)}
                               </span>
+                              {(() => {
+                                const latestChange = priceHistory.find((h) => h.tyreId === tyre.id);
+                                if (!latestChange) return null;
+                                const isUp = latestChange.diffXCD > 0;
+                                return (
+                                  <div
+                                    className="mt-0.5 inline-flex items-center gap-0.5 text-[9px] font-extrabold px-1.5 py-0.2 rounded-md bg-slate-100 text-slate-700 border border-slate-200"
+                                    title={`Last updated ${latestChange.timestamp}: Was EC$ ${latestChange.oldPriceXCD.toFixed(2)}`}
+                                  >
+                                    <span className={isUp ? 'text-emerald-700' : 'text-red-700'}>
+                                      {isUp ? '▲ +' : '▼ -'}EC$ {Math.abs(latestChange.diffXCD).toFixed(0)}
+                                    </span>
+                                    <span className="text-slate-400 font-normal text-[8px]">
+                                      ({latestChange.timestamp.split(',')[0]})
+                                    </span>
+                                  </div>
+                                );
+                              })()}
                             </div>
                             {onUpdateTyrePrice && (
                               <button
@@ -708,6 +1164,16 @@ export const AdminInventoryView: React.FC<AdminInventoryViewProps> = ({
                       {/* Quick Actions */}
                       <td className="py-3 px-4 text-right">
                         <div className="flex items-center justify-end gap-1.5">
+                          <button
+                            type="button"
+                            onClick={() => setSingleTyreToPrint(tyre)}
+                            className="inline-flex items-center gap-1 bg-slate-100 hover:bg-slate-200 text-slate-700 border border-slate-300 font-bold text-[11px] px-2 py-1.5 rounded-lg transition cursor-pointer"
+                            title="Print Barcode Tag (Tyre Size, Barcode, Price)"
+                          >
+                            <Barcode className="w-3 h-3 text-slate-600" />
+                            <span>Label</span>
+                          </button>
+
                           {onAddToPos && (
                             <button
                               onClick={() => onAddToPos(tyre)}
@@ -884,6 +1350,106 @@ export const AdminInventoryView: React.FC<AdminInventoryViewProps> = ({
                 </button>
               </div>
             </form>
+          </div>
+        </div>
+      )}
+
+      {/* Barcode Center Modal (All Inventory Barcodes or Batch Selected) */}
+      <InventoryBarcodeCenterModal
+        isOpen={isBarcodeCenterOpen}
+        onClose={() => {
+          setIsBarcodeCenterOpen(false);
+          setBatchPrintIds(null);
+        }}
+        tyres={tyres}
+        initialSelectedIds={batchPrintIds || undefined}
+        onOpenScanner={() => setIsScannerOpen(true)}
+      />
+
+      {/* Live Barcode Scanner & Stock Intake Modal */}
+      <BarcodeScannerModal
+        isOpen={isScannerOpen}
+        onClose={() => setIsScannerOpen(false)}
+        tyres={tyres}
+        onAddToPos={onAddToPos}
+        onUpdateTyreStock={onUpdateTyreStock}
+        onUpdateTyrePrice={onUpdateTyrePrice}
+        onOpenBarcodeCenter={() => setIsBarcodeCenterOpen(true)}
+      />
+
+      {/* Single Tyre Barcode Tag Print Preview Modal */}
+      {singleTyreToPrint && (
+        <div id="single-barcode-print-modal" className="fixed inset-0 z-70 bg-black/80 backdrop-blur-xs flex items-center justify-center p-4 animate-fade-in">
+          <div className="bg-slate-900 border border-slate-700 rounded-2xl max-w-lg w-full p-5 text-white space-y-4 shadow-2xl">
+            <div className="flex items-center justify-between border-b border-slate-800 pb-3">
+              <div className="flex items-center gap-2">
+                <Barcode className="w-5 h-5 text-blue-400" />
+                <div>
+                  <h4 className="text-sm font-black text-white">2&quot; × 4&quot; Tyre Barcode Label</h4>
+                  <p className="text-[11px] text-slate-400">Compatible with 8½&quot; × 11&quot; label sheets (Avery 5163 / 5263 / 8163)</p>
+                </div>
+              </div>
+              <button
+                type="button"
+                onClick={() => setSingleTyreToPrint(null)}
+                className="p-1 rounded-lg text-slate-400 hover:text-white transition cursor-pointer"
+              >
+                <X className="w-5 h-5" />
+              </button>
+            </div>
+
+            <div className="flex justify-center py-3 bg-slate-950/80 rounded-xl p-4 overflow-hidden border border-slate-800">
+              <TyreBarcodeLabel tyre={singleTyreToPrint} variant="avery_2x4" showBorder={true} />
+            </div>
+
+            <div className="bg-slate-800/60 p-3 rounded-xl border border-slate-700/60 text-xs text-slate-300 space-y-1">
+              <div className="flex items-center justify-between">
+                <span className="text-slate-400">Label Dimensions:</span>
+                <span className="font-mono font-bold text-white">4.0&quot; wide × 2.0&quot; high (10-Up on 8.5&quot;×11&quot;)</span>
+              </div>
+              <div className="flex items-center justify-between">
+                <span className="text-slate-400">Tyre Size & Barcode:</span>
+                <span className="font-mono font-bold text-blue-400">{singleTyreToPrint.size} • {getTyreBarcodeValue(singleTyreToPrint)}</span>
+              </div>
+              <div className="flex items-center justify-between">
+                <span className="text-slate-400">Price Display:</span>
+                <span className="text-emerald-400 font-bold">EC$ {singleTyreToPrint.priceXCD} (≈ US$ {(singleTyreToPrint.priceXCD / 2.7).toFixed(0)})</span>
+              </div>
+            </div>
+
+            <div className="flex items-center justify-between gap-2 pt-2 border-t border-slate-800">
+              <button
+                type="button"
+                onClick={() => {
+                  setSingleTyreToPrint(null);
+                  if (onOpenBarcodeCenter) onOpenBarcodeCenter();
+                  else setIsBarcodeCenterOpen(true);
+                }}
+                className="text-xs font-bold text-blue-400 hover:text-blue-300 transition underline underline-offset-2 cursor-pointer"
+              >
+                Open Multi-Sheet Print Center →
+              </button>
+
+              <div className="flex items-center gap-2">
+                <button
+                  type="button"
+                  onClick={() => setSingleTyreToPrint(null)}
+                  className="px-3.5 py-2 rounded-xl bg-slate-800 hover:bg-slate-700 text-slate-300 text-xs font-bold transition cursor-pointer"
+                >
+                  Close
+                </button>
+                <button
+                  type="button"
+                  onClick={() => {
+                    window.print();
+                  }}
+                  className="px-4 py-2 rounded-xl bg-blue-600 hover:bg-blue-500 text-white text-xs font-black transition flex items-center gap-1.5 shadow-md cursor-pointer active:scale-95"
+                >
+                  <Printer className="w-4 h-4" />
+                  <span>Print 2&quot;×4&quot; Label</span>
+                </button>
+              </div>
+            </div>
           </div>
         </div>
       )}

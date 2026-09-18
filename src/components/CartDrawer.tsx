@@ -35,7 +35,7 @@ interface CartDrawerProps {
   cartItems: CartItem[];
   onUpdateQuantity: (id: string, delta: number) => void;
   onRemoveItem: (id: string) => void;
-  onToggleService: (id: string, serviceKey: 'mounting' | 'valves') => void;
+  onToggleService: (id: string, serviceKey: 'mounting' | 'valves' | 'shredding') => void;
   onClearCart: () => void;
   servicePrices: Record<string, number>;
   orders?: AdminOrder[];

@@ -37,7 +37,15 @@ import {
   Bot,
   Package,
   Send,
-  Award
+  Award,
+  Users,
+  Eye,
+  Barcode,
+  Camera,
+  Cpu,
+  Zap,
+  Banknote,
+  FileSpreadsheet
 } from 'lucide-react';
 import { 
   BarChart, 
@@ -59,6 +67,22 @@ import { ServicesSection } from './ServicesSection';
 import { MyOrdersView } from './MyOrdersView';
 import { AdminInventoryView } from './AdminInventoryView';
 import { ReceiptPrintModal, PrintableOrderData } from './ReceiptPrintModal';
+import { AdminCustomerDirectoryView } from './AdminCustomerDirectoryView';
+import { DailyManifestModal } from './DailyManifestModal';
+import { DailyManifestPrintPreviewModal } from './DailyManifestPrintPreviewModal';
+import { WhatsAppTemplateGeneratorModal } from './WhatsAppTemplateGeneratorModal';
+import { OrderTimelineProgressBar } from './OrderTimelineProgressBar';
+import { BarcodeScannerModal } from './BarcodeScannerModal';
+import { InventoryBarcodeCenterModal } from './InventoryBarcodeCenterModal';
+import { AdminSalesSummaryChart } from './AdminSalesSummaryChart';
+import { AdminWorkshopPerformanceReport } from './AdminWorkshopPerformanceReport';
+import { AdminPosHardwareModal, HardwareStatusState } from './AdminPosHardwareModal';
+import {
+  playBarcodeBeep,
+  playCashDrawerKick,
+  playTerminalApprovedBeep,
+  playPrinterFeedSound
+} from '../utils/hardwareAudio';
 import { triggerAddToCartHaptic } from '../utils/haptics';
 
 export interface PriceAdjustment {
@@ -126,7 +150,7 @@ interface AdminOrdersModalProps {
 export const AdminOrdersModal: React.FC<AdminOrdersModalProps> = ({
   isOpen,
   onClose,
-  orders,
+  orders = [],
   onClearOrders,
   onLogoff,
   onUpdateOrder,
@@ -135,7 +159,7 @@ export const AdminOrdersModal: React.FC<AdminOrdersModalProps> = ({
   onBulkDeleteOrders,
   whatsappCustomMessage,
   onUpdateWhatsAppMessage,
-  servicePrices,
+  servicePrices = { mounting: 20, valves: 15, shredding: 1 },
   onUpdateServicePrice,
   adminActivityLog,
   onClearActivityLog,
@@ -147,9 +171,39 @@ export const AdminOrdersModal: React.FC<AdminOrdersModalProps> = ({
   onUpdateTyreStock,
   onAddNewTyre,
 }) => {
-  const [activeModalTab, setActiveModalTab] = useState<'orders' | 'inventory' | 'history' | 'pos' | 'prices' | 'activity' | 'trends' | 'settings' | 'services' | 'myorders'>('orders');
+  const [activeModalTab, setActiveModalTab] = useState<'orders' | 'inventory' | 'scanner' | 'barcodes' | 'history' | 'customers' | 'pos' | 'prices' | 'activity' | 'trends' | 'sales' | 'workshop-report' | 'settings' | 'services' | 'myorders'>('orders');
+  const [isBarcodeScannerOpen, setIsBarcodeScannerOpen] = useState(false);
+  const [isBarcodeCenterOpen, setIsBarcodeCenterOpen] = useState(false);
   const [customWhatsAppInput, setCustomWhatsAppInput] = useState(whatsappCustomMessage);
   const [savedWhatsAppNotice, setSavedWhatsAppNotice] = useState(false);
+
+  // Workshop POS Hardware Peripherals State (Printer, Scanner, Cash Drawer, Card Terminal)
+  const [isHardwareModalOpen, setIsHardwareModalOpen] = useState(false);
+  const [hardwareState, setHardwareState] = useState<HardwareStatusState>({
+    printerConnected: true,
+    printerModel: 'Epson TM-T88VI 80mm ESC/POS Thermal & 8.5x11 Sheet',
+    printerPort: 'USB',
+    autoPrintReceipt: true,
+
+    scannerConnected: true,
+    scannerModel: 'Honeywell Xenon 1900G / Zebra DS2208 2D Imager',
+    scannerMode: 'USB Wedge',
+    soundEnabled: true,
+
+    drawerConnected: true,
+    drawerStatus: 'closed',
+    drawerOpeningFloat: 500,
+    cashSalesTotal: 0,
+    cashDropsTotal: 0,
+    drawerLog: [
+      { timestamp: '08:00 AM', reason: 'Shift Opening Float EC$ 500.00 Verified', amount: 500 }
+    ],
+
+    terminalConnected: true,
+    terminalModel: 'Pax A920 SmartPOS EMV & NFC',
+    terminalBattery: 98,
+    terminalIp: '192.168.1.145'
+  });
 
   // POS State
   const [posCart, setPosCart] = useState<CartItem[]>([]);
@@ -167,6 +221,37 @@ export const AdminOrdersModal: React.FC<AdminOrdersModalProps> = ({
   const [isSmartCardTerminalOpen, setIsSmartCardTerminalOpen] = useState(false);
   const [terminalStep, setTerminalStep] = useState<'idle' | 'reading' | 'pin' | 'approved'>('idle');
   const [terminalMethodUsed, setTerminalMethodUsed] = useState<string>('');
+
+  // Hardware Solenoid Drawer Kick
+  const handleKickDrawer = (reason: string = 'Manual POS Drawer Kick') => {
+    if (hardwareState.soundEnabled) playCashDrawerKick();
+    setHardwareState(prev => ({
+      ...prev,
+      drawerStatus: 'open',
+      drawerLog: [
+        { timestamp: new Date().toLocaleTimeString(), reason },
+        ...prev.drawerLog.slice(0, 9)
+      ]
+    }));
+    setTimeout(() => {
+      setHardwareState(prev => ({ ...prev, drawerStatus: 'closed' }));
+    }, 4000);
+  };
+
+  // Barcode Scanner Listener: looks up tyre by barcode and adds to POS cart
+  const handleSimulateScanBarcode = (barcodeVal: string) => {
+    const clean = barcodeVal.replace(/^TYRE-?/i, '').replace(/[^a-zA-Z0-9]/g, '').toUpperCase();
+    const matchedTyre = tyres.find(t => {
+      const tyreClean = t.size.replace(/[^a-zA-Z0-9]/g, '').toUpperCase();
+      const code128 = `TYRE${tyreClean}`;
+      return tyreClean.includes(clean) || clean.includes(tyreClean) || code128.includes(clean);
+    }) || tyres[0];
+
+    if (matchedTyre) {
+      handleAddTyreToPos(matchedTyre);
+      if (hardwareState.soundEnabled) playBarcodeBeep();
+    }
+  };
 
   const handleAddTyreToPos = (tyre: Tyre) => {
     triggerAddToCartHaptic();
@@ -253,7 +338,7 @@ export const AdminOrdersModal: React.FC<AdminOrdersModalProps> = ({
       preferredDate: new Date().toLocaleDateString(),
       items: posCart,
       totalXCD: posSubtotalXCD,
-      paymentMethod: posPaymentMethod === 'Stripe Merchant Portal' ? 'Stripe Online' : 'Pay at Shop / WhatsApp',
+      paymentMethod: posPaymentMethod === 'Stripe Merchant Portal' ? 'Stripe Online' : (posPaymentMethod === 'Cash at Counter' ? 'Cash at Counter' : 'Pay at Shop / WhatsApp'),
       paymentStatus: 'Confirmed',
       dispatchStatus: 'Dispatched',
       dispatchMethod: 'In-Shop Pichelin Counter Sale',
@@ -269,6 +354,33 @@ export const AdminOrdersModal: React.FC<AdminOrdersModalProps> = ({
       id: 'ord-' + Date.now(),
       timestamp: new Date().toLocaleString()
     };
+
+    // External Hardware Reaction: Cash Drawer Kick & Thermal Printer Feed
+    if (posPaymentMethod === 'Cash at Counter') {
+      if (hardwareState.soundEnabled) playCashDrawerKick();
+      setHardwareState(prev => ({
+        ...prev,
+        drawerStatus: 'open',
+        cashSalesTotal: prev.cashSalesTotal + posSubtotalXCD,
+        drawerLog: [
+          {
+            timestamp: new Date().toLocaleTimeString(),
+            reason: `Cash Sale (${createdOrder.reservationCode})`,
+            amount: posSubtotalXCD
+          },
+          ...prev.drawerLog.slice(0, 9)
+        ]
+      }));
+      setTimeout(() => {
+        setHardwareState(prev => ({ ...prev, drawerStatus: 'closed' }));
+      }, 4000);
+
+      if (hardwareState.autoPrintReceipt && hardwareState.soundEnabled) {
+        setTimeout(() => playPrinterFeedSound(), 600);
+      }
+    } else if (hardwareState.autoPrintReceipt && hardwareState.soundEnabled) {
+      setTimeout(() => playPrinterFeedSound(), 500);
+    }
 
     setPosSuccessReceipt(createdOrder);
     setPosLoading(false);
@@ -303,6 +415,14 @@ export const AdminOrdersModal: React.FC<AdminOrdersModalProps> = ({
       id: 'ord-' + Date.now(),
       timestamp: new Date().toLocaleString()
     };
+
+    // Hardware Audio & Thermal Receipt Feed
+    if (hardwareState.soundEnabled) {
+      playTerminalApprovedBeep();
+      if (hardwareState.autoPrintReceipt) {
+        setTimeout(() => playPrinterFeedSound(), 600);
+      }
+    }
 
     setPosSuccessReceipt(createdOrder);
     setPosLoading(false);
@@ -383,11 +503,124 @@ export const AdminOrdersModal: React.FC<AdminOrdersModalProps> = ({
   const [csvExportToast, setCsvExportToast] = useState<{
     count: number;
     filename: string;
+    totalValueXCD?: number;
   } | null>(null);
 
   // Receipt Printing State for optimized browser print dialog
   const [selectedReceiptOrder, setSelectedReceiptOrder] = useState<PrintableOrderData | null>(null);
   const [autoPrintReceipt, setAutoPrintReceipt] = useState<boolean>(false);
+
+  // Daily Manifest Modal & A4 Print Preview Modal State
+  const [isDailyManifestOpen, setIsDailyManifestOpen] = useState<boolean>(false);
+  const [isDailyManifestPreviewOpen, setIsDailyManifestPreviewOpen] = useState<boolean>(false);
+
+  // WhatsApp Customer Confirmation Template Generator State
+  const [isWhatsAppGeneratorOpen, setIsWhatsAppGeneratorOpen] = useState<boolean>(false);
+  const [selectedWhatsAppOrder, setSelectedWhatsAppOrder] = useState<AdminOrder | null>(null);
+
+  const handleOpenWhatsAppGenerator = (order?: AdminOrder | null) => {
+    setSelectedWhatsAppOrder(order || null);
+    setIsWhatsAppGeneratorOpen(true);
+  };
+
+  // 7-Day Order Volume & Total Sales Trends State & Calculation (recharts - top level hooks)
+  const [trendChartMetric, setTrendChartMetric] = useState<'combined' | 'volume' | 'sales'>('combined');
+
+  const getDayOffsetForOrder = (order: AdminOrder): number | null => {
+    const ts = (order.timestamp || '').toLowerCase();
+    const pref = (order.preferredDate || '').toLowerCase();
+    const combined = `${ts} ${pref}`;
+
+    if (combined.includes('today')) return 0;
+    if (combined.includes('yesterday')) return 1;
+    if (combined.includes('2 days ago') || combined.includes('2 days')) return 2;
+    if (combined.includes('3 days ago') || combined.includes('3 days')) return 3;
+    if (combined.includes('4 days ago') || combined.includes('4 days')) return 4;
+    if (combined.includes('5 days ago') || combined.includes('5 days')) return 5;
+    if (combined.includes('6 days ago') || combined.includes('6 days')) return 6;
+
+    const dateCandidates = [order.timestamp, order.dispatchDate, order.preferredDate];
+    for (const candidate of dateCandidates) {
+      if (!candidate) continue;
+      const parsed = new Date(candidate);
+      if (!isNaN(parsed.getTime())) {
+        const today = new Date();
+        today.setHours(0, 0, 0, 0);
+        const target = new Date(parsed);
+        target.setHours(0, 0, 0, 0);
+        const diffDays = Math.round((today.getTime() - target.getTime()) / (1000 * 60 * 60 * 24));
+        if (diffDays >= 0 && diffDays < 7) {
+          return diffDays;
+        }
+      }
+    }
+    return null;
+  };
+
+  const sevenDayTrendData = React.useMemo(() => {
+    const today = new Date();
+    const days = [];
+
+    const baselineDailyStats: Record<number, { orders: number; sales: number }> = {
+      6: { orders: 3, sales: 1840 },
+      5: { orders: 4, sales: 2620 },
+      4: { orders: 2, sales: 1390 },
+      3: { orders: 5, sales: 3450 },
+      2: { orders: 4, sales: 2890 },
+      1: { orders: 3, sales: 2150 },
+      0: { orders: 2, sales: 1480 },
+    };
+
+    for (let i = 6; i >= 0; i--) {
+      const d = new Date(today);
+      d.setDate(today.getDate() - i);
+
+      const dayShort = i === 0 ? 'Today' : i === 1 ? 'Yest' : d.toLocaleDateString('en-US', { weekday: 'short' });
+      const monthDay = d.toLocaleDateString('en-US', { month: 'short', day: 'numeric' });
+      const fullDate = d.toLocaleDateString('en-US', { weekday: 'long', month: 'short', day: 'numeric', year: 'numeric' });
+
+      const dayOrders = (orders || []).filter(o => getDayOffsetForOrder(o) === i);
+      const actualCount = dayOrders.length;
+      const actualSales = dayOrders.reduce((sum, o) => sum + (o.totalXCD || 0), 0);
+
+      const base = baselineDailyStats[i] || { orders: 2, sales: 1200 };
+      const orderVolume = actualCount > 0 ? (base.orders + actualCount) : base.orders;
+      const totalSales = actualSales > 0 ? (base.sales + actualSales) : base.sales;
+      const avgOrderValue = orderVolume > 0 ? Math.round(totalSales / orderVolume) : 0;
+
+      days.push({
+        dayKey: `day-${i}`,
+        dayOffset: i,
+        dayShort,
+        monthDay,
+        displayLabel: i === 0 ? `Today (${monthDay})` : `${dayShort} ${d.getDate()}`,
+        fullDate,
+        orderVolume,
+        totalSales,
+        avgOrderValue,
+        actualCount
+      });
+    }
+
+    return days;
+  }, [orders]);
+
+  const sevenDaySummary = React.useMemo(() => {
+    const totalSales7D = sevenDayTrendData.reduce((acc, d) => acc + d.totalSales, 0);
+    const totalOrders7D = sevenDayTrendData.reduce((acc, d) => acc + d.orderVolume, 0);
+    const avgDailySales = Math.round(totalSales7D / 7);
+    const peakSalesDay = [...sevenDayTrendData].sort((a, b) => b.totalSales - a.totalSales)[0] || {
+      dayShort: 'Today',
+      totalSales: 0
+    };
+
+    return {
+      totalSales7D,
+      totalOrders7D,
+      avgDailySales,
+      peakSalesDay
+    };
+  }, [sevenDayTrendData]);
 
   const handlePrintReceipt = (order: AdminOrder) => {
     setSelectedReceiptOrder(order);
@@ -462,7 +695,7 @@ export const AdminOrdersModal: React.FC<AdminOrdersModalProps> = ({
     setTimeout(() => {
       const timestamp = new Date().toLocaleString();
       const itemsBrief = (order.items || [])
-        .map(i => `${i.quantity}x ${i.tyre.brand} ${i.tyre.size}`)
+        .map(i => `${i.quantity || 1}x ${i.tyre?.brand || 'Tyre'} ${i.tyre?.size || ''}`)
         .join(', ');
       
       const dispatchInfo = order.dispatchDate 
@@ -544,6 +777,79 @@ export const AdminOrdersModal: React.FC<AdminOrdersModalProps> = ({
     }
   };
 
+  // Bulk update dispatch status across multiple selected orders
+  const handleBulkUpdateDispatchStatus = (newStatus: 'Pending' | 'Ready for Fitting' | 'Completed' | 'Dispatched') => {
+    if (selectedOrderIds.length === 0) {
+      alert('Please select at least one order to update dispatch status.');
+      return;
+    }
+    const internalStatus = newStatus === 'Completed' ? 'Dispatched' : newStatus;
+    onBulkUpdateOrders(selectedOrderIds, { 
+      dispatchStatus: internalStatus as any,
+      ...(newStatus === 'Completed' || newStatus === 'Dispatched' ? {
+        customerNotified: true,
+        notifiedAt: new Date().toLocaleString()
+      } : {})
+    });
+    alert(`Successfully updated dispatch status to "${newStatus}" for ${selectedOrderIds.length} order(s)!`);
+    setSelectedOrderIds([]);
+  };
+
+  // Generate professional receipt and trigger mailto link + simulated confirmation flow
+  const handleSendEmailReceipt = (order: AdminOrder) => {
+    let email = (order.customerEmail || '').trim();
+    if (!email || !email.includes('@')) {
+      const prompted = prompt(
+        `Enter customer email to generate and deliver official receipt for #${order.reservationCode}:`,
+        order.customerEmail || 'customer@gmail.com'
+      );
+      if (!prompted || !prompted.includes('@')) {
+        return;
+      }
+      email = prompted.trim();
+      onUpdateOrder(order.id, { customerEmail: email });
+    }
+
+    const itemsSummary = (order.items || []).map(it => 
+      `• ${it.quantity}x ${it.tyre?.brand || 'Tyre'} ${it.tyre?.modelName || ''} (${it.tyre?.size || 'Standard'})${it.includeMounting ? ' [+Mounting]' : ''}${it.includeNewValves ? ' [+Valves]' : ''} - EC$ ${((it.tyre?.priceXCD || 0) * it.quantity).toFixed(2)}`
+    ).join('\n');
+
+    const subject = encodeURIComponent(`Official Receipt & Confirmation #${order.reservationCode} — Max Executive Tires`);
+    const bodyText = 
+`MAX EXECUTIVE TIRES & AUTO CARE
+Maranatha Square, Pichelin, Dominica
+Tel: (767) 616-0155 | info@maxexecutivetires.dm
+--------------------------------------------------
+OFFICIAL CUSTOMER RECEIPT & FITMENT SUMMARY
+Reservation Code: #${order.reservationCode}
+Order Date: ${order.timestamp || new Date().toLocaleString()}
+Customer Name: ${order.customerName}
+Contact Phone: ${order.customerPhone}
+Vehicle: ${order.vehicleInfo || 'Vehicle on File'}
+Payment Status: ${order.paymentStatus || 'Confirmed'}
+Payment Method: ${order.paymentMethod}
+Dispatch Status: ${order.dispatchStatus || 'Pending'}
+
+PURCHASED TYRES & WORKSHOP SERVICES:
+${itemsSummary}
+
+TOTAL AMOUNT: EC$ ${order.totalXCD.toLocaleString()}
+--------------------------------------------------
+WORKSHOP WARRANTY:
+All tyres mounted at our Pichelin service bay include a complimentary
+500km wheel lug nut torque re-check and road hazard support.
+
+Thank you for choosing Max Executive Tires!`;
+
+    const mailtoUrl = `mailto:${encodeURIComponent(email)}?subject=${subject}&body=${encodeURIComponent(bodyText)}`;
+    
+    // Open mailto client
+    window.open(mailtoUrl, '_blank');
+
+    // Trigger simulated in-app confirmation workflow
+    handleResendConfirmation({ ...order, customerEmail: email });
+  };
+
   const handleExportCurrentListPdf = () => {
     const visible = getVisibleOrders();
     if (visible.length === 0) {
@@ -621,6 +927,7 @@ export const AdminOrdersModal: React.FC<AdminOrdersModalProps> = ({
   const isOrderOlderThan90Days = (order: AdminOrder) => {
     try {
       const dateStr = order.preferredDate || order.timestamp;
+      if (!dateStr) return false;
       const orderDate = new Date(dateStr);
       if (isNaN(orderDate.getTime())) return false;
       const diffTime = Math.abs(Date.now() - orderDate.getTime());
@@ -631,35 +938,35 @@ export const AdminOrdersModal: React.FC<AdminOrdersModalProps> = ({
     }
   };
 
-  const activeOrders = orders.filter(o => !isOrderOlderThan90Days(o));
-  const archivedOrders = orders.filter(o => isOrderOlderThan90Days(o));
+  const activeOrders = (orders || []).filter(o => !isOrderOlderThan90Days(o));
+  const archivedOrders = (orders || []).filter(o => isOrderOlderThan90Days(o));
 
   const todayStr = new Date().toISOString().split('T')[0];
-  const todaysOrders = orders.filter(o => {
+  const todaysOrders = (orders || []).filter(o => {
     const d = o.preferredDate || o.timestamp || '';
     return d.includes(todayStr) || d.includes(new Date().toLocaleDateString());
   });
   const todaysOrdersCount = todaysOrders.length;
-  const todaysProjectedRevenue = todaysOrders.reduce((acc, o) => acc + o.totalXCD, 0);
+  const todaysProjectedRevenue = todaysOrders.reduce((acc, o) => acc + (o.totalXCD || 0), 0);
 
-  const pendingCount = orders.filter(o => (o.dispatchStatus || 'Pending Dispatch') !== 'Dispatched').length;
-  const completedCount = orders.filter(o => o.dispatchStatus === 'Dispatched').length;
+  const pendingCount = (orders || []).filter(o => (o.dispatchStatus || 'Pending Dispatch') !== 'Dispatched').length;
+  const completedCount = (orders || []).filter(o => o.dispatchStatus === 'Dispatched').length;
 
-  const serviceRevenue = orders.reduce((acc, o) => {
+  const serviceRevenue = (orders || []).reduce((acc, o) => {
     let sRev = 0;
-    o.items?.forEach(i => {
-      if (i.includeMounting) sRev += 20 * i.quantity;
-      if (i.includeNewValves) sRev += 15 * i.quantity;
-      if (i.includeShredding) sRev += 1 * i.quantity;
+    (o.items || []).forEach(i => {
+      if (i.includeMounting) sRev += (servicePrices?.mounting ?? 20) * (i.quantity || 1);
+      if (i.includeNewValves) sRev += (servicePrices?.valves ?? 15) * (i.quantity || 1);
+      if (i.includeShredding) sRev += (servicePrices?.shredding ?? 1) * (i.quantity || 1);
     });
     return acc + sRev;
   }, 0);
 
   const brandQtyMap: Record<string, number> = {};
-  orders.forEach(o => {
-    o.items?.forEach(i => {
+  (orders || []).forEach(o => {
+    (o.items || []).forEach(i => {
       const b = i.tyre?.brand || 'Standard';
-      brandQtyMap[b] = (brandQtyMap[b] || 0) + i.quantity;
+      brandQtyMap[b] = (brandQtyMap[b] || 0) + (i.quantity || 1);
     });
   });
   let topSellingBrand = 'N/A';
@@ -672,15 +979,15 @@ export const AdminOrdersModal: React.FC<AdminOrdersModalProps> = ({
   });
 
   // Status breakdown counts for active orders
-  const countPending = orders.filter(o => {
+  const countPending = (orders || []).filter(o => {
     const isCompleted = o.dispatchStatus === 'Dispatched' || o.dispatchStatus === 'Completed';
     const isReady = o.dispatchStatus === 'Ready for Fitting';
     return !isCompleted && !isReady;
   }).length;
 
-  const countConfirmed = orders.filter(o => o.paymentStatus === 'Confirmed' || (o as any).status === 'Confirmed').length;
+  const countConfirmed = (orders || []).filter(o => o.paymentStatus === 'Confirmed' || (o as any).status === 'Confirmed').length;
 
-  const countReadyForFitting = orders.filter(o => o.dispatchStatus === 'Ready for Fitting').length;
+  const countReadyForFitting = (orders || []).filter(o => o.dispatchStatus === 'Ready for Fitting').length;
 
   const countCompleted = orders.filter(o => o.dispatchStatus === 'Dispatched' || o.dispatchStatus === 'Completed').length;
 
@@ -703,21 +1010,21 @@ export const AdminOrdersModal: React.FC<AdminOrdersModalProps> = ({
     const q = activeOrdersSearch.toLowerCase().trim();
     if (!q) return true;
     return (
-      o.customerName.toLowerCase().includes(q) ||
-      o.customerPhone.includes(q) ||
-      o.reservationCode.toLowerCase().includes(q) ||
+      (o.customerName || '').toLowerCase().includes(q) ||
+      (o.customerPhone || '').includes(q) ||
+      (o.reservationCode || '').toLowerCase().includes(q) ||
       (o.vehicleInfo && o.vehicleInfo.toLowerCase().includes(q)) ||
-      o.items.some(i => i.tyre.brand.toLowerCase().includes(q) || i.tyre.modelName.toLowerCase().includes(q) || i.tyre.size.toLowerCase().includes(q))
+      (o.items || []).some(i => (i.tyre?.brand || '').toLowerCase().includes(q) || (i.tyre?.modelName || '').toLowerCase().includes(q) || (i.tyre?.size || '').toLowerCase().includes(q))
     );
   }).sort((a, b) => {
     if (activeOrdersSort === 'date-desc') {
-      return new Date(b.timestamp).getTime() - new Date(a.timestamp).getTime();
+      return new Date(b.timestamp || '').getTime() - new Date(a.timestamp || '').getTime();
     } else if (activeOrdersSort === 'date-asc') {
-      return new Date(a.timestamp).getTime() - new Date(b.timestamp).getTime();
+      return new Date(a.timestamp || '').getTime() - new Date(b.timestamp || '').getTime();
     } else if (activeOrdersSort === 'name-asc') {
-      return a.customerName.localeCompare(b.customerName);
+      return (a.customerName || '').localeCompare(b.customerName || '');
     } else {
-      return b.customerName.localeCompare(a.customerName);
+      return (b.customerName || '').localeCompare(a.customerName || '');
     }
   });
 
@@ -726,10 +1033,10 @@ export const AdminOrdersModal: React.FC<AdminOrdersModalProps> = ({
   const filteredHistoryOrders = currentOrdersPool.filter((o) => {
     const q = historySearchQuery.toLowerCase().trim();
     const matchesSearch = !q || 
-      o.customerName.toLowerCase().includes(q) ||
-      o.customerPhone.includes(q) ||
-      o.reservationCode.toLowerCase().includes(q) ||
-      o.items.some(i => i.tyre.brand.toLowerCase().includes(q) || i.tyre.modelName.toLowerCase().includes(q) || i.tyre.size.toLowerCase().includes(q));
+      (o.customerName || '').toLowerCase().includes(q) ||
+      (o.customerPhone || '').includes(q) ||
+      (o.reservationCode || '').toLowerCase().includes(q) ||
+      (o.items || []).some(i => (i.tyre?.brand || '').toLowerCase().includes(q) || (i.tyre?.modelName || '').toLowerCase().includes(q) || (i.tyre?.size || '').toLowerCase().includes(q));
 
     if (!matchesSearch) return false;
 
@@ -747,7 +1054,7 @@ export const AdminOrdersModal: React.FC<AdminOrdersModalProps> = ({
     }
     if (activeModalTab === 'history') {
       return historySubTab === 'analytics' 
-        ? (historySubTab === 'archived' ? archivedOrders : activeOrders) 
+        ? currentOrdersPool 
         : filteredHistoryOrders;
     }
     return filteredHistoryOrders.length > 0 
@@ -779,22 +1086,22 @@ export const AdminOrdersModal: React.FC<AdminOrdersModalProps> = ({
     }
   };
 
-  const totalRevenueXCD = orders.reduce((acc, o) => acc + o.totalXCD, 0);
-  const completedOrdersCount = orders.filter(o => o.paymentStatus === 'Confirmed').length;
-  const pendingOrdersCount = orders.filter(o => o.paymentStatus !== 'Confirmed').length;
-  const refundedOrdersCount = orders.filter(o => o.priceAdjustments && o.priceAdjustments.some(a => a.type === 'refund')).length;
+  const totalRevenueXCD = (orders || []).reduce((acc, o) => acc + (o.totalXCD || 0), 0);
+  const completedOrdersCount = (orders || []).filter(o => o.paymentStatus === 'Confirmed').length;
+  const pendingOrdersCount = (orders || []).filter(o => o.paymentStatus !== 'Confirmed').length;
+  const refundedOrdersCount = (orders || []).filter(o => o.priceAdjustments && o.priceAdjustments.some(a => a.type === 'refund')).length;
 
-  const chartData = orders.map((o, idx) => ({
+  const chartData = (orders || []).map((o, idx) => ({
     name: o.reservationCode || `Order #${idx + 1}`,
-    revenue: o.totalXCD,
-    customer: o.customerName,
+    revenue: o.totalXCD || 0,
+    customer: o.customerName || 'Customer',
   }));
 
   const brandFrequencyMap: Record<string, number> = {};
-  orders.forEach(order => {
-    order.items.forEach(item => {
-      const brand = item.tyre.brand || 'Other';
-      brandFrequencyMap[brand] = (brandFrequencyMap[brand] || 0) + item.quantity;
+  (orders || []).forEach(order => {
+    (order.items || []).forEach(item => {
+      const brand = item.tyre?.brand || 'Other';
+      brandFrequencyMap[brand] = (brandFrequencyMap[brand] || 0) + (item.quantity || 1);
     });
   });
 
@@ -815,56 +1122,97 @@ export const AdminOrdersModal: React.FC<AdminOrdersModalProps> = ({
       return `"${str.replace(/"/g, '""')}"`;
     };
 
+    // Standard accounting record-keeping headers
     const headers = [
-      'Reservation Code',
+      'Order Reference Code',
+      'Order Date / Timestamp',
       'Customer Name',
       'Customer Phone',
       'Customer Email',
       'Vehicle Information',
-      'Preferred Fitting Date',
+      'Ordered Tyres Description',
+      'Total Tyres Qty',
+      'Tyres Subtotal (EC$)',
+      'Workshop Services (EC$)',
+      'Adjustments & Discounts (EC$)',
+      'Total Order Amount (EC$)',
       'Payment Method',
       'Payment Status',
-      'Dispatch Status',
-      'Dispatch Method',
-      'Fitting Bay / Scheduled Date',
-      'Ordered Tyres & Fitment Services',
-      'Total Amount (XCD)',
-      'Price Adjustments / Refunds',
-      'Order Timestamp',
-      'Customer Notified'
+      'Dispatch / Service Status',
+      'Preferred Fitting Schedule',
+      'Workshop Work Bay / Dispatch Notes',
+      'Customer Notification Status'
     ];
 
+    let totalExportedValueXCD = 0;
+
     const rows = visible.map(order => {
+      let totalTyresQty = 0;
+      let tyresSubtotal = 0;
+      let servicesSubtotal = 0;
+
       const itemsList = (order.items || []).map(item => {
+        const qty = item.quantity || 1;
+        totalTyresQty += qty;
+        const tyreUnitPrice = item.tyre?.priceXCD || 0;
+        tyresSubtotal += tyreUnitPrice * qty;
+
         const extraServices: string[] = [];
-        if (item.includeMounting) extraServices.push(`Mounting (EC$${servicePrices['mounting'] ?? 20})`);
-        if (item.includeNewValves) extraServices.push(`Valves (EC$${servicePrices['valves'] ?? 15})`);
-        if (item.includeShredding) extraServices.push(`Eco-Shredding (EC$${servicePrices['shredding'] ?? 1})`);
-        const svcStr = extraServices.length > 0 ? ` + [${extraServices.join(', ')}]` : '';
-        return `${item.quantity}x ${item.tyre?.brand || 'Tyre'} ${item.tyre?.modelName || ''} (${item.tyre?.size || 'Standard'}, ${item.tyre?.condition || 'New'})${svcStr}`;
+        if (item.includeMounting) {
+          const mountFee = (servicePrices['mounting'] ?? 20) * qty;
+          servicesSubtotal += mountFee;
+          extraServices.push(`Mounting: EC$${mountFee}`);
+        }
+        if (item.includeNewValves) {
+          const valveFee = (servicePrices['valves'] ?? 15) * qty;
+          servicesSubtotal += valveFee;
+          extraServices.push(`Valves: EC$${valveFee}`);
+        }
+        if (item.includeShredding) {
+          const shredFee = (servicePrices['shredding'] ?? 1) * qty;
+          servicesSubtotal += shredFee;
+          extraServices.push(`Disposal: EC$${shredFee}`);
+        }
+
+        const svcStr = extraServices.length > 0 ? ` [${extraServices.join(', ')}]` : '';
+        return `${qty}x ${item.tyre?.brand || 'Tyre'} ${item.tyre?.modelName || ''} (${item.tyre?.size || 'Standard'}, ${item.tyre?.condition || 'New'}) @ EC$${tyreUnitPrice}${svcStr}`;
       }).join('; ');
 
-      const adjustments = (order.priceAdjustments || []).map(a => 
-        `${a.type === 'refund' ? 'REFUND' : 'CHARGE'}: EC$${a.amountXCD} (${a.reason})`
-      ).join('; ') || 'None';
+      // Calculate net adjustments
+      let netAdjustments = 0;
+      const adjustmentsStr = (order.priceAdjustments || []).map(a => {
+        const amt = a.amountXCD || 0;
+        if (a.type === 'refund') {
+          netAdjustments -= amt;
+          return `Refund -EC$${amt} (${a.reason})`;
+        } else {
+          netAdjustments += amt;
+          return `Charge +EC$${amt} (${a.reason})`;
+        }
+      }).join('; ') || 'None';
+
+      const orderTotal = Number(order.totalXCD || 0);
+      totalExportedValueXCD += orderTotal;
 
       return [
         escapeCsv(order.reservationCode),
+        escapeCsv(order.timestamp || 'Recent'),
         escapeCsv(order.customerName),
         escapeCsv(order.customerPhone),
         escapeCsv(order.customerEmail || 'Not Provided'),
-        escapeCsv(order.vehicleInfo || 'N/A'),
-        escapeCsv(order.preferredDate || 'N/A'),
-        escapeCsv(order.paymentMethod),
+        escapeCsv(order.vehicleInfo || 'Standard'),
+        escapeCsv(itemsList),
+        escapeCsv(totalTyresQty),
+        escapeCsv(tyresSubtotal.toFixed(2)),
+        escapeCsv(servicesSubtotal.toFixed(2)),
+        escapeCsv(netAdjustments !== 0 ? netAdjustments.toFixed(2) : '0.00'),
+        escapeCsv(orderTotal.toFixed(2)),
+        escapeCsv(order.paymentMethod || 'Pay at Shop'),
         escapeCsv(order.paymentStatus || 'Pending'),
         escapeCsv(order.dispatchStatus || 'Pending Dispatch'),
-        escapeCsv(order.dispatchMethod || 'Standard Workshop Fitment'),
-        escapeCsv(order.dispatchDate || 'Fast Lane Bay'),
-        escapeCsv(itemsList),
-        escapeCsv(`EC$ ${order.totalXCD}`),
-        escapeCsv(adjustments),
-        escapeCsv(order.timestamp),
-        escapeCsv(order.customerNotified ? `Yes (Notified: ${order.notifiedAt || 'Delivered'})` : 'No')
+        escapeCsv(order.preferredDate || 'Standard'),
+        escapeCsv(order.dispatchDate || order.dispatchMethod || 'Pichelin Workshop Fast-Lane'),
+        escapeCsv(order.customerNotified ? `Notified (${order.notifiedAt || 'Delivered'})` : 'Pending')
       ].join(',');
     });
 
@@ -876,7 +1224,7 @@ export const AdminOrdersModal: React.FC<AdminOrdersModalProps> = ({
     const sourceLabel = activeModalTab === 'history' 
       ? (historySubTab === 'archived' ? 'archived_history' : 'active_history')
       : 'visible_orders';
-    const filename = `maranatha_${sourceLabel}_${dateStr}.csv`;
+    const filename = `max_executive_accounting_orders_${sourceLabel}_${dateStr}.csv`;
     link.setAttribute('href', url);
     link.setAttribute('download', filename);
     document.body.appendChild(link);
@@ -884,12 +1232,13 @@ export const AdminOrdersModal: React.FC<AdminOrdersModalProps> = ({
     document.body.removeChild(link);
     URL.revokeObjectURL(url);
 
-    // Provide user-friendly visual confirmation toast
+    // Provide user-friendly visual confirmation toast with record counts and total value
     setCsvExportToast({
       count: visible.length,
-      filename
+      filename,
+      totalValueXCD: totalExportedValueXCD
     });
-    setTimeout(() => setCsvExportToast(null), 5000);
+    setTimeout(() => setCsvExportToast(null), 6000);
   };
 
   const handleDownloadSpreadsheet = () => {
@@ -1212,105 +1561,6 @@ export const AdminOrdersModal: React.FC<AdminOrdersModalProps> = ({
 
   const totalTyresRequestedInList = summaryTopBrands.reduce((acc, b) => acc + b.count, 0);
 
-  // 7-Day Order Volume & Total Sales Trends State & Calculation (recharts)
-  const [trendChartMetric, setTrendChartMetric] = useState<'combined' | 'volume' | 'sales'>('combined');
-
-  const getDayOffsetForOrder = (order: AdminOrder): number | null => {
-    const ts = (order.timestamp || '').toLowerCase();
-    const pref = (order.preferredDate || '').toLowerCase();
-    const combined = `${ts} ${pref}`;
-
-    if (combined.includes('today')) return 0;
-    if (combined.includes('yesterday')) return 1;
-    if (combined.includes('2 days ago') || combined.includes('2 days')) return 2;
-    if (combined.includes('3 days ago') || combined.includes('3 days')) return 3;
-    if (combined.includes('4 days ago') || combined.includes('4 days')) return 4;
-    if (combined.includes('5 days ago') || combined.includes('5 days')) return 5;
-    if (combined.includes('6 days ago') || combined.includes('6 days')) return 6;
-
-    const dateCandidates = [order.timestamp, order.dispatchDate, order.preferredDate];
-    for (const candidate of dateCandidates) {
-      if (!candidate) continue;
-      const parsed = new Date(candidate);
-      if (!isNaN(parsed.getTime())) {
-        const today = new Date();
-        today.setHours(0, 0, 0, 0);
-        const target = new Date(parsed);
-        target.setHours(0, 0, 0, 0);
-        const diffDays = Math.round((today.getTime() - target.getTime()) / (1000 * 60 * 60 * 24));
-        if (diffDays >= 0 && diffDays < 7) {
-          return diffDays;
-        }
-      }
-    }
-    return null;
-  };
-
-  const sevenDayTrendData = React.useMemo(() => {
-    const today = new Date();
-    const days = [];
-
-    const baselineDailyStats: Record<number, { orders: number; sales: number }> = {
-      6: { orders: 3, sales: 1840 },
-      5: { orders: 4, sales: 2620 },
-      4: { orders: 2, sales: 1390 },
-      3: { orders: 5, sales: 3450 },
-      2: { orders: 4, sales: 2890 },
-      1: { orders: 3, sales: 2150 },
-      0: { orders: 2, sales: 1480 },
-    };
-
-    for (let i = 6; i >= 0; i--) {
-      const d = new Date(today);
-      d.setDate(today.getDate() - i);
-
-      const dayShort = i === 0 ? 'Today' : i === 1 ? 'Yest' : d.toLocaleDateString('en-US', { weekday: 'short' });
-      const monthDay = d.toLocaleDateString('en-US', { month: 'short', day: 'numeric' });
-      const fullDate = d.toLocaleDateString('en-US', { weekday: 'long', month: 'short', day: 'numeric', year: 'numeric' });
-
-      const dayOrders = orders.filter(o => getDayOffsetForOrder(o) === i);
-      const actualCount = dayOrders.length;
-      const actualSales = dayOrders.reduce((sum, o) => sum + (o.totalXCD || 0), 0);
-
-      const base = baselineDailyStats[i] || { orders: 2, sales: 1200 };
-      const orderVolume = actualCount > 0 ? (base.orders + actualCount) : base.orders;
-      const totalSales = actualSales > 0 ? (base.sales + actualSales) : base.sales;
-      const avgOrderValue = orderVolume > 0 ? Math.round(totalSales / orderVolume) : 0;
-
-      days.push({
-        dayKey: `day-${i}`,
-        dayOffset: i,
-        dayShort,
-        monthDay,
-        displayLabel: i === 0 ? `Today (${monthDay})` : `${dayShort} ${d.getDate()}`,
-        fullDate,
-        orderVolume,
-        totalSales,
-        avgOrderValue,
-        actualCount
-      });
-    }
-
-    return days;
-  }, [orders]);
-
-  const sevenDaySummary = React.useMemo(() => {
-    const totalSales7D = sevenDayTrendData.reduce((acc, d) => acc + d.totalSales, 0);
-    const totalOrders7D = sevenDayTrendData.reduce((acc, d) => acc + d.orderVolume, 0);
-    const avgDailySales = Math.round(totalSales7D / 7);
-    const peakSalesDay = [...sevenDayTrendData].sort((a, b) => b.totalSales - a.totalSales)[0] || {
-      dayShort: 'Today',
-      totalSales: 0
-    };
-
-    return {
-      totalSales7D,
-      totalOrders7D,
-      avgDailySales,
-      peakSalesDay
-    };
-  }, [sevenDayTrendData]);
-
   const Custom7DayTrendTooltip = ({ active, payload }: any) => {
     if (active && payload && payload.length) {
       const data = payload[0].payload;
@@ -1400,16 +1650,28 @@ export const AdminOrdersModal: React.FC<AdminOrdersModalProps> = ({
           </div>
 
           <div style={{ marginBottom: '14px', height: '64px' }} className="flex items-center gap-2">
-            {/* Direct Export to CSV Button */}
+            {/* Quick Barcode Scanner Button */}
+            <button
+              id="admin-header-scanner-btn"
+              type="button"
+              onClick={() => setIsBarcodeScannerOpen(true)}
+              className="inline-flex items-center gap-1.5 text-xs font-black text-white bg-emerald-600 hover:bg-emerald-500 px-3.5 py-2 rounded-xl shadow-xs transition cursor-pointer active:scale-95"
+              title="Open Barcode Scanner to look up tyre size or adjust stock"
+            >
+              <Camera className="w-4 h-4" />
+              <span>Scan Barcode</span>
+            </button>
+
+            {/* Direct Export to CSV Button for Accounting */}
             <button
               id="admin-export-to-csv-btn"
               type="button"
               onClick={handleExportToCsv}
-              className="inline-flex items-center gap-1.5 text-xs font-bold text-emerald-800 bg-emerald-50 hover:bg-emerald-100 border border-emerald-300 px-3.5 py-2 rounded-xl shadow-xs transition"
-              title="Export currently visible orders to CSV for record keeping"
+              className="inline-flex items-center gap-1.5 text-xs font-bold text-emerald-800 bg-emerald-50 hover:bg-emerald-100 border border-emerald-300 px-3.5 py-2 rounded-xl shadow-xs transition cursor-pointer"
+              title="Export visible orders to CSV formatted for accounting and record-keeping"
             >
               <Download className="w-4 h-4 text-emerald-600" />
-              <span>Export to CSV ({getVisibleOrders().length})</span>
+              <span>Export CSV (Accounting)</span>
             </button>
 
             {/* Collapsed Admin Actions Menu */}
@@ -1489,6 +1751,18 @@ export const AdminOrdersModal: React.FC<AdminOrdersModalProps> = ({
                 </div>
               )}
             </div>
+
+            {/* Close Admin Portal Button */}
+            <button
+              id="admin-portal-close-btn"
+              type="button"
+              onClick={onClose}
+              className="p-2 text-slate-500 hover:text-slate-900 hover:bg-slate-100 rounded-xl transition cursor-pointer border border-slate-200"
+              title="Close Admin Portal"
+              aria-label="Close Admin Portal"
+            >
+              <X className="w-5 h-5" />
+            </button>
           </div>
 
 
@@ -1545,6 +1819,20 @@ export const AdminOrdersModal: React.FC<AdminOrdersModalProps> = ({
             <span>Order History ({orders.length})</span>
           </button>
 
+          {/* Customer Directory Tab */}
+          <button
+            id="admin-tab-customers"
+            onClick={() => setActiveModalTab('customers')}
+            className={`inline-flex items-center gap-2 px-4 py-2 rounded-xl text-xs sm:text-sm font-bold transition ${
+              activeModalTab === 'customers'
+                ? 'bg-[#0984E3] text-white shadow-sm'
+                : 'bg-slate-100 text-slate-700 hover:bg-slate-200'
+            }`}
+          >
+            <Users className="w-4 h-4" />
+            <span>Customer Directory</span>
+          </button>
+
           {/* Tyre Inventory Tab (In Admin Navigation Bar) */}
           <button
             id="admin-tab-inventory"
@@ -1557,6 +1845,34 @@ export const AdminOrdersModal: React.FC<AdminOrdersModalProps> = ({
           >
             <Package className="w-4 h-4" />
             <span>Tyre Inventory ({tyres.length})</span>
+          </button>
+
+          {/* Barcode Scanner Tab */}
+          <button
+            id="admin-tab-scanner"
+            onClick={() => setActiveModalTab('scanner')}
+            className={`inline-flex items-center gap-2 px-4 py-2 rounded-xl text-xs sm:text-sm font-bold transition ${
+              activeModalTab === 'scanner'
+                ? 'bg-emerald-600 text-white shadow-sm'
+                : 'bg-slate-100 text-slate-700 hover:bg-slate-200'
+            }`}
+          >
+            <Camera className="w-4 h-4 text-emerald-500" />
+            <span>Barcode Scanner</span>
+          </button>
+
+          {/* Barcode Labels Tab */}
+          <button
+            id="admin-tab-barcodes"
+            onClick={() => setActiveModalTab('barcodes')}
+            className={`inline-flex items-center gap-2 px-4 py-2 rounded-xl text-xs sm:text-sm font-bold transition ${
+              activeModalTab === 'barcodes'
+                ? 'bg-blue-600 text-white shadow-sm'
+                : 'bg-slate-100 text-slate-700 hover:bg-slate-200'
+            }`}
+          >
+            <Barcode className="w-4 h-4 text-blue-500" />
+            <span>Barcode Labels</span>
           </button>
 
           <button
@@ -1596,6 +1912,7 @@ export const AdminOrdersModal: React.FC<AdminOrdersModalProps> = ({
           </button>
 
           <button
+            id="admin-tab-trends"
             onClick={() => setActiveModalTab('trends')}
             className={`inline-flex items-center gap-2 px-4 py-2 rounded-xl text-xs sm:text-sm font-bold transition ${
               activeModalTab === 'trends'
@@ -1604,7 +1921,35 @@ export const AdminOrdersModal: React.FC<AdminOrdersModalProps> = ({
             }`}
           >
             <TrendingUp className="w-4 h-4" />
-            <span>Revenue Trends</span>
+            <span>Weekly Trends</span>
+          </button>
+
+          {/* Sales Summary 30-Day Recharts Tab */}
+          <button
+            id="admin-tab-sales-summary"
+            onClick={() => setActiveModalTab('sales')}
+            className={`inline-flex items-center gap-2 px-4 py-2 rounded-xl text-xs sm:text-sm font-bold transition ${
+              activeModalTab === 'sales'
+                ? 'bg-emerald-600 text-white shadow-sm'
+                : 'bg-slate-100 text-slate-700 hover:bg-slate-200'
+            }`}
+          >
+            <BarChart3 className="w-4 h-4 text-emerald-500" />
+            <span>Sales Summary (30 Days)</span>
+          </button>
+
+          {/* Monthly Workshop Performance Report Tab */}
+          <button
+            id="admin-tab-workshop-report"
+            onClick={() => setActiveModalTab('workshop-report')}
+            className={`inline-flex items-center gap-2 px-4 py-2 rounded-xl text-xs sm:text-sm font-bold transition ${
+              activeModalTab === 'workshop-report'
+                ? 'bg-blue-600 text-white shadow-sm'
+                : 'bg-slate-100 text-slate-700 hover:bg-slate-200'
+            }`}
+          >
+            <FileSpreadsheet className="w-4 h-4 text-blue-400" />
+            <span>Workshop Performance Report</span>
           </button>
 
           <button
@@ -1653,35 +1998,62 @@ export const AdminOrdersModal: React.FC<AdminOrdersModalProps> = ({
           <div className="bg-[#0984E3] text-white px-4 py-3 rounded-2xl flex flex-wrap items-center justify-between gap-3 shadow-md animate-fade-in">
             <div className="flex items-center gap-2 text-xs font-bold">
               <span className="bg-white/25 px-2.5 py-1 rounded-lg">{selectedOrderIds.length} orders selected</span>
-              <span>Bulk Action Toolbar Active</span>
+              <span>Bulk Dispatch & Action Toolbar</span>
             </div>
-            <div className="flex items-center gap-2">
+            <div className="flex items-center gap-2 flex-wrap">
+              <span className="text-xs font-semibold text-blue-100 mr-0.5">Set Dispatch:</span>
               <button
-                onClick={handleBulkMarkSelectedCompleted}
-                className="bg-emerald-600 hover:bg-emerald-700 text-white font-bold text-xs px-3.5 py-2 rounded-xl transition shadow-xs flex items-center gap-1.5"
+                type="button"
+                onClick={() => handleBulkUpdateDispatchStatus('Pending')}
+                className="bg-amber-400 hover:bg-amber-300 text-slate-950 font-extrabold text-xs px-3 py-1.5 rounded-xl transition shadow-xs flex items-center gap-1 cursor-pointer"
+                title="Bulk set dispatch status of selected orders to Pending"
+              >
+                <span>⏳ Pending</span>
+              </button>
+              <button
+                type="button"
+                onClick={() => handleBulkUpdateDispatchStatus('Ready for Fitting')}
+                className="bg-sky-200 hover:bg-sky-100 text-sky-950 font-extrabold text-xs px-3 py-1.5 rounded-xl transition shadow-xs flex items-center gap-1 cursor-pointer"
+                title="Bulk set dispatch status of selected orders to Ready for Fitting"
+              >
+                <span>⚡ Ready for Fitting</span>
+              </button>
+              <button
+                type="button"
+                onClick={() => handleBulkUpdateDispatchStatus('Completed')}
+                className="bg-emerald-500 hover:bg-emerald-400 text-white font-extrabold text-xs px-3 py-1.5 rounded-xl transition shadow-xs flex items-center gap-1 cursor-pointer"
+                title="Bulk mark selected orders as Dispatched / Completed"
               >
                 <CheckCircle2 className="w-3.5 h-3.5" />
-                <span>Mark Selected Completed</span>
+                <span>Mark Completed</span>
               </button>
               <button
                 onClick={handleBulkDeleteSelected}
-                className="bg-red-600 hover:bg-red-700 text-white font-bold text-xs px-3.5 py-2 rounded-xl transition shadow-xs flex items-center gap-1.5"
+                className="bg-red-600 hover:bg-red-700 text-white font-bold text-xs px-3 py-1.5 rounded-xl transition shadow-xs flex items-center gap-1"
               >
                 <Trash2 className="w-3.5 h-3.5" />
-                <span>Delete Selected</span>
+                <span>Delete</span>
               </button>
               <button
                 onClick={() => setSelectedOrderIds([])}
-                className="bg-white/10 hover:bg-white/20 text-white font-bold text-xs px-3.5 py-2 rounded-xl transition"
+                className="bg-white/10 hover:bg-white/20 text-white font-bold text-xs px-3 py-1.5 rounded-xl transition cursor-pointer"
               >
-                Clear Selection
+                Clear
               </button>
             </div>
           </div>
         )}
 
         {/* TAB CONTENT */}
-        {activeModalTab === 'inventory' ? (
+        {activeModalTab === 'customers' ? (
+          <div className="flex-1 overflow-y-auto py-2">
+            <AdminCustomerDirectoryView
+              orders={orders}
+              onPrintReceipt={(order) => handlePrintReceipt(order)}
+              onSendEmailReceipt={(order) => handleSendEmailReceipt(order)}
+            />
+          </div>
+        ) : activeModalTab === 'inventory' ? (
           <div className="flex-1 overflow-y-auto py-2">
             <AdminInventoryView
               tyres={tyres}
@@ -1692,6 +2064,32 @@ export const AdminOrdersModal: React.FC<AdminOrdersModalProps> = ({
                 handleAddTyreToPos(tyre);
                 setActiveModalTab('pos');
               }}
+              onOpenScanner={() => setIsBarcodeScannerOpen(true)}
+              onOpenBarcodeCenter={() => setIsBarcodeCenterOpen(true)}
+            />
+          </div>
+        ) : activeModalTab === 'scanner' ? (
+          <div className="flex-1 overflow-y-auto py-2">
+            <BarcodeScannerModal
+              isOpen={true}
+              onClose={() => setActiveModalTab('inventory')}
+              tyres={tyres}
+              onAddToPos={(tyre) => {
+                handleAddTyreToPos(tyre);
+                setActiveModalTab('pos');
+              }}
+              onUpdateTyreStock={onUpdateTyreStock}
+              onUpdateTyrePrice={onUpdateTyrePrice}
+              onOpenBarcodeCenter={() => setActiveModalTab('barcodes')}
+            />
+          </div>
+        ) : activeModalTab === 'barcodes' ? (
+          <div className="flex-1 overflow-y-auto py-2">
+            <InventoryBarcodeCenterModal
+              isOpen={true}
+              onClose={() => setActiveModalTab('inventory')}
+              tyres={tyres}
+              onOpenScanner={() => setActiveModalTab('scanner')}
             />
           </div>
         ) : activeModalTab === 'trends' ? (
@@ -1746,8 +2144,96 @@ export const AdminOrdersModal: React.FC<AdminOrdersModalProps> = ({
               </div>
             </div>
           </div>
+        ) : activeModalTab === 'sales' ? (
+          <div className="flex-1 overflow-y-auto py-2">
+            <AdminSalesSummaryChart orders={orders} tyres={tyres} />
+          </div>
+        ) : activeModalTab === 'workshop-report' ? (
+          <div className="flex-1 overflow-y-auto py-2">
+            <AdminWorkshopPerformanceReport orders={orders} tyres={tyres} />
+          </div>
         ) : activeModalTab === 'pos' ? (
           <div className="flex-1 overflow-y-auto space-y-6 py-4 animate-fade-in">
+            {/* Live Workshop Hardware Peripherals Ribbon */}
+            <div className="bg-slate-900 border border-slate-800 text-white p-3.5 rounded-2xl shadow-md flex flex-wrap items-center justify-between gap-3">
+              <div className="flex items-center gap-2.5 overflow-x-auto py-0.5">
+                {/* 1. External Thermal & Label Printer */}
+                <div className="flex items-center gap-2 bg-slate-800/90 px-3 py-1.5 rounded-xl border border-slate-700/80 text-xs shrink-0">
+                  <Printer className="w-3.5 h-3.5 text-blue-400" />
+                  <div>
+                    <span className="font-bold text-white block text-[11px] leading-tight">Printer: Epson TM-T88VI</span>
+                    <span className="text-[10px] text-emerald-400 font-bold flex items-center gap-1">
+                      <span className="w-1.5 h-1.5 rounded-full bg-emerald-400 animate-pulse"></span> Online (80mm & Avery 2x4)
+                    </span>
+                  </div>
+                </div>
+
+                {/* 2. Barcode Scanner */}
+                <div className="flex items-center gap-2 bg-slate-800/90 px-3 py-1.5 rounded-xl border border-slate-700/80 text-xs shrink-0">
+                  <Barcode className="w-3.5 h-3.5 text-emerald-400" />
+                  <div>
+                    <span className="font-bold text-white block text-[11px] leading-tight">Scanner: Zebra DS2208</span>
+                    <span className="text-[10px] text-emerald-400 font-bold flex items-center gap-1">
+                      <span className="w-1.5 h-1.5 rounded-full bg-emerald-400 animate-pulse"></span> USB Wedge Listening
+                    </span>
+                  </div>
+                </div>
+
+                {/* 3. Cash Register Drawer */}
+                <div className="flex items-center gap-2 bg-slate-800/90 px-3 py-1.5 rounded-xl border border-slate-700/80 text-xs shrink-0">
+                  <Banknote className="w-3.5 h-3.5 text-amber-400" />
+                  <div>
+                    <span className="font-bold text-white block text-[11px] leading-tight">Cash Drawer: Heavy Duty</span>
+                    <span className={`text-[10px] font-bold ${hardwareState.drawerStatus === 'open' ? 'text-rose-400 animate-pulse' : 'text-amber-300'}`}>
+                      {hardwareState.drawerStatus === 'open' ? '⚠️ DRAWER OPEN' : `Closed (Float: EC$ ${(hardwareState.drawerOpeningFloat + hardwareState.cashSalesTotal - hardwareState.cashDropsTotal).toFixed(0)})`}
+                    </span>
+                  </div>
+                </div>
+
+                {/* 4. POS Machine Terminal */}
+                <div className="flex items-center gap-2 bg-slate-800/90 px-3 py-1.5 rounded-xl border border-slate-700/80 text-xs shrink-0">
+                  <CreditCard className="w-3.5 h-3.5 text-purple-400" />
+                  <div>
+                    <span className="font-bold text-white block text-[11px] leading-tight">POS Terminal: Pax A920</span>
+                    <span className="text-[10px] text-emerald-400 font-bold flex items-center gap-1">
+                      <span className="w-1.5 h-1.5 rounded-full bg-emerald-400 animate-pulse"></span> Paired (98% Batt)
+                    </span>
+                  </div>
+                </div>
+              </div>
+
+              {/* Hardware Quick Action Controls */}
+              <div className="flex items-center gap-2 flex-wrap">
+                <button
+                  type="button"
+                  onClick={() => handleKickDrawer('POS Ribbon Solenoid Pulse')}
+                  className="px-2.5 py-1.5 bg-amber-600/20 hover:bg-amber-600/30 text-amber-300 border border-amber-500/40 rounded-xl text-xs font-bold transition flex items-center gap-1 cursor-pointer active:scale-95"
+                  title="Trigger solenoid 24V pulse to pop the cash register drawer"
+                >
+                  <Zap className="w-3 h-3 text-amber-400" />
+                  <span>Kick Drawer</span>
+                </button>
+                <button
+                  type="button"
+                  onClick={() => setIsBarcodeScannerOpen(true)}
+                  className="px-2.5 py-1.5 bg-emerald-600/20 hover:bg-emerald-600/30 text-emerald-300 border border-emerald-500/40 rounded-xl text-xs font-bold transition flex items-center gap-1 cursor-pointer"
+                  title="Scan tyre barcode to auto-add to POS cart"
+                >
+                  <Camera className="w-3 h-3 text-emerald-400" />
+                  <span>Scan Tyre</span>
+                </button>
+                <button
+                  type="button"
+                  onClick={() => setIsHardwareModalOpen(true)}
+                  className="px-3 py-1.5 bg-blue-600 hover:bg-blue-500 text-white rounded-xl text-xs font-black transition flex items-center gap-1.5 shadow-xs cursor-pointer"
+                  title="Manage external printer, scanner, cash register, and POS machine settings"
+                >
+                  <Cpu className="w-3.5 h-3.5" />
+                  <span>Hardware Peripherals Hub</span>
+                </button>
+              </div>
+            </div>
+
             <div className="bg-gradient-to-r from-slate-900 via-blue-950 to-slate-900 text-white p-5 rounded-2xl flex flex-wrap items-center justify-between gap-4 shadow-md">
               <div>
                 <h4 className="text-base font-extrabold flex items-center gap-2">
@@ -1755,7 +2241,7 @@ export const AdminOrdersModal: React.FC<AdminOrdersModalProps> = ({
                   Maranatha Square POS Counter & Stripe Merchant Gateway
                 </h4>
                 <p className="text-xs text-slate-300 mt-0.5">
-                  Process walk-in sales, counter fittings, and instant card payments securely via Stripe Merchant Portal.
+                  Process walk-in sales, counter fittings, and instant card payments securely via Stripe Merchant Portal or Pax SmartPOS.
                 </p>
               </div>
               <div className="flex items-center gap-2 bg-slate-800/80 px-3.5 py-2 rounded-xl border border-slate-700 text-xs">
@@ -1805,6 +2291,15 @@ export const AdminOrdersModal: React.FC<AdminOrdersModalProps> = ({
                         className="w-full pl-10 pr-4 py-2 rounded-xl border border-slate-300 bg-slate-50 text-xs font-medium focus:outline-none focus:ring-2 focus:ring-[#0984E3]"
                       />
                     </div>
+                    <button
+                      type="button"
+                      onClick={() => setIsBarcodeScannerOpen(true)}
+                      className="inline-flex items-center gap-1.5 px-3 py-2 rounded-xl bg-emerald-600 hover:bg-emerald-500 text-white font-black text-xs shadow-xs transition active:scale-95 cursor-pointer whitespace-nowrap"
+                      title="Scan barcode to instantly add tyre to POS cart"
+                    >
+                      <Camera className="w-4 h-4" />
+                      <span>Scan Barcode</span>
+                    </button>
                     <div>
                       <select
                         value={posCategory}
@@ -2317,6 +2812,14 @@ export const AdminOrdersModal: React.FC<AdminOrdersModalProps> = ({
                           </span>
                         </div>
 
+                        {/* Visual Step-by-Step Timeline Progress Bar */}
+                        <div className="pt-1">
+                          <OrderTimelineProgressBar 
+                            order={order} 
+                            interactive={false} 
+                          />
+                        </div>
+
                         {/* Expandable Section for Customer Contact & Vehicle Info */}
                         <div 
                           onClick={() => toggleExpandOrder(order.id)}
@@ -2368,10 +2871,10 @@ export const AdminOrdersModal: React.FC<AdminOrdersModalProps> = ({
                         {/* Items */}
                         <div className="bg-slate-50 rounded-xl p-3 border border-slate-100 text-xs space-y-1">
                           <span className="font-bold text-[10px] text-slate-400 uppercase tracking-wider block">Items & Services:</span>
-                          {order.items.map((item, i) => (
+                          {(order.items || []).map((item, i) => (
                             <div key={i} className="flex justify-between items-center text-slate-800">
-                              <span>{item.quantity}x {item.tyre.brand} {item.tyre.modelName} ({item.tyre.size}) [{item.tyre.condition}]</span>
-                              <span className="font-semibold">EC$ {(item.tyre.priceXCD + (item.includeMounting ? 20 : 0) + (item.includeNewValves ? 15 : 0)) * item.quantity}</span>
+                              <span>{item.quantity || 1}x {item.tyre?.brand || 'Tyre'} {item.tyre?.modelName || ''} ({item.tyre?.size || ''}) [{item.tyre?.condition || 'New'}]</span>
+                              <span className="font-semibold">EC$ {((item.tyre?.priceXCD || 0) + (item.includeMounting ? 20 : 0) + (item.includeNewValves ? 15 : 0)) * (item.quantity || 1)}</span>
                             </div>
                           ))}
                         </div>
@@ -2404,15 +2907,16 @@ export const AdminOrdersModal: React.FC<AdminOrdersModalProps> = ({
                               <MessageSquare className={`w-3.5 h-3.5 text-emerald-600 ${sendingSmsOrderId === order.id ? 'animate-bounce' : ''}`} />
                               <span>{sendingSmsOrderId === order.id ? 'Sending SMS...' : 'Notify Customer via SMS'}</span>
                             </button>
-                            <a
-                              href={`https://wa.me/${order.customerPhone.replace(/[^0-9]/g, '')}?text=${encodeURIComponent(`Hello ${order.customerName}, this is Maranatha Square (Max Executive Tires, Pichelin). Friendly reminder regarding your order / service reservation #${order.reservationCode} (Total: EC$ ${order.totalXCD}). Status: ${order.paymentStatus === 'Confirmed' ? 'Paid & Confirmed' : 'Payment Pending'}, Dispatch: ${order.dispatchStatus || 'Pending'}. Preferred Date: ${order.preferredDate || 'As Scheduled'}. Please contact us if you need any questions!`)}`}
-                              target="_blank"
-                              rel="noopener noreferrer"
-                              className="inline-flex items-center gap-1.5 bg-emerald-50 hover:bg-emerald-100 text-emerald-800 font-bold text-xs px-3 py-1.5 rounded-lg transition border border-emerald-200"
+                            <button
+                              id={`history-whatsapp-template-${order.id}`}
+                              type="button"
+                              onClick={() => handleOpenWhatsAppGenerator(order)}
+                              className="inline-flex items-center gap-1.5 bg-emerald-50 hover:bg-emerald-100 text-emerald-800 font-bold text-xs px-3 py-1.5 rounded-lg transition border border-emerald-300 shadow-2xs active:scale-95 cursor-pointer"
+                              title="Generate pre-formatted WhatsApp customer confirmation template"
                             >
                               <MessageSquare className="w-3.5 h-3.5 text-emerald-600" />
-                              <span>Send WhatsApp Reminder</span>
-                            </a>
+                              <span>WhatsApp Templates</span>
+                            </button>
                             <button
                               id={`active-print-receipt-${order.id}`}
                               type="button"
@@ -2422,6 +2926,16 @@ export const AdminOrdersModal: React.FC<AdminOrdersModalProps> = ({
                             >
                               <Printer className="w-3.5 h-3.5 text-white" />
                               <span>Print Receipt</span>
+                            </button>
+                            <button
+                              id={`history-email-receipt-${order.id}`}
+                              type="button"
+                              onClick={() => handleSendEmailReceipt(order)}
+                              className="inline-flex items-center gap-1.5 bg-blue-600 hover:bg-blue-700 text-white font-bold text-xs px-3 py-1.5 rounded-lg shadow-xs transition active:scale-95 cursor-pointer"
+                              title="Generate professional receipt and send to customer via email"
+                            >
+                              <Mail className="w-3.5 h-3.5 text-white" />
+                              <span>Email Receipt</span>
                             </button>
                             <button
                               onClick={() => handlePrintOrderSlip(order)}
@@ -2986,14 +3500,47 @@ export const AdminOrdersModal: React.FC<AdminOrdersModalProps> = ({
                   </div>
 
                   <button
+                    id="admin-orders-whatsapp-template-btn"
+                    type="button"
+                    onClick={() => handleOpenWhatsAppGenerator(null)}
+                    className="inline-flex items-center gap-1.5 px-3.5 py-2 rounded-xl bg-emerald-600 hover:bg-emerald-700 text-white text-xs font-bold transition shadow-xs cursor-pointer active:scale-95"
+                    title="Generate pre-formatted WhatsApp confirmation messages for customers"
+                  >
+                    <MessageSquare className="w-4 h-4 text-emerald-100" />
+                    <span>WhatsApp Templates</span>
+                  </button>
+
+                  <button
+                    id="admin-orders-daily-manifest-btn"
+                    type="button"
+                    onClick={() => setIsDailyManifestOpen(true)}
+                    className="inline-flex items-center gap-1.5 px-3.5 py-2 rounded-xl bg-blue-700 hover:bg-blue-800 text-white text-xs font-bold transition shadow-xs cursor-pointer active:scale-95"
+                    title="Generate and print shop floor work order manifest for technician tyre staging and fitting"
+                  >
+                    <Printer className="w-4 h-4 text-blue-200" />
+                    <span>Daily Manifest</span>
+                  </button>
+
+                  <button
+                    id="admin-orders-daily-manifest-preview-btn"
+                    type="button"
+                    onClick={() => setIsDailyManifestPreviewOpen(true)}
+                    className="inline-flex items-center gap-1.5 px-3.5 py-2 rounded-xl bg-slate-900 hover:bg-slate-800 text-white text-xs font-bold transition shadow-xs cursor-pointer active:scale-95 border border-slate-700"
+                    title="Preview A4 shop floor manifest with calibrated print media queries"
+                  >
+                    <Eye className="w-4 h-4 text-blue-400" />
+                    <span>A4 Print Preview</span>
+                  </button>
+
+                  <button
                     id="active-orders-export-csv-btn"
                     type="button"
                     onClick={handleExportToCsv}
-                    className="inline-flex items-center gap-1.5 px-3.5 py-2 rounded-xl bg-emerald-600 hover:bg-emerald-700 text-white text-xs font-bold transition shadow-xs cursor-pointer active:scale-95"
-                    title="Export currently filtered list of orders as a CSV file for record-keeping"
+                    className="inline-flex items-center gap-1.5 px-3.5 py-2 rounded-xl bg-emerald-700 hover:bg-emerald-800 text-white text-xs font-bold transition shadow-xs cursor-pointer active:scale-95"
+                    title="Export orders list to CSV formatted for accounting and record-keeping"
                   >
                     <Download className="w-4 h-4" />
-                    <span>Export to CSV ({filteredActiveOrders.length})</span>
+                    <span>Export CSV ({filteredActiveOrders.length})</span>
                   </button>
                 </div>
               </div>
@@ -3125,11 +3672,11 @@ export const AdminOrdersModal: React.FC<AdminOrdersModalProps> = ({
                           {order.reservationCode}
                         </span>
                         <span className={`text-[10px] font-bold px-2.5 py-1 rounded-full border ${
-                          order.paymentMethod.includes('Stripe') 
+                          (order.paymentMethod || '').includes('Stripe') 
                             ? 'bg-emerald-100 text-emerald-800 border-emerald-300' 
                             : 'bg-amber-100 text-amber-800 border-amber-300'
                         }`}>
-                          {order.paymentMethod}
+                          {order.paymentMethod || 'Pay at Shop'}
                         </span>
 
                         {/* Payment Status Pill */}
@@ -3196,6 +3743,20 @@ export const AdminOrdersModal: React.FC<AdminOrdersModalProps> = ({
                       </div>
 
                       <span className="text-[11px] text-slate-400 font-medium">{order.timestamp}</span>
+                    </div>
+
+                    {/* Visual Step-by-Step Timeline Progress Bar (Pending -> Ready -> Completed) */}
+                    <div className="pt-1">
+                      <OrderTimelineProgressBar 
+                        order={order} 
+                        onUpdateStatus={(newStatus) => {
+                          const internalStatus = newStatus === 'Completed' ? 'Dispatched' : newStatus;
+                          onUpdateOrder(order.id, { 
+                            dispatchStatus: internalStatus as any,
+                            ...(newStatus === 'Completed' ? { customerNotified: true, notifiedAt: new Date().toLocaleString() } : {})
+                          });
+                        }}
+                      />
                     </div>
 
                     {/* Expandable Section Toggle */}
@@ -3283,15 +3844,15 @@ export const AdminOrdersModal: React.FC<AdminOrdersModalProps> = ({
                     {/* Items Summary */}
                     <div className="bg-white rounded-xl p-3.5 border border-slate-200 text-xs space-y-2">
                       <span className="font-bold text-[10px] text-slate-400 uppercase tracking-wider block">Ordered Items & Services:</span>
-                      {order.items.map((item, idx) => (
+                      {(order.items || []).map((item, idx) => (
                         <div key={idx} className="flex justify-between items-center text-slate-800 border-b border-slate-100 pb-1.5 last:border-0 last:pb-0">
                           <span>
-                            <strong>{item.quantity}x</strong> {item.tyre.brand} {item.tyre.modelName} ({item.tyre.size}) [{item.tyre.condition}]
+                            <strong>{item.quantity || 1}x</strong> {item.tyre?.brand || 'Tyre'} {item.tyre?.modelName || ''} ({item.tyre?.size || ''}) [{item.tyre?.condition || 'New'}]
                             {item.includeMounting && <span className="text-[10px] text-blue-600 ml-1.5 bg-blue-50 px-1.5 py-0.5 rounded">Mounting</span>}
                             {item.includeNewValves && <span className="text-[10px] text-blue-600 ml-1.5 bg-blue-50 px-1.5 py-0.5 rounded">Valves</span>}
                           </span>
                           <span className="font-semibold text-slate-900">
-                            EC$ {(item.tyre.priceXCD + (item.includeMounting ? 20 : 0) + (item.includeNewValves ? 15 : 0)) * item.quantity}
+                            EC$ {((item.tyre?.priceXCD || 0) + (item.includeMounting ? 20 : 0) + (item.includeNewValves ? 15 : 0)) * (item.quantity || 1)}
                           </span>
                         </div>
                       ))}
@@ -3460,14 +4021,24 @@ export const AdminOrdersModal: React.FC<AdminOrdersModalProps> = ({
 
                       <div className="flex items-center gap-2 flex-wrap">
                         <button
-                          id={`history-print-receipt-${order.id}`}
+                          id={`active-print-receipt-${order.id}`}
                           type="button"
                           onClick={() => handlePrintReceipt(order)}
-                          className="inline-flex items-center gap-1.5 text-xs font-bold text-white bg-[#0984E3] hover:bg-[#0873c4] px-3.5 py-2 rounded-xl shadow-xs transition active:scale-95"
+                          className="inline-flex items-center gap-1.5 text-xs font-bold text-white bg-[#0984E3] hover:bg-[#0873c4] px-3.5 py-2 rounded-xl shadow-xs transition active:scale-95 cursor-pointer"
                           title="Print official receipt with optimized browser print layout"
                         >
                           <Printer className="w-3.5 h-3.5 text-white" />
                           <span>Print Receipt</span>
+                        </button>
+                        <button
+                          id={`active-email-receipt-${order.id}`}
+                          type="button"
+                          onClick={() => handleSendEmailReceipt(order)}
+                          className="inline-flex items-center gap-1.5 text-xs font-bold text-white bg-blue-600 hover:bg-blue-700 px-3.5 py-2 rounded-xl shadow-xs transition active:scale-95 cursor-pointer"
+                          title="Generate professional receipt and trigger mailto / email confirmation"
+                        >
+                          <Mail className="w-3.5 h-3.5 text-white" />
+                          <span>Email Receipt</span>
                         </button>
                         <button
                           onClick={() => handlePrintOrderSlip(order)}
@@ -3516,15 +4087,16 @@ export const AdminOrdersModal: React.FC<AdminOrdersModalProps> = ({
                           <span>{sendingSmsOrderId === order.id ? 'Sending SMS...' : 'Notify Customer via SMS'}</span>
                         </button>
 
-                        <a
-                          href={`https://wa.me/${order.customerPhone.replace(/[^0-9]/g, '')}?text=${encodeURIComponent(`Hello ${order.customerName}, this is Maranatha Square (Max Executive Tires, Pichelin). Your order ${order.reservationCode} (Total: EC$ ${order.totalXCD}) is ${dispatchStatus === 'Scheduled' ? `scheduled for dispatch on ${order.dispatchDate}` : 'ready'}.`)}`}
-                          target="_blank"
-                          rel="noopener noreferrer"
-                          className="inline-flex items-center gap-1.5 text-xs font-bold text-emerald-700 bg-emerald-50 hover:bg-emerald-100 px-3.5 py-2 rounded-xl border border-emerald-200 transition"
+                        <button
+                          id={`active-whatsapp-template-${order.id}`}
+                          type="button"
+                          onClick={() => handleOpenWhatsAppGenerator(order)}
+                          className="inline-flex items-center gap-1.5 text-xs font-bold text-emerald-800 bg-emerald-50 hover:bg-emerald-100 px-3.5 py-2 rounded-xl border border-emerald-300 transition shadow-2xs cursor-pointer active:scale-95"
+                          title="Open WhatsApp template generator for this customer order"
                         >
-                          <Phone className="w-3.5 h-3.5" />
-                          <span>WhatsApp Customer</span>
-                        </a>
+                          <MessageSquare className="w-3.5 h-3.5 text-emerald-600" />
+                          <span>WhatsApp Template</span>
+                        </button>
 
                         <button
                           id={`resend-confirmation-${order.id}`}
@@ -3656,16 +4228,16 @@ export const AdminOrdersModal: React.FC<AdminOrdersModalProps> = ({
                     const valveRate = servicePrices['valves'] ?? 15;
                     const shreddingRate = servicePrices['shredding'] ?? 1;
                     const itemUnitServices = (item.includeMounting ? mountingRate : 0) + (item.includeNewValves ? valveRate : 0) + (item.includeShredding ? shreddingRate : 0);
-                    const itemSubtotal = (item.tyre.priceXCD + itemUnitServices) * item.quantity;
+                    const itemSubtotal = ((item.tyre?.priceXCD || 0) + itemUnitServices) * (item.quantity || 1);
 
                     return (
                       <div key={idx} className="bg-white p-3 rounded-lg border border-slate-200 space-y-1">
                         <div className="flex justify-between font-bold text-slate-900">
-                          <span>{item.quantity}x {item.tyre.brand} {item.tyre.modelName} ({item.tyre.size}) [{item.tyre.condition.toUpperCase()}]</span>
+                          <span>{item.quantity || 1}x {item.tyre?.brand || 'Tyre'} {item.tyre?.modelName || ''} ({item.tyre?.size || ''}) [{(item.tyre?.condition || 'New').toUpperCase()}]</span>
                           <span>EC$ {itemSubtotal}</span>
                         </div>
                         <div className="text-[11px] text-slate-500 pl-2 space-y-0.5">
-                          <div>• Tyre Unit Price: EC$ {item.tyre.priceXCD}</div>
+                          <div>• Tyre Unit Price: EC$ {item.tyre?.priceXCD || 0}</div>
                           {item.includeMounting && <div>• Mounting & Fitting: EC$ {mountingRate} (Live Rate)</div>}
                           {item.includeNewValves && <div>• Valve Stem: EC$ {valveRate} (Live Rate)</div>}
                           {item.includeShredding && <div>• Eco Shredder: EC$ {shreddingRate} (Live Rate)</div>}
@@ -3777,20 +4349,20 @@ export const AdminOrdersModal: React.FC<AdminOrdersModalProps> = ({
                   Ordered Items & Services:
                 </span>
                 <div className="space-y-1.5 max-h-40 overflow-y-auto">
-                  {resendConfirmationModalData.order.items.map((item, idx) => (
+                  {(resendConfirmationModalData.order.items || []).map((item, idx) => (
                     <div key={idx} className="flex justify-between items-center text-xs bg-white p-2.5 rounded-lg border border-slate-200/80">
                       <div>
                         <div className="font-bold text-slate-800">
-                          {item.quantity}x {item.tyre.brand} {item.tyre.modelName} ({item.tyre.size})
+                          {item.quantity || 1}x {item.tyre?.brand || 'Tyre'} {item.tyre?.modelName || ''} ({item.tyre?.size || ''})
                         </div>
                         <div className="text-[11px] text-slate-500">
-                          Condition: {item.tyre.condition.toUpperCase()}
+                          Condition: {(item.tyre?.condition || 'New').toUpperCase()}
                           {item.includeMounting ? ' • Includes Mounting' : ''}
                           {item.includeNewValves ? ' • Includes Valves' : ''}
                         </div>
                       </div>
                       <span className="font-mono font-bold text-slate-900">
-                        EC$ {(item.tyre.priceXCD + (item.includeMounting ? 20 : 0) + (item.includeNewValves ? 15 : 0)) * item.quantity}
+                        EC$ {((item.tyre?.priceXCD || 0) + (item.includeMounting ? 20 : 0) + (item.includeNewValves ? 15 : 0)) * (item.quantity || 1)}
                       </span>
                     </div>
                   ))}
@@ -4057,13 +4629,13 @@ export const AdminOrdersModal: React.FC<AdminOrdersModalProps> = ({
 
       {/* Floating CSV Export Toast Notification */}
       {csvExportToast && (
-        <div className="fixed bottom-20 right-6 z-70 max-w-sm w-full bg-slate-900 text-white border-2 border-[#0984E3] rounded-2xl p-4 shadow-2xl animate-fade-in flex items-start gap-3">
-          <div className="w-8 h-8 rounded-xl bg-[#0984E3] text-white flex items-center justify-center shrink-0 mt-0.5">
+        <div className="fixed bottom-20 right-6 z-70 max-w-sm w-full bg-slate-900 text-white border-2 border-emerald-500 rounded-2xl p-4 shadow-2xl animate-fade-in flex items-start gap-3">
+          <div className="w-8 h-8 rounded-xl bg-emerald-600 text-white flex items-center justify-center shrink-0 mt-0.5 shadow-xs">
             <Download className="w-4 h-4" />
           </div>
           <div className="flex-1 space-y-1">
             <div className="flex items-center justify-between">
-              <span className="font-bold text-xs text-[#0984E3]">CSV Export Downloaded</span>
+              <span className="font-bold text-xs text-emerald-400">Accounting CSV Exported</span>
               <button
                 type="button"
                 onClick={() => setCsvExportToast(null)}
@@ -4073,7 +4645,7 @@ export const AdminOrdersModal: React.FC<AdminOrdersModalProps> = ({
               </button>
             </div>
             <p className="text-xs text-slate-200">
-              Saved <strong>{csvExportToast.count} filtered orders</strong> to <code className="text-blue-300 font-mono text-[11px]">{csvExportToast.filename}</code> for your shop records.
+              Saved <strong>{csvExportToast.count} order records</strong>{csvExportToast.totalValueXCD !== undefined ? ` totaling EC$ ${csvExportToast.totalValueXCD.toLocaleString()}` : ''} to <code className="text-emerald-300 font-mono text-[11px]">{csvExportToast.filename}</code> for your accounting and tax records.
             </p>
           </div>
         </div>
@@ -4089,6 +4661,64 @@ export const AdminOrdersModal: React.FC<AdminOrdersModalProps> = ({
         order={selectedReceiptOrder}
         servicePrices={servicePrices}
         autoPrint={autoPrintReceipt}
+      />
+
+      {/* Shop Floor Work Order Daily Manifest Modal */}
+      <DailyManifestModal
+        isOpen={isDailyManifestOpen}
+        onClose={() => setIsDailyManifestOpen(false)}
+        orders={orders}
+        servicePrices={servicePrices}
+      />
+
+      {/* WhatsApp Pre-Formatted Customer Confirmation Template Generator */}
+      <WhatsAppTemplateGeneratorModal
+        isOpen={isWhatsAppGeneratorOpen}
+        onClose={() => setIsWhatsAppGeneratorOpen(false)}
+        orders={orders}
+        initialOrder={selectedWhatsAppOrder}
+        servicePrices={servicePrices}
+      />
+
+      {/* Daily Manifest A4 Print Preview Modal */}
+      <DailyManifestPrintPreviewModal
+        isOpen={isDailyManifestPreviewOpen}
+        onClose={() => setIsDailyManifestPreviewOpen(false)}
+        orders={orders}
+        servicePrices={servicePrices}
+      />
+
+      {/* Global Barcode Scanner & Intake Modal */}
+      <BarcodeScannerModal
+        isOpen={isBarcodeScannerOpen}
+        onClose={() => setIsBarcodeScannerOpen(false)}
+        tyres={tyres}
+        onAddToPos={(tyre) => {
+          handleAddTyreToPos(tyre);
+          setActiveModalTab('pos');
+        }}
+        onUpdateTyreStock={onUpdateTyreStock}
+        onUpdateTyrePrice={onUpdateTyrePrice}
+        onOpenBarcodeCenter={() => setIsBarcodeCenterOpen(true)}
+      />
+
+      {/* Global Barcode Labels & Print Center Modal */}
+      <InventoryBarcodeCenterModal
+        isOpen={isBarcodeCenterOpen}
+        onClose={() => setIsBarcodeCenterOpen(false)}
+        tyres={tyres}
+        onOpenScanner={() => setIsBarcodeScannerOpen(true)}
+      />
+
+      {/* Workshop Hardware Peripherals Hub Modal (Printer, Scanner, Cash Drawer, POS Terminal) */}
+      <AdminPosHardwareModal
+        isOpen={isHardwareModalOpen}
+        onClose={() => setIsHardwareModalOpen(false)}
+        hardwareState={hardwareState}
+        onUpdateHardwareState={(updater) => setHardwareState(updater)}
+        onSimulateScanBarcode={handleSimulateScanBarcode}
+        availableTyres={tyres}
+        onOpenBarcodeCenter={() => setIsBarcodeCenterOpen(true)}
       />
     </div>
   );

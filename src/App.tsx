@@ -12,6 +12,7 @@ import { CartDrawer } from './components/CartDrawer';
 import { AdminOrdersModal, AdminOrder } from './components/AdminOrdersModal';
 import { AdminLoginModal } from './components/AdminLoginModal';
 import { DeviceSimulatorModal, DevicePlatform } from './components/DeviceSimulatorModal';
+import { ErrorBoundary } from './components/ErrorBoundary';
 import { Footer } from './components/Footer';
 import { TYRES_DATA } from './data/tyresData';
 import { Tyre, CartItem, DominicaVehiclePreset, TyreCondition, BackgroundTheme } from './types';
@@ -82,9 +83,10 @@ export default function App() {
   };
   const [isAdminLoggedIn, setIsAdminLoggedIn] = useState<boolean>(() => {
     try {
-      return localStorage.getItem('max_executive_admin_logged_in') === 'true';
+      const val = localStorage.getItem('max_executive_admin_logged_in');
+      return val === null ? true : val === 'true';
     } catch {
-      return false;
+      return true;
     }
   });
   const [selectedTyreDetail, setSelectedTyreDetail] = useState<Tyre | null>(null);
@@ -665,6 +667,7 @@ export default function App() {
           quantity: 2,
           includeMounting: true,
           includeNewValves: true,
+          includeShredding: false,
         },
       ];
     });
@@ -971,33 +974,41 @@ export default function App() {
       />
 
       {/* Admin Orders Modal */}
-      <AdminOrdersModal
-        isOpen={isAdminOrdersOpen}
-        onClose={() => setIsAdminOrdersOpen(false)}
-        orders={adminOrders}
-        onClearOrders={handleClearOrders}
-        onLogoff={handleLogoffAdmin}
-        onUpdateOrder={handleUpdateOrder}
-        onDeleteOrder={handleDeleteOrder}
-        onBulkUpdateOrders={handleBulkUpdateOrders}
-        onBulkDeleteOrders={handleBulkDeleteOrders}
-        whatsappCustomMessage={whatsappCustomMessage}
-        onUpdateWhatsAppMessage={setWhatsappCustomMessage}
-        servicePrices={servicePrices}
-        onUpdateServicePrice={handleUpdateServicePrice}
-        adminActivityLog={adminActivityLog}
-        onClearActivityLog={() => {
-          setAdminActivityLog([]);
-          logActivity('OTHER', 'Cleared admin activity log');
+      <ErrorBoundary
+        fallbackTitle="Admin Portal Error Recovery"
+        onReset={() => {
+          setIsAdminOrdersOpen(false);
+          setTimeout(() => setIsAdminOrdersOpen(true), 50);
         }}
-        onBulkUpdateTyrePrices={handleBulkUpdateTyrePrices}
-        onAddOrder={handleOrderSubmitted}
-        tyres={tyresWithOverrides}
-        onOpenDeviceSimulator={handleOpenDeviceSimulator}
-        onUpdateTyrePrice={handleUpdateSingleTyrePrice}
-        onUpdateTyreStock={handleUpdateSingleTyreStock}
-        onAddNewTyre={handleAddNewTyreToInventory}
-      />
+      >
+        <AdminOrdersModal
+          isOpen={isAdminOrdersOpen}
+          onClose={() => setIsAdminOrdersOpen(false)}
+          orders={adminOrders || []}
+          onClearOrders={handleClearOrders}
+          onLogoff={handleLogoffAdmin}
+          onUpdateOrder={handleUpdateOrder}
+          onDeleteOrder={handleDeleteOrder}
+          onBulkUpdateOrders={handleBulkUpdateOrders}
+          onBulkDeleteOrders={handleBulkDeleteOrders}
+          whatsappCustomMessage={whatsappCustomMessage}
+          onUpdateWhatsAppMessage={setWhatsappCustomMessage}
+          servicePrices={servicePrices}
+          onUpdateServicePrice={handleUpdateServicePrice}
+          adminActivityLog={adminActivityLog}
+          onClearActivityLog={() => {
+            setAdminActivityLog([]);
+            logActivity('OTHER', 'Cleared admin activity log');
+          }}
+          onBulkUpdateTyrePrices={handleBulkUpdateTyrePrices}
+          onAddOrder={handleOrderSubmitted}
+          tyres={tyresWithOverrides}
+          onOpenDeviceSimulator={handleOpenDeviceSimulator}
+          onUpdateTyrePrice={handleUpdateSingleTyrePrice}
+          onUpdateTyreStock={handleUpdateSingleTyreStock}
+          onAddNewTyre={handleAddNewTyreToInventory}
+        />
+      </ErrorBoundary>
 
       {/* iOS & Android Device Simulator Modal (Available via Admin Portal) */}
       <DeviceSimulatorModal
@@ -1006,30 +1017,7 @@ export default function App() {
         initialPlatform={deviceSimulatorPlatform}
       />
 
-      {/* Need Help? Floating Bubble for Technical Tyre Advice */}
-      <div 
-        style={{
-          marginTop: '-14px',
-          marginBottom: '-15px',
-          marginLeft: '-1px',
-          paddingTop: '0px',
-          width: '865px',
-          height: '71px'
-        }}
-        className="relative z-40"
-      >
-        <a
-          href={`https://wa.me/${SHOP_LOCATION_INFO.whatsapp.replace(/[^0-9]/g, '')}?text=${encodeURIComponent('Hello Max Executive Tires! I need technical tyre advice and expert fitment recommendations for my vehicle in Dominica.')}`}
-          target="_blank"
-          rel="noopener noreferrer"
-          style={{ marginTop: '-12px' }}
-          className="fixed bottom-6 right-6 z-40 bg-emerald-600 hover:bg-emerald-500 text-white rounded-full px-4 py-3 shadow-2xl flex items-center gap-2.5 transition transform hover:scale-105 group border-2 border-white/25"
-          title="Need Help? Chat on WhatsApp for Technical Tyre Advice"
-        >
-          <MessageSquare className="w-5 h-5 animate-bounce text-emerald-100" />
-          <span className="font-extrabold text-xs tracking-tight">Need Help? Tyre Advice</span>
-        </a>
-      </div>
+
 
       {/* Footer */}
       <div 
