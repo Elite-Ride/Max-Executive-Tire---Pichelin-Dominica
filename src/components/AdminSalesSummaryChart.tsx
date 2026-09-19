@@ -26,10 +26,12 @@ import {
 } from 'lucide-react';
 import { AdminOrder } from './AdminOrdersModal';
 import { Tyre } from '../types';
+import { AdminMonthlyRevenueChart } from './AdminMonthlyRevenueChart';
 
 interface AdminSalesSummaryChartProps {
   orders: AdminOrder[];
   tyres?: Tyre[];
+  servicePrices?: Record<string, number>;
 }
 
 interface DailySalesData {
@@ -44,7 +46,8 @@ interface DailySalesData {
 
 export const AdminSalesSummaryChart: React.FC<AdminSalesSummaryChartProps> = ({
   orders,
-  tyres = []
+  tyres = [],
+  servicePrices
 }) => {
   const [timeRange, setTimeRange] = useState<'30' | '14' | '7'>('30');
   const [chartType, setChartType] = useState<'both' | 'revenue' | 'orders'>('both');
@@ -608,6 +611,11 @@ export const AdminSalesSummaryChart: React.FC<AdminSalesSummaryChartProps> = ({
             )}
           </div>
         </div>
+      </div>
+
+      {/* 6-Month Tyre Sales vs Workshop Services Revenue Summary (Recharts) */}
+      <div className="pt-2">
+        <AdminMonthlyRevenueChart orders={orders} servicePrices={servicePrices} />
       </div>
     </div>
   );

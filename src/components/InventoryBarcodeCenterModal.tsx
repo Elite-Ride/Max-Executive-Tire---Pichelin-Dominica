@@ -20,10 +20,14 @@ import {
   Settings,
   Grid,
   ZoomIn,
-  ZoomOut
+  ZoomOut,
+  HelpCircle,
+  QrCode,
+  LayoutGrid
 } from 'lucide-react';
 import { Tyre } from '../types';
 import { TyreBarcodeLabel } from './TyreBarcodeLabel';
+import { PrinterGuide } from './PrinterGuide';
 import { getTyreBarcodeValue } from '../utils/barcodeGenerator';
 import { generateBarcodeLabelsPDF } from '../utils/labelPdfGenerator';
 import { printHtmlViaIframe } from '../utils/printHelper';
@@ -40,6 +44,8 @@ interface InventoryBarcodeCenterModalProps {
   initialSelectedIds?: string[];
   initialFormat?: LabelPaperFormat;
   onOpenScanner?: () => void;
+  customQueuedTyres?: Tyre[];
+  sourceTitle?: string;
 }
 
 export const InventoryBarcodeCenterModal: React.FC<InventoryBarcodeCenterModalProps> = ({
@@ -48,7 +54,9 @@ export const InventoryBarcodeCenterModal: React.FC<InventoryBarcodeCenterModalPr
   tyres,
   initialSelectedIds,
   initialFormat,
-  onOpenScanner
+  onOpenScanner,
+  customQueuedTyres,
+  sourceTitle
 }) => {
   const [searchQuery, setSearchQuery] = useState('');
   const [selectedCondition, setSelectedCondition] = useState<'ALL' | 'new' | 'used'>('ALL');
@@ -59,21 +67,25 @@ export const InventoryBarcodeCenterModal: React.FC<InventoryBarcodeCenterModalPr
   const [customCopies, setCustomCopies] = useState<number>(2);
   const [startPosition, setStartPosition] = useState<number>(1);
   const [showBorders, setShowBorders] = useState<boolean>(true);
-  const [viewMode, setViewMode] = useState<'sheet' | 'grid'>('sheet');
+  const [previewMode, setPreviewMode] = useState<'grid' | 'content_only'>('grid');
+  const [showQrCode, setShowQrCode] = useState<boolean>(true);
+  const [showPrinterGuide, setShowPrinterGuide] = useState<boolean>(false);
   const [copiedCsv, setCopiedCsv] = useState(false);
   const [isPrinting, setIsPrinting] = useState(false);
   const [printStatusMessage, setPrintStatusMessage] = useState<string | null>(null);
 
-  // Initialize selected IDs with initialSelectedIds or all tyres
+  // Initialize selected IDs with initialSelectedIds, customQueuedTyres, or all tyres
   React.useEffect(() => {
     if (isOpen) {
-      if (initialSelectedIds && initialSelectedIds.length > 0) {
+      if (customQueuedTyres && customQueuedTyres.length > 0) {
+        setSelectedIds(Array.from(new Set(customQueuedTyres.map((t) => t.id))));
+      } else if (initialSelectedIds && initialSelectedIds.length > 0) {
         setSelectedIds(initialSelectedIds);
       } else {
         setSelectedIds(tyres.map((t) => t.id));
       }
     }
-  }, [isOpen, tyres, initialSelectedIds]);
+  }, [isOpen, tyres, initialSelectedIds, customQueuedTyres]);
 
   React.useEffect(() => {
     if (isOpen && initialFormat) {
@@ -81,9 +93,22 @@ export const InventoryBarcodeCenterModal: React.FC<InventoryBarcodeCenterModalPr
     }
   }, [isOpen, initialFormat]);
 
+  const effectiveTyrePool = useMemo(() => {
+    if (customQueuedTyres && customQueuedTyres.length > 0) {
+      // Merge custom queued tyres with base tyres to ensure full metadata
+      const poolMap = new Map<string, Tyre>();
+      customQueuedTyres.forEach((t) => poolMap.set(t.id, t));
+      tyres.forEach((t) => {
+        if (!poolMap.has(t.id)) poolMap.set(t.id, t);
+      });
+      return Array.from(poolMap.values());
+    }
+    return tyres;
+  }, [tyres, customQueuedTyres]);
+
   const filteredTyres = useMemo(() => {
     const q = searchQuery.toLowerCase().trim();
-    return tyres.filter((t) => {
+    return effectiveTyrePool.filter((t) => {
       const matchCondition = selectedCondition === 'ALL' || t.condition === selectedCondition;
       if (!matchCondition) return false;
 
@@ -97,10 +122,16 @@ export const InventoryBarcodeCenterModal: React.FC<InventoryBarcodeCenterModalPr
         t.id.toLowerCase().includes(q)
       );
     });
-  }, [tyres, searchQuery, selectedCondition]);
+  }, [effectiveTyrePool, searchQuery, selectedCondition]);
 
   // Expand selected tyres according to quantity mode
   const queuedLabels = useMemo(() => {
+    // If customQueuedTyres were passed and user hasn't toggled quantity mode from one_each
+    if (customQueuedTyres && customQueuedTyres.length > 0 && quantityMode === 'one_each') {
+      const list = customQueuedTyres.filter((t) => selectedIds.includes(t.id));
+      if (list.length > 0) return list;
+    }
+
     const list: Tyre[] = [];
     filteredTyres.forEach((tyre) => {
       if (!selectedIds.includes(tyre.id)) return;
@@ -115,7 +146,7 @@ export const InventoryBarcodeCenterModal: React.FC<InventoryBarcodeCenterModalPr
       }
     });
     return list;
-  }, [filteredTyres, selectedIds, quantityMode, customCopies]);
+  }, [filteredTyres, selectedIds, quantityMode, customCopies, customQueuedTyres]);
 
   // Calculate labels per sheet based on format
   const labelsPerSheet = useMemo(() => {
@@ -198,302 +229,274 @@ export const InventoryBarcodeCenterModal: React.FC<InventoryBarcodeCenterModalPr
 
         if (printResult.success) {
           setPrintStatusMessage('Print job successfully delivered to printer!');
-          setTimeout(() => {
-            setIsPrinting(false);
-            setPrintStatusMessage(null);
-            document.body.classList.remove('is-printing-barcode-sheet');
-          }, 3500);
+          setTimeout(() => setPrintStatusMessage(null), 5000);
           return;
         }
-
-        console.warn('Iframe print failed or sandbox restricted:', printResult.reason);
       }
 
-      // Fallback: direct window.print()
-      try {
-        window.print();
-        setPrintStatusMessage('System print dialog opened.');
-        setTimeout(() => {
-          setIsPrinting(false);
-          setPrintStatusMessage(null);
-          document.body.classList.remove('is-printing-barcode-sheet');
-        }, 2500);
-      } catch (printErr) {
-        console.warn('window.print() restricted in sandbox iframe, generating vector PDF:', printErr);
-        // Automatic graceful fallback for sandboxed iframes
-        handleDownloadPDF();
-        setPrintStatusMessage('Notice: Browser iframe sandbox restricted print dialog. Auto-generated 8.5"×11" Avery 5163 PDF for direct printing!');
-        setTimeout(() => {
-          setIsPrinting(false);
-          setPrintStatusMessage(null);
-          document.body.classList.remove('is-printing-barcode-sheet');
-        }, 6000);
-      }
+      // Fallback: standard window.print
+      window.print();
+      setPrintStatusMessage('Print dialogue triggered. Remember to set Margins: None and Scale: 100%!');
+      setTimeout(() => setPrintStatusMessage(null), 6000);
     } catch (err) {
-      console.error('Print failure:', err);
-      // Fallback to PDF
-      handleDownloadPDF();
-      setPrintStatusMessage('Printer route completed via vector 8.5"×11" PDF download.');
+      console.error('Printing failed, invoking standard print dialog:', err);
+      window.print();
+    } finally {
+      setIsPrinting(false);
       setTimeout(() => {
-        setIsPrinting(false);
-        setPrintStatusMessage(null);
         document.body.classList.remove('is-printing-barcode-sheet');
-      }, 4000);
+      }, 1000);
     }
+  };
+
+  const handlePrintSingleLabel = async (tyre: Tyre) => {
+    playPrinterFeedSound();
+    const barcodeVal = getTyreBarcodeValue(tyre);
+    const html = `
+      <div style="width: 4.0in; height: 2.0in; padding: 0.15in; box-sizing: border-box; font-family: monospace; border: 1px dashed #94a3b8; display: flex; flex-direction: column; justify-content: space-between;">
+        <div style="display: flex; justify-content: space-between; border-bottom: 1px solid #cbd5e1; padding-bottom: 2px;">
+          <span style="font-size: 10px; font-weight: bold;">MAX EXECUTIVE TIRES • PICHELIN</span>
+          <span style="font-size: 9px; font-weight: bold;">${tyre.condition === 'new' ? 'BRAND NEW' : 'USED'}</span>
+        </div>
+        <div style="display: flex; justify-content: space-between; align-items: center; margin: 4px 0;">
+          <div>
+            <div style="font-size: 8px; color: #64748b;">SIZE</div>
+            <div style="font-size: 18px; font-weight: 900;">${tyre.size}</div>
+            <div style="font-size: 10px; font-weight: bold;">${tyre.brand} ${tyre.modelName}</div>
+          </div>
+          <div style="text-align: right;">
+            <div style="font-size: 8px; color: #64748b;">PRICE</div>
+            <div style="font-size: 16px; font-weight: 900; color: #047857;">EC$ ${tyre.priceXCD}</div>
+          </div>
+        </div>
+        <div style="text-align: center; border-top: 1px solid #e2e8f0; padding-top: 4px;">
+          <div style="font-size: 10px; letter-spacing: 2px; font-weight: bold;">*${barcodeVal}*</div>
+          <div style="font-size: 8px; color: #64748b;">Stock: ${tyre.stockCount} | Category: ${tyre.category}</div>
+        </div>
+      </div>
+    `;
+    await printHtmlViaIframe(html, `Label - ${tyre.size}`);
   };
 
   const handleDownloadPDF = () => {
     try {
-      playPrinterFeedSound();
-      setPrintStatusMessage('Generating high-resolution vector 8.5"×11" Avery 5163 label PDF...');
       const doc = generateBarcodeLabelsPDF(sheets, labelFormat, showBorders);
-      const dateStr = new Date().toISOString().split('T')[0];
-      const fileName = `Max_Executive_Tires_Labels_Avery5163_${dateStr}.pdf`;
-      doc.save(fileName);
-      setPrintStatusMessage(`Downloaded ${fileName} (10 labels per sheet ready for printing)`);
+      doc.save(`Max_Executive_Barcode_Labels_${Date.now()}.pdf`);
+      setPrintStatusMessage('PDF generated and downloaded successfully!');
       setTimeout(() => setPrintStatusMessage(null), 4000);
-    } catch (pdfErr) {
-      console.error('PDF Generation failed:', pdfErr);
-      setPrintStatusMessage('Failed to generate PDF. Please retry.');
-      setTimeout(() => setPrintStatusMessage(null), 3000);
-    }
-  };
-
-  const handlePrintSingleLabel = (targetTyre: Tyre) => {
-    try {
-      playPrinterFeedSound();
-      const singleSheet = [[{ tyre: targetTyre, slotIndex: 1 }]];
-      const doc = generateBarcodeLabelsPDF(singleSheet, labelFormat, showBorders);
-      const cleanSize = targetTyre.size.replace(/[^a-zA-Z0-9]/g, '_');
-      const fileName = `Label_${cleanSize}_${targetTyre.brand}_2x4.pdf`;
-      doc.save(fileName);
-      setPrintStatusMessage(`Generated 2"×4" label PDF for ${targetTyre.size} (${targetTyre.brand})`);
-      setTimeout(() => setPrintStatusMessage(null), 3500);
     } catch (err) {
-      console.error('Failed to print single label:', err);
+      console.error('Failed to generate PDF:', err);
+      alert('Unable to generate PDF directly. You can use Print -> Save as PDF.');
     }
   };
 
-  const handleExportBarcodeCSV = () => {
-    const headers = [
-      'Barcode',
-      'Tyre_Size',
-      'Brand',
-      'Model',
-      'Condition',
-      'Price_XCD',
-      'Price_USD',
-      'Stock_Count',
-      'Category'
+  const handleCopyBarcodeCsv = () => {
+    const rows = [
+      ['Tyre ID', 'Size', 'Brand', 'Model', 'Condition', 'Price_XCD', 'Barcode_Code128', 'Stock_Count'],
+      ...queuedLabels.map((t) => [
+        t.id,
+        `"${t.size}"`,
+        `"${t.brand}"`,
+        `"${t.modelName}"`,
+        t.condition,
+        t.priceXCD,
+        `"${getTyreBarcodeValue(t)}"`,
+        t.stockCount
+      ])
     ];
-    const rows = filteredTyres.map((t) => [
-      `"${getTyreBarcodeValue(t)}"`,
-      `"${t.size}"`,
-      `"${t.brand}"`,
-      `"${t.modelName}"`,
-      t.condition,
-      t.priceXCD,
-      (t.priceXCD / 2.7).toFixed(2),
-      t.stockCount,
-      `"${t.category}"`
-    ]);
-    const csvContent = [headers.join(','), ...rows.map((r) => r.join(','))].join('\n');
-    const blob = new Blob([csvContent], { type: 'text/csv;charset=utf-8;' });
-    const url = URL.createObjectURL(blob);
-    const link = document.createElement('a');
-    link.href = url;
-    link.setAttribute('download', `max_executive_tires_barcodes_${new Date().toISOString().split('T')[0]}.csv`);
-    document.body.appendChild(link);
-    link.click();
-    document.body.removeChild(link);
-    URL.revokeObjectURL(url);
-    setCopiedCsv(true);
-    setTimeout(() => setCopiedCsv(false), 2500);
+    const csvContent = rows.map((e) => e.join(',')).join('\n');
+    navigator.clipboard.writeText(csvContent).then(() => {
+      setCopiedCsv(true);
+      setTimeout(() => setCopiedCsv(false), 2500);
+    });
   };
 
   return (
     <div
-      id="barcode-center-modal"
-      className="fixed inset-0 z-50 bg-black/80 backdrop-blur-xs flex items-center justify-center p-2 sm:p-4 animate-in fade-in duration-200"
+      id="inventory-barcode-center-modal"
+      className="fixed inset-0 z-50 bg-slate-950/85 backdrop-blur-sm flex items-center justify-center p-2 sm:p-4 overflow-y-auto"
     >
-      <div className="bg-slate-900 w-full max-w-7xl rounded-3xl shadow-2xl border border-slate-700 overflow-hidden flex flex-col max-h-[96vh]">
-        {/* Top Header Bar */}
-        <div id="barcode-center-header" className="bg-slate-900 text-white p-4 flex flex-wrap items-center justify-between gap-3 border-b border-slate-800">
-          <div className="flex items-center gap-3">
-            <div className="w-10 h-10 rounded-2xl bg-blue-600/20 text-blue-400 border border-blue-500/30 flex items-center justify-center">
-              <Barcode className="w-6 h-6" />
-            </div>
-            <div>
-              <div className="flex items-center gap-2">
-                <h3 className="text-base sm:text-lg font-black tracking-tight text-white">
-                  Inventory Barcode Generator & Print Center
-                </h3>
-                <span className="text-[10px] font-black uppercase tracking-wider bg-emerald-500/20 text-emerald-400 border border-emerald-500/30 px-2 py-0.5 rounded-full">
-                  8.5&quot; × 11&quot; Ready
-                </span>
-              </div>
-              <p className="text-xs text-slate-400">
-                Print 2&quot;×4&quot; labels on standard 8½&quot;×11&quot; label sheets (Avery 5163 / 5263 / 8163) with Tyre Size, Size Barcode, and Retail Price in EC$ & US$.
-              </p>
-            </div>
-          </div>
-
-          <div className="flex items-center gap-2">
-            {onOpenScanner && (
-              <button
-                type="button"
-                onClick={() => {
-                  onClose();
-                  onOpenScanner();
-                }}
-                className="inline-flex items-center gap-1.5 bg-emerald-600 hover:bg-emerald-500 text-white text-xs font-black px-3.5 py-2.5 rounded-xl shadow-md transition cursor-pointer active:scale-95"
-                title="Open live barcode scanner to look up tyres or adjust stock"
-              >
-                <Camera className="w-4 h-4" />
-                <span>Launch Scanner</span>
-              </button>
-            )}
-
-            <button
-              id="barcode-print-sheet-btn"
-              type="button"
-              onClick={handlePrintSheet}
-              className="inline-flex items-center gap-1.5 bg-blue-600 hover:bg-blue-500 text-white text-xs font-black px-4 py-2.5 rounded-xl shadow-lg transition cursor-pointer active:scale-95"
-              title="Print 2x4 labels on 8.5x11 paper"
-            >
-              <Printer className="w-4 h-4" />
-              <span>Print 2&quot;×4&quot; Labels ({queuedLabels.length})</span>
-            </button>
-
-            <button
-              type="button"
-              onClick={handleExportBarcodeCSV}
-              className="hidden sm:inline-flex items-center gap-1.5 bg-slate-800 hover:bg-slate-700 text-slate-200 text-xs font-bold px-3 py-2.5 rounded-xl border border-slate-700 transition cursor-pointer"
-              title="Export all barcode data to CSV"
-            >
-              {copiedCsv ? <Check className="w-3.5 h-3.5 text-emerald-400" /> : <Download className="w-3.5 h-3.5 text-slate-400" />}
-              <span>{copiedCsv ? 'Exported' : 'CSV'}</span>
-            </button>
-
-            <button
-              type="button"
-              onClick={onClose}
-              className="text-slate-400 hover:text-white p-2 rounded-xl hover:bg-slate-800 transition cursor-pointer"
-              title="Close"
-              aria-label="Close"
-            >
-              <X className="w-5 h-5" />
-            </button>
-          </div>
-        </div>
-
-        {/* Primary Controls & Sheet Specifications Toolbar */}
-        <div id="barcode-center-filters" className="bg-slate-800/95 border-b border-slate-700 px-4 py-3 flex flex-col gap-3 text-xs">
-          {/* Row 1: Search, Condition, Selection */}
+      <div
+        className="bg-slate-900 border border-slate-700 rounded-3xl w-full max-w-7xl h-[94vh] flex flex-col shadow-2xl overflow-hidden animate-fade-in"
+      >
+        {/* Header & Controls Bar */}
+        <div className="bg-slate-800 border-b border-slate-700 p-4 shrink-0 space-y-3">
+          {/* Row 1: Brand Title, Search, Printer Guide, Close */}
           <div className="flex flex-wrap items-center justify-between gap-3">
-            {/* Search Input */}
-            <div className="relative flex-1 min-w-[200px] max-w-sm">
-              <Search className="w-4 h-4 absolute left-3 top-1/2 -translate-y-1/2 text-slate-400" />
-              <input
-                type="text"
-                value={searchQuery}
-                onChange={(e) => setSearchQuery(e.target.value)}
-                placeholder="Search tyre size (e.g. 205/55), brand..."
-                className="w-full pl-9 pr-3 py-1.5 rounded-xl bg-slate-900 border border-slate-700 text-white placeholder-slate-500 text-xs focus:outline-none focus:ring-2 focus:ring-blue-500"
-              />
+            <div className="flex items-center gap-3">
+              <div className="p-2.5 bg-blue-600 text-white rounded-2xl shadow-md">
+                <Barcode className="w-6 h-6" />
+              </div>
+              <div>
+                <h3 className="text-base sm:text-lg font-black text-white flex items-center gap-2">
+                  <span>{sourceTitle || 'Max Executive Tires — Barcode & Label Center'}</span>
+                  <span className="text-[10px] bg-emerald-500/20 text-emerald-300 font-extrabold px-2.5 py-0.5 rounded-full border border-emerald-500/30">
+                    Avery 5163 Calibrated
+                  </span>
+                </h3>
+                <p className="text-xs text-slate-400">
+                  Generate US Letter (8½&quot; × 11&quot;) 10-up label sheets with Code-128 barcodes and product QR codes.
+                </p>
+              </div>
             </div>
 
-            {/* Condition Filter */}
-            <div className="flex items-center gap-1">
-              <span className="text-slate-400 font-bold uppercase text-[10px] tracking-wider mr-1">
-                Condition:
-              </span>
+            <div className="flex items-center gap-2 flex-wrap">
+              {/* Printer Calibration Guide Button */}
               <button
                 type="button"
-                onClick={() => setSelectedCondition('ALL')}
-                className={`px-2.5 py-1 rounded-lg font-bold text-[11px] transition cursor-pointer ${
-                  selectedCondition === 'ALL' ? 'bg-blue-600 text-white' : 'text-slate-400 hover:text-white'
-                }`}
+                onClick={() => setShowPrinterGuide(true)}
+                id="barcode-center-printer-guide-btn"
+                className="inline-flex items-center gap-1.5 bg-amber-400 hover:bg-amber-300 text-slate-950 font-black text-xs px-3 py-1.5 rounded-xl transition shadow-md cursor-pointer ring-2 ring-amber-300/40"
+                title="Printer Calibration Guide: Instructions for Margin: None and Scale: 100%"
               >
-                All ({tyres.length})
+                <HelpCircle className="w-3.5 h-3.5 text-slate-950" />
+                <span>Printer Guide</span>
               </button>
+
+              {onOpenScanner && (
+                <button
+                  type="button"
+                  onClick={onOpenScanner}
+                  className="inline-flex items-center gap-1.5 bg-slate-700 hover:bg-slate-600 text-white font-bold text-xs px-3 py-1.5 rounded-xl transition cursor-pointer"
+                  title="Open live camera barcode scanner"
+                >
+                  <Camera className="w-3.5 h-3.5 text-blue-400" />
+                  <span>Camera Scanner</span>
+                </button>
+              )}
+
+              {/* Close Modal Button */}
               <button
                 type="button"
-                onClick={() => setSelectedCondition('new')}
-                className={`px-2.5 py-1 rounded-lg font-bold text-[11px] transition cursor-pointer ${
-                  selectedCondition === 'new' ? 'bg-blue-600 text-white' : 'text-slate-400 hover:text-white'
-                }`}
+                onClick={onClose}
+                className="w-8 h-8 rounded-xl bg-slate-700 hover:bg-slate-600 text-slate-300 hover:text-white flex items-center justify-center transition cursor-pointer"
+                title="Close Barcode Center"
               >
-                Brand New
-              </button>
-              <button
-                type="button"
-                onClick={() => setSelectedCondition('used')}
-                className={`px-2.5 py-1 rounded-lg font-bold text-[11px] transition cursor-pointer ${
-                  selectedCondition === 'used' ? 'bg-amber-600 text-white' : 'text-slate-400 hover:text-white'
-                }`}
-              >
-                Used
+                <X className="w-5 h-5" />
               </button>
             </div>
+          </div>
 
-            {/* Selection toggle */}
-            <div className="flex items-center gap-2">
+          {/* Row 2: Search, Filters, Preview Mode Toggle, QR Toggle */}
+          <div className="pt-2 border-t border-slate-700/80 flex flex-wrap items-center justify-between gap-3 text-xs">
+            {/* Search and Condition Filter */}
+            <div className="flex items-center gap-2 flex-1 min-w-[260px] max-w-lg">
+              <div className="relative flex-1">
+                <Search className="w-4 h-4 text-slate-400 absolute left-3 top-1/2 -translate-y-1/2" />
+                <input
+                  type="text"
+                  value={searchQuery}
+                  onChange={(e) => setSearchQuery(e.target.value)}
+                  placeholder="Filter tyre sizes (e.g. 205/55R16, Hilux, Bridgestone)..."
+                  className="w-full pl-9 pr-3 py-1.5 bg-slate-900 border border-slate-700 rounded-xl text-xs text-white placeholder-slate-500 focus:outline-none focus:border-blue-500 font-medium"
+                />
+                {searchQuery && (
+                  <button
+                    type="button"
+                    onClick={() => setSearchQuery('')}
+                    className="absolute right-2.5 top-1/2 -translate-y-1/2 text-slate-500 hover:text-white text-xs"
+                  >
+                    ×
+                  </button>
+                )}
+              </div>
+
+              <select
+                value={selectedCondition}
+                onChange={(e) => setSelectedCondition(e.target.value as any)}
+                className="bg-slate-900 border border-slate-700 text-slate-200 text-xs rounded-xl px-2.5 py-1.5 font-bold focus:outline-none cursor-pointer"
+              >
+                <option value="ALL">All Conditions</option>
+                <option value="new">Brand New Only</option>
+                <option value="used">Inspected Used Only</option>
+              </select>
+            </div>
+
+            {/* PREVIEW MODE TOGGLE: Grid Layout vs Content-Only */}
+            <div className="flex items-center gap-2 flex-wrap">
+              <div
+                id="barcode-preview-mode-toggle"
+                className="flex items-center bg-slate-900 p-0.5 rounded-xl border border-slate-700 shadow-xs"
+                title="Switch preview between actual 8.5x11 Sheet Grid layout and Content-Only verification mode"
+              >
+                <button
+                  type="button"
+                  onClick={() => setPreviewMode('grid')}
+                  id="preview-mode-grid-btn"
+                  className={`px-3 py-1.5 rounded-lg text-xs font-bold flex items-center gap-1.5 transition cursor-pointer ${
+                    previewMode === 'grid'
+                      ? 'bg-blue-600 text-white shadow-xs'
+                      : 'text-slate-400 hover:text-slate-200'
+                  }`}
+                  title="View actual 8.5x11 grid layout with Avery 5163 alignment"
+                >
+                  <Grid className="w-3.5 h-3.5" />
+                  <span>Grid Layout</span>
+                </button>
+                <button
+                  type="button"
+                  onClick={() => setPreviewMode('content_only')}
+                  id="preview-mode-content-only-btn"
+                  className={`px-3 py-1.5 rounded-lg text-xs font-bold flex items-center gap-1.5 transition cursor-pointer ${
+                    previewMode === 'content_only'
+                      ? 'bg-amber-400 text-slate-950 font-black shadow-xs'
+                      : 'text-slate-400 hover:text-slate-200'
+                  }`}
+                  title="Content-only preview mode: inspect barcode and tyre data without the sheet outline or paper margins"
+                >
+                  <Eye className="w-3.5 h-3.5" />
+                  <span>Content-Only</span>
+                </button>
+              </div>
+
+              {/* QR Code Toggle */}
+              <button
+                type="button"
+                onClick={() => setShowQrCode((prev) => !prev)}
+                id="toggle-label-qr-code-btn"
+                className={`inline-flex items-center gap-1.5 px-2.5 py-1.5 rounded-xl font-bold text-xs transition cursor-pointer border ${
+                  showQrCode
+                    ? 'bg-emerald-600/30 text-emerald-300 border-emerald-500/60 shadow-xs'
+                    : 'bg-slate-900 text-slate-400 border-slate-700'
+                }`}
+                title="Include small product details QR code on each label linking directly to the tyre page"
+              >
+                <QrCode className="w-3.5 h-3.5 text-emerald-400" />
+                <span>Product QR Code</span>
+                <span className={`w-2 h-2 rounded-full ${showQrCode ? 'bg-emerald-400' : 'bg-slate-600'}`} />
+              </button>
+
+              {/* Select / Deselect All */}
               <button
                 type="button"
                 onClick={handleToggleSelectAll}
-                className="inline-flex items-center gap-1.5 text-slate-300 hover:text-white bg-slate-700/60 hover:bg-slate-700 px-2.5 py-1.5 rounded-lg font-bold text-[11px] transition cursor-pointer"
+                className="inline-flex items-center gap-1 bg-slate-900 hover:bg-slate-700 text-slate-200 font-bold px-2.5 py-1.5 rounded-xl border border-slate-700 transition cursor-pointer"
+                title="Select or deselect all items in list"
               >
-                {selectedIds.length === filteredTyres.length ? (
-                  <CheckSquare className="w-3.5 h-3.5 text-blue-400" />
+                {selectedIds.length === filteredTyres.length && filteredTyres.length > 0 ? (
+                  <>
+                    <Square className="w-3.5 h-3.5 text-amber-400" />
+                    <span>Deselect All</span>
+                  </>
                 ) : (
-                  <Square className="w-3.5 h-3.5 text-slate-400" />
+                  <>
+                    <CheckSquare className="w-3.5 h-3.5 text-blue-400" />
+                    <span>Select All ({filteredTyres.length})</span>
+                  </>
                 )}
-                <span>
-                  {selectedIds.length === filteredTyres.length ? 'Deselect All' : 'Select All'}
-                </span>
               </button>
-
-              <div className="h-4 w-px bg-slate-700" />
-
-              {/* View Mode Switcher */}
-              <div className="flex items-center bg-slate-900 p-0.5 rounded-lg border border-slate-700">
-                <button
-                  type="button"
-                  onClick={() => setViewMode('sheet')}
-                  className={`px-2 py-1 rounded text-[11px] font-bold flex items-center gap-1 transition cursor-pointer ${
-                    viewMode === 'sheet' ? 'bg-blue-600 text-white shadow-xs' : 'text-slate-400 hover:text-slate-200'
-                  }`}
-                  title="Preview exact 8.5x11 printed sheets with margins"
-                >
-                  <FileText className="w-3.5 h-3.5" />
-                  <span>8.5×11 Sheet View</span>
-                </button>
-                <button
-                  type="button"
-                  onClick={() => setViewMode('grid')}
-                  className={`px-2 py-1 rounded text-[11px] font-bold flex items-center gap-1 transition cursor-pointer ${
-                    viewMode === 'grid' ? 'bg-blue-600 text-white shadow-xs' : 'text-slate-400 hover:text-slate-200'
-                  }`}
-                  title="List all labels in a compact grid"
-                >
-                  <Grid className="w-3.5 h-3.5" />
-                  <span>List View</span>
-                </button>
-              </div>
             </div>
           </div>
 
-          {/* Row 2: 2x4 on 8.5x11 Paper Setup & Calibration */}
+          {/* Row 3: Templates, Quantities, Scaling, Cut Guides */}
           <div className="pt-2 border-t border-slate-700/80 flex flex-wrap items-center justify-between gap-3 text-[11.5px]">
-            {/* Paper Template Selector */}
+            {/* Template Selector */}
             <div className="flex items-center gap-2 flex-wrap">
               <span className="text-amber-400 font-extrabold uppercase text-[10px] tracking-wider flex items-center gap-1">
                 <Tag className="w-3.5 h-3.5" />
-                Label Template:
+                Template:
               </span>
 
-              {/* Avery 5163 - 2" x 4" on 8.5" x 11" Paper */}
               <button
                 type="button"
                 onClick={() => setLabelFormat('avery_5163')}
@@ -502,12 +505,11 @@ export const InventoryBarcodeCenterModal: React.FC<InventoryBarcodeCenterModalPr
                     ? 'bg-blue-600 text-white border-blue-400 shadow-sm'
                     : 'bg-slate-900/80 text-slate-300 border-slate-700 hover:bg-slate-700'
                 }`}
-                title="Avery 5163 / 5263 / 8163 standard: 10 labels per 8.5x11 sheet (2 columns x 5 rows)"
+                title="Avery 5163 standard: 10 labels per 8.5x11 sheet (2 columns x 5 rows)"
               >
-                2&quot; × 4&quot; Labels (8½&quot; × 11&quot; • 10-Up Avery)
+                2&quot; × 4&quot; Avery 5163 (10-Up Sheet)
               </button>
 
-              {/* 2 Cols x 5 Rows on 8.5" x 11" Paper */}
               <button
                 type="button"
                 onClick={() => setLabelFormat('grid_2x4')}
@@ -516,12 +518,11 @@ export const InventoryBarcodeCenterModal: React.FC<InventoryBarcodeCenterModalPr
                     ? 'bg-blue-600 text-white border-blue-400 shadow-sm'
                     : 'bg-slate-900/80 text-slate-300 border-slate-700 hover:bg-slate-700'
                 }`}
-                title="Generic 2x4 Grid template: 10 labels per 8.5x11 sheet (2 columns x 5 rows of 2x4 labels with cut guides)"
+                title="Generic 2x4 Grid template: 10 labels per 8.5x11 sheet with cut guides"
               >
-                Generic 2×4 Grid (10-Up • 2×5)
+                Generic 2×4 Grid
               </button>
 
-              {/* Shelf Tag */}
               <button
                 type="button"
                 onClick={() => setLabelFormat('shelf_tag')}
@@ -534,7 +535,6 @@ export const InventoryBarcodeCenterModal: React.FC<InventoryBarcodeCenterModalPr
                 Shelf Tag Cards
               </button>
 
-              {/* Compact Sticker */}
               <button
                 type="button"
                 onClick={() => setLabelFormat('compact_sticker')}
@@ -548,52 +548,54 @@ export const InventoryBarcodeCenterModal: React.FC<InventoryBarcodeCenterModalPr
               </button>
             </div>
 
-            {/* Print Options: Quantities, Starting Position, Borders, Scaling */}
-            <div className="flex items-center gap-2.5 flex-wrap">
-              {/* Print Preview Scaling Control */}
-              <div className="flex items-center gap-1 bg-slate-900/90 px-2 py-1 rounded-xl border border-slate-700 text-xs">
-                <span className="text-slate-400 font-bold text-[10px] uppercase flex items-center gap-1 mr-1">
-                  <Eye className="w-3.5 h-3.5 text-blue-400" />
-                  <span>Preview Scale:</span>
-                </span>
-                <button
-                  type="button"
-                  onClick={() => setPreviewScale((prev) => Math.max(0.5, Number((prev - 0.1).toFixed(2))))}
-                  className="w-5 h-5 rounded flex items-center justify-center text-slate-300 hover:text-white hover:bg-slate-800 text-xs font-black transition cursor-pointer"
-                  title="Zoom Out"
-                >
-                  <ZoomOut className="w-3 h-3" />
-                </button>
-                <div className="flex items-center gap-0.5">
-                  {[
-                    { label: '50%', val: 0.5 },
-                    { label: '75%', val: 0.75 },
-                    { label: '85% Fit', val: 0.85 },
-                    { label: '100% (1:1)', val: 1.0 }
-                  ].map((s) => (
-                    <button
-                      key={s.val}
-                      type="button"
-                      onClick={() => setPreviewScale(s.val)}
-                      className={`px-1.5 py-0.5 rounded text-[10.5px] font-extrabold transition cursor-pointer ${
-                        previewScale === s.val
-                          ? 'bg-blue-600 text-white shadow-xs'
-                          : 'text-slate-400 hover:text-slate-200 hover:bg-slate-800'
-                      }`}
-                    >
-                      {s.label}
-                    </button>
-                  ))}
+            {/* Print Options: Quantities, Starting Position, Cut Guides, Scaling */}
+            <div className="flex items-center gap-2 flex-wrap">
+              {/* Zoom scaling for Grid View */}
+              {previewMode === 'grid' && (
+                <div className="flex items-center gap-1 bg-slate-900/90 px-2 py-1 rounded-xl border border-slate-700 text-xs">
+                  <span className="text-slate-400 font-bold text-[10px] uppercase flex items-center gap-1 mr-1">
+                    <Eye className="w-3.5 h-3.5 text-blue-400" />
+                    <span>Zoom:</span>
+                  </span>
+                  <button
+                    type="button"
+                    onClick={() => setPreviewScale((prev) => Math.max(0.5, Number((prev - 0.1).toFixed(2))))}
+                    className="w-5 h-5 rounded flex items-center justify-center text-slate-300 hover:text-white hover:bg-slate-800 text-xs font-black transition cursor-pointer"
+                    title="Zoom Out"
+                  >
+                    <ZoomOut className="w-3 h-3" />
+                  </button>
+                  <div className="flex items-center gap-0.5">
+                    {[
+                      { label: '50%', val: 0.5 },
+                      { label: '75%', val: 0.75 },
+                      { label: '85% Fit', val: 0.85 },
+                      { label: '100%', val: 1.0 }
+                    ].map((s) => (
+                      <button
+                        key={s.val}
+                        type="button"
+                        onClick={() => setPreviewScale(s.val)}
+                        className={`px-1.5 py-0.5 rounded text-[10.5px] font-extrabold transition cursor-pointer ${
+                          previewScale === s.val
+                            ? 'bg-blue-600 text-white shadow-xs'
+                            : 'text-slate-400 hover:text-slate-200 hover:bg-slate-800'
+                        }`}
+                      >
+                        {s.label}
+                      </button>
+                    ))}
+                  </div>
+                  <button
+                    type="button"
+                    onClick={() => setPreviewScale((prev) => Math.min(1.25, Number((prev + 0.1).toFixed(2))))}
+                    className="w-5 h-5 rounded flex items-center justify-center text-slate-300 hover:text-white hover:bg-slate-800 text-xs font-black transition cursor-pointer"
+                    title="Zoom In"
+                  >
+                    <ZoomIn className="w-3 h-3" />
+                  </button>
                 </div>
-                <button
-                  type="button"
-                  onClick={() => setPreviewScale((prev) => Math.min(1.25, Number((prev + 0.1).toFixed(2))))}
-                  className="w-5 h-5 rounded flex items-center justify-center text-slate-300 hover:text-white hover:bg-slate-800 text-xs font-black transition cursor-pointer"
-                  title="Zoom In"
-                >
-                  <ZoomIn className="w-3 h-3" />
-                </button>
-              </div>
+              )}
 
               {/* Quantity Strategy */}
               <div className="flex items-center gap-1.5 bg-slate-900/80 px-2 py-1 rounded-xl border border-slate-700">
@@ -603,8 +605,8 @@ export const InventoryBarcodeCenterModal: React.FC<InventoryBarcodeCenterModalPr
                   onChange={(e) => setQuantityMode(e.target.value as LabelQuantityMode)}
                   className="bg-transparent text-white font-bold text-xs focus:outline-none cursor-pointer"
                 >
-                  <option value="one_each" className="bg-slate-900 text-white">1 per Tyre Size</option>
-                  <option value="stock_qty" className="bg-slate-900 text-white">Match In-Stock Quantity</option>
+                  <option value="one_each" className="bg-slate-900 text-white">1 per Selected Tyre</option>
+                  <option value="stock_qty" className="bg-slate-900 text-white">Match Stock Qty</option>
                   <option value="custom" className="bg-slate-900 text-white">Custom Copies</option>
                 </select>
 
@@ -620,7 +622,7 @@ export const InventoryBarcodeCenterModal: React.FC<InventoryBarcodeCenterModalPr
                 )}
               </div>
 
-              {/* Start at Position Offset (To save partially used Avery sheets) */}
+              {/* Start at Position Offset */}
               {(labelFormat === 'avery_5163' || labelFormat === 'grid_2x4') && (
                 <div className="flex items-center gap-1.5 bg-slate-900/80 px-2 py-1 rounded-xl border border-slate-700" title="Start printing at this label slot if top labels on your 8.5x11 sheet are already peeled off">
                   <span className="text-slate-400 font-bold text-[10px] uppercase">Start Slot:</span>
@@ -656,12 +658,82 @@ export const InventoryBarcodeCenterModal: React.FC<InventoryBarcodeCenterModalPr
           </div>
         </div>
 
-        {/* Content Area: Either 8.5" x 11" Sheet Pages or Grid List */}
+        {/* Content Area: Either Content-Only Verification View OR 8.5" x 11" Sheet Grid */}
         <div className="flex-1 overflow-y-auto p-4 sm:p-6 bg-slate-950/80">
-          {/* Printable Sheet View: Real 8.5" x 11" Paper Pages */}
-          <div id="printable-barcode-sheet" className="space-y-8 print:space-y-0">
-            {viewMode === 'sheet' && (labelFormat === 'avery_5163' || labelFormat === 'grid_2x4') ? (
-              sheets.map((sheet, pageIdx) => {
+          {previewMode === 'content_only' && (
+            /* CONTENT-ONLY VERIFICATION VIEW (NO SHEET OUTLINE, NO 8.5x11 MARGINS) */
+            <div id="barcode-content-only-view" className="space-y-6 max-w-6xl mx-auto animate-fade-in no-print">
+              {/* Verification Header Banner */}
+              <div className="bg-gradient-to-r from-amber-500/15 via-slate-900 to-slate-900 border border-amber-400/40 rounded-2xl p-4 flex flex-wrap items-center justify-between gap-4 shadow-md">
+                <div className="flex items-center gap-3">
+                  <div className="p-2.5 bg-amber-400 text-slate-950 rounded-xl shadow-xs">
+                    <Eye className="w-5 h-5" />
+                  </div>
+                  <div>
+                    <h4 className="text-sm sm:text-base font-black text-white flex items-center gap-2">
+                      <span>Content-Only Verification View</span>
+                      <span className="bg-amber-400/20 text-amber-300 text-[10px] font-bold px-2 py-0.5 rounded-full border border-amber-400/40">
+                        {queuedLabels.length} Labels Queued
+                      </span>
+                    </h4>
+                    <p className="text-xs text-slate-300 mt-0.5">
+                      Direct label data inspection without sheet margins, paper borders, or slot offsets. Verify barcodes and product QR codes before printing.
+                    </p>
+                  </div>
+                </div>
+
+                <div className="flex items-center gap-3">
+                  <button
+                    type="button"
+                    onClick={() => setPreviewMode('grid')}
+                    className="text-xs font-bold text-blue-400 hover:text-blue-300 underline cursor-pointer"
+                  >
+                    Switch to 8.5&quot;×11&quot; Sheet Grid →
+                  </button>
+                </div>
+              </div>
+
+              {/* Grid of clean labels without sheet borders */}
+              <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-5 justify-items-center">
+                {queuedLabels.map((tyre, idx) => (
+                  <div
+                    key={`content-preview-${tyre.id}-${idx}`}
+                    className="bg-white rounded-2xl p-3 shadow-lg border border-slate-300 hover:border-blue-400 transition-all flex flex-col items-center group relative w-full max-w-[4.2in]"
+                  >
+                    <div className="w-full flex items-center justify-between text-[10px] font-mono font-bold text-slate-500 pb-1.5 mb-1.5 border-b border-slate-100">
+                      <span className="bg-slate-100 text-slate-800 px-2 py-0.5 rounded">
+                        Label #{idx + 1} of {queuedLabels.length}
+                      </span>
+                      <span className="text-slate-400">
+                        ID: {tyre.id} • Stock: {tyre.stockCount}
+                      </span>
+                    </div>
+
+                    <TyreBarcodeLabel
+                      tyre={tyre}
+                      variant={
+                        labelFormat === 'avery_5163'
+                          ? 'avery_2x4'
+                          : labelFormat === 'grid_2x4'
+                          ? 'large_2x4'
+                          : labelFormat
+                      }
+                      showBorder={showBorders}
+                      showQr={showQrCode}
+                      onPrintSingle={() => handlePrintSingleLabel(tyre)}
+                    />
+                  </div>
+                ))}
+              </div>
+            </div>
+          )}
+
+          {/* ACTUAL 8.5" x 11" SHEET GRID LAYOUT VIEW (Visible in 'grid' mode, hidden on screen in 'content_only' mode, available in DOM for printing in both modes) */}
+          <div
+            id="printable-barcode-sheet"
+            className={previewMode === 'content_only' ? 'hidden print:block print:space-y-0' : 'space-y-8 print:space-y-0'}
+          >
+              {sheets.map((sheet, pageIdx) => {
                 const sheetNumber = pageIdx + 1;
                 const totalSheets = sheets.length;
 
@@ -713,7 +785,7 @@ export const InventoryBarcodeCenterModal: React.FC<InventoryBarcodeCenterModalPr
                           const { tyre, slotIndex } = item;
 
                           if (!tyre) {
-                            // Blank slot (either offset from start position or empty ending slot)
+                            // Blank slot
                             return (
                               <div
                                 key={`empty-${pageIdx}-${idx}`}
@@ -752,6 +824,7 @@ export const InventoryBarcodeCenterModal: React.FC<InventoryBarcodeCenterModalPr
                                 tyre={tyre}
                                 variant={labelFormat === 'avery_5163' ? 'avery_2x4' : 'large_2x4'}
                                 showBorder={showBorders}
+                                showQr={showQrCode}
                                 onPrintSingle={() => handlePrintSingleLabel(tyre)}
                               />
                             </div>
@@ -761,52 +834,8 @@ export const InventoryBarcodeCenterModal: React.FC<InventoryBarcodeCenterModalPr
                     </div>
                   </div>
                 );
-              })
-            ) : (
-              /* Grid / List View */
-              <div className="grid grid-cols-1 sm:grid-cols-2 md:grid-cols-3 lg:grid-cols-3 gap-4 justify-items-center print:grid-cols-3 print:gap-3">
-                {filteredTyres.map((tyre) => {
-                  const isSelected = selectedIds.includes(tyre.id);
-                  return (
-                    <div
-                      key={tyre.id}
-                      className={`relative group transition ${
-                        isSelected ? 'opacity-100' : 'opacity-35 grayscale print:hidden'
-                      }`}
-                    >
-                      {/* Selection Checkbox for each tag */}
-                      <button
-                        type="button"
-                        onClick={() => handleToggleSingle(tyre.id)}
-                        className="no-print absolute -top-2 -left-2 z-10 w-6 h-6 rounded-full bg-slate-900 border-2 border-slate-600 text-white flex items-center justify-center hover:border-blue-400 transition cursor-pointer shadow-md"
-                        title={isSelected ? 'Deselect from print batch' : 'Include in print batch'}
-                      >
-                        {isSelected ? (
-                          <Check className="w-3.5 h-3.5 text-blue-400 stroke-3" />
-                        ) : (
-                          <span className="w-2 h-2 rounded-full bg-slate-600" />
-                        )}
-                      </button>
-
-                      {/* Render tag */}
-                      <TyreBarcodeLabel
-                        tyre={tyre}
-                        variant={
-                          labelFormat === 'avery_5163'
-                            ? 'avery_2x4'
-                            : labelFormat === 'grid_2x4'
-                            ? 'large_2x4'
-                            : labelFormat
-                        }
-                        showBorder={showBorders}
-                        onPrintSingle={() => handlePrintSingleLabel(tyre)}
-                      />
-                    </div>
-                  );
-                })}
-              </div>
-            )}
-          </div>
+              })}
+            </div>
 
           {filteredTyres.length === 0 && (
             <div className="text-center py-16 text-slate-400">
@@ -853,7 +882,7 @@ export const InventoryBarcodeCenterModal: React.FC<InventoryBarcodeCenterModalPr
               </span>
             </div>
 
-            {/* Direct Vector PDF Download (Always 100% Operational) */}
+            {/* Direct Vector PDF Download */}
             <button
               type="button"
               onClick={handleDownloadPDF}
@@ -869,6 +898,7 @@ export const InventoryBarcodeCenterModal: React.FC<InventoryBarcodeCenterModalPr
               type="button"
               onClick={handlePrintSheet}
               disabled={isPrinting}
+              id="barcode-center-primary-print-btn"
               className={`px-5 py-2.5 bg-blue-600 hover:bg-blue-500 text-white font-black rounded-xl transition shadow-md cursor-pointer flex items-center gap-1.5 active:scale-95 text-xs ${
                 isPrinting ? 'opacity-70 cursor-wait' : ''
               }`}
@@ -880,6 +910,11 @@ export const InventoryBarcodeCenterModal: React.FC<InventoryBarcodeCenterModalPr
           </div>
         </div>
       </div>
+
+      {/* Printer Alignment Guide Modal */}
+      {showPrinterGuide && (
+        <PrinterGuide isOpen={showPrinterGuide} onClose={() => setShowPrinterGuide(false)} />
+      )}
     </div>
   );
 };

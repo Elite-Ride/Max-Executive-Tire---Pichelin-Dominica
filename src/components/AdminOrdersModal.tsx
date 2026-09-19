@@ -1,4 +1,4 @@
-import React, { useState } from 'react';
+import React, { useState, useEffect } from 'react';
 import { 
   X, 
   Bell, 
@@ -45,7 +45,10 @@ import {
   Cpu,
   Zap,
   Banknote,
-  FileSpreadsheet
+  FileSpreadsheet,
+  CheckSquare,
+  Square,
+  Calculator
 } from 'lucide-react';
 import { 
   BarChart, 
@@ -75,8 +78,11 @@ import { OrderTimelineProgressBar } from './OrderTimelineProgressBar';
 import { BarcodeScannerModal } from './BarcodeScannerModal';
 import { InventoryBarcodeCenterModal } from './InventoryBarcodeCenterModal';
 import { AdminSalesSummaryChart } from './AdminSalesSummaryChart';
+import { AdminMonthlyRevenueChart } from './AdminMonthlyRevenueChart';
 import { AdminWorkshopPerformanceReport } from './AdminWorkshopPerformanceReport';
+import { AdminQuickBooksAccountingReport } from './AdminQuickBooksAccountingReport';
 import { AdminPosHardwareModal, HardwareStatusState } from './AdminPosHardwareModal';
+import { AdminAddOrderModal } from './AdminAddOrderModal';
 import {
   playBarcodeBeep,
   playCashDrawerKick,
@@ -171,7 +177,7 @@ export const AdminOrdersModal: React.FC<AdminOrdersModalProps> = ({
   onUpdateTyreStock,
   onAddNewTyre,
 }) => {
-  const [activeModalTab, setActiveModalTab] = useState<'orders' | 'inventory' | 'scanner' | 'barcodes' | 'history' | 'customers' | 'pos' | 'prices' | 'activity' | 'trends' | 'sales' | 'workshop-report' | 'settings' | 'services' | 'myorders'>('orders');
+  const [activeModalTab, setActiveModalTab] = useState<'orders' | 'inventory' | 'scanner' | 'barcodes' | 'history' | 'customers' | 'pos' | 'prices' | 'activity' | 'trends' | 'sales' | 'monthly-revenue' | 'workshop-report' | 'settings' | 'services' | 'myorders' | 'accounting'>('orders');
   const [isBarcodeScannerOpen, setIsBarcodeScannerOpen] = useState(false);
   const [isBarcodeCenterOpen, setIsBarcodeCenterOpen] = useState(false);
   const [customWhatsAppInput, setCustomWhatsAppInput] = useState(whatsappCustomMessage);
@@ -206,16 +212,61 @@ export const AdminOrdersModal: React.FC<AdminOrdersModalProps> = ({
   });
 
   // POS State
-  const [posCart, setPosCart] = useState<CartItem[]>([]);
-  const [posCustomerName, setPosCustomerName] = useState('');
-  const [posCustomerPhone, setPosCustomerPhone] = useState('');
-  const [posVehicleInfo, setPosVehicleInfo] = useState('');
+  const [posCart, setPosCart] = useState<CartItem[]>(() => {
+    try {
+      const saved = localStorage.getItem('max_executive_pos_order_draft');
+      if (saved) {
+        const parsed = JSON.parse(saved);
+        if (Array.isArray(parsed.posCart)) return parsed.posCart;
+      }
+    } catch {}
+    return [];
+  });
+  const [posCustomerName, setPosCustomerName] = useState(() => {
+    try {
+      const saved = localStorage.getItem('max_executive_pos_order_draft');
+      if (saved) return JSON.parse(saved).posCustomerName || '';
+    } catch {}
+    return '';
+  });
+  const [posCustomerPhone, setPosCustomerPhone] = useState(() => {
+    try {
+      const saved = localStorage.getItem('max_executive_pos_order_draft');
+      if (saved) return JSON.parse(saved).posCustomerPhone || '';
+    } catch {}
+    return '';
+  });
+  const [posVehicleInfo, setPosVehicleInfo] = useState(() => {
+    try {
+      const saved = localStorage.getItem('max_executive_pos_order_draft');
+      if (saved) return JSON.parse(saved).posVehicleInfo || '';
+    } catch {}
+    return '';
+  });
   const [posPaymentMethod, setPosPaymentMethod] = useState<'Stripe Merchant Portal' | 'Cash at Counter' | 'Bank Transfer' | 'SmartPOS Card Terminal (Tap, Insert & Swipe)'>('SmartPOS Card Terminal (Tap, Insert & Swipe)');
   const [posSearch, setPosSearch] = useState('');
   const [posCategory, setPosCategory] = useState('ALL');
   const [posLoading, setPosLoading] = useState(false);
   const [posSuccessReceipt, setPosSuccessReceipt] = useState<AdminOrder | null>(null);
   const [isAdminActionsMenuOpen, setIsAdminActionsMenuOpen] = useState(false);
+  const [isAddOrderModalOpen, setIsAddOrderModalOpen] = useState(false);
+
+  // Auto-save POS Counter & Order Form to localStorage
+  useEffect(() => {
+    const hasData = posCustomerName.trim() || posCustomerPhone.trim() || posVehicleInfo.trim() || posCart.length > 0;
+    if (hasData) {
+      try {
+        localStorage.setItem('max_executive_pos_order_draft', JSON.stringify({
+          posCustomerName,
+          posCustomerPhone,
+          posVehicleInfo,
+          posPaymentMethod,
+          posCart,
+          savedAt: new Date().toLocaleTimeString()
+        }));
+      } catch {}
+    }
+  }, [posCustomerName, posCustomerPhone, posVehicleInfo, posPaymentMethod, posCart]);
 
   // SmartPOS Card Terminal Hardware State
   const [isSmartCardTerminalOpen, setIsSmartCardTerminalOpen] = useState(false);
@@ -388,6 +439,9 @@ export const AdminOrdersModal: React.FC<AdminOrdersModalProps> = ({
     setPosCustomerName('');
     setPosCustomerPhone('');
     setPosVehicleInfo('');
+    try {
+      localStorage.removeItem('max_executive_pos_order_draft');
+    } catch {}
   };
 
   const finalizeSmartPOSOrder = (methodUsed: string) => {
@@ -431,6 +485,9 @@ export const AdminOrdersModal: React.FC<AdminOrdersModalProps> = ({
     setPosCustomerName('');
     setPosCustomerPhone('');
     setPosVehicleInfo('');
+    try {
+      localStorage.removeItem('max_executive_pos_order_draft');
+    } catch {}
   };
 
   const [bulkCategory, setBulkCategory] = useState<string>('ALL');
@@ -471,6 +528,8 @@ export const AdminOrdersModal: React.FC<AdminOrdersModalProps> = ({
   const [expandedOrderIds, setExpandedOrderIds] = useState<Record<string, boolean>>({});
   const [isBulkMenuOpen, setIsBulkMenuOpen] = useState(false);
   const [selectedOrderIds, setSelectedOrderIds] = useState<string[]>([]);
+  const [batchPrintOrdersTyres, setBatchPrintOrdersTyres] = useState<Tyre[]>([]);
+  const [batchPrintOrdersTitle, setBatchPrintOrdersTitle] = useState<string>('');
   const [selectedOrderForEmailReceipt, setSelectedOrderForEmailReceipt] = useState<AdminOrder | null>(null);
   const [resendingOrderId, setResendingOrderId] = useState<string | null>(null);
   const [resendConfirmationModalData, setResendConfirmationModalData] = useState<{
@@ -793,6 +852,61 @@ export const AdminOrdersModal: React.FC<AdminOrdersModalProps> = ({
     });
     alert(`Successfully updated dispatch status to "${newStatus}" for ${selectedOrderIds.length} order(s)!`);
     setSelectedOrderIds([]);
+  };
+
+  // Tyres aggregated across all currently checked orders
+  const selectedOrdersTyresList = React.useMemo(() => {
+    const list: Tyre[] = [];
+    orders.forEach((ord) => {
+      if (selectedOrderIds.includes(ord.id)) {
+        (ord.items || []).forEach((item) => {
+          const qty = item.quantity || 1;
+          for (let i = 0; i < qty; i++) {
+            if (item.tyre) {
+              list.push(item.tyre);
+            }
+          }
+        });
+      }
+    });
+    return list;
+  }, [orders, selectedOrderIds]);
+
+  // Bulk print labels for multiple selected orders at once
+  const handleBulkPrintOrdersLabels = () => {
+    if (selectedOrderIds.length === 0) {
+      alert('Please check at least one order to generate a barcode print sheet.');
+      return;
+    }
+    if (selectedOrdersTyresList.length === 0) {
+      alert('The checked orders do not contain any tyre items to print.');
+      return;
+    }
+    setBatchPrintOrdersTyres(selectedOrdersTyresList);
+    setBatchPrintOrdersTitle(`Batch Print — ${selectedOrderIds.length} Checked Orders (${selectedOrdersTyresList.length} Tyres)`);
+    setIsBarcodeCenterOpen(true);
+  };
+
+  // Single order print labels
+  const handlePrintOrderBarcodes = (order: AdminOrder) => {
+    const list: Tyre[] = [];
+    (order.items || []).forEach((item) => {
+      const qty = item.quantity || 1;
+      for (let i = 0; i < qty; i++) {
+        if (item.tyre) {
+          list.push(item.tyre);
+        }
+      }
+    });
+
+    if (list.length === 0) {
+      alert(`Order #${order.reservationCode} does not contain tyre items to print.`);
+      return;
+    }
+
+    setBatchPrintOrdersTyres(list);
+    setBatchPrintOrdersTitle(`Order #${order.reservationCode} — ${order.customerName} (${list.length} Tyres)`);
+    setIsBarcodeCenterOpen(true);
   };
 
   // Generate professional receipt and trigger mailto link + simulated confirmation flow
@@ -1122,7 +1236,7 @@ Thank you for choosing Max Executive Tires!`;
       return `"${str.replace(/"/g, '""')}"`;
     };
 
-    // Standard accounting record-keeping headers
+    // Standard QuickBooks and Dominica IRD tax accounting record-keeping headers
     const headers = [
       'Order Reference Code',
       'Order Date / Timestamp',
@@ -1136,6 +1250,11 @@ Thank you for choosing Max Executive Tires!`;
       'Workshop Services (EC$)',
       'Adjustments & Discounts (EC$)',
       'Total Order Amount (EC$)',
+      'QuickBooks Txn Date',
+      'Dominica Taxable Base (EC$)',
+      'Dominica Output VAT 15% (EC$)',
+      'QuickBooks Chart of Accounts Item',
+      'QuickBooks Clearing Account',
       'Payment Method',
       'Payment Status',
       'Dispatch / Service Status',
@@ -1194,6 +1313,16 @@ Thank you for choosing Max Executive Tires!`;
       const orderTotal = Number(order.totalXCD || 0);
       totalExportedValueXCD += orderTotal;
 
+      // Dominica VAT Standard Calculation (15/115 inclusive standard)
+      const vatOutput = Number(((tyresSubtotal + servicesSubtotal) * (15 / 115)).toFixed(2));
+      const taxableBase = Number(((tyresSubtotal + servicesSubtotal) - vatOutput).toFixed(2));
+      const qbAccount = order.paymentMethod?.toLowerCase().includes('cash')
+        ? '1010 - Undeposited Cash Funds'
+        : order.paymentMethod?.toLowerCase().includes('stripe')
+        ? '1030 - Stripe Online Clearing'
+        : '1020 - SmartPOS Merchant Account';
+      const qbDate = order.timestamp ? new Date(order.timestamp).toISOString().split('T')[0] : new Date().toISOString().split('T')[0];
+
       return [
         escapeCsv(order.reservationCode),
         escapeCsv(order.timestamp || 'Recent'),
@@ -1207,6 +1336,11 @@ Thank you for choosing Max Executive Tires!`;
         escapeCsv(servicesSubtotal.toFixed(2)),
         escapeCsv(netAdjustments !== 0 ? netAdjustments.toFixed(2) : '0.00'),
         escapeCsv(orderTotal.toFixed(2)),
+        escapeCsv(qbDate),
+        escapeCsv(taxableBase.toFixed(2)),
+        escapeCsv(vatOutput.toFixed(2)),
+        escapeCsv('4010 - Tyre Retail & Workshop Services'),
+        escapeCsv(qbAccount),
         escapeCsv(order.paymentMethod || 'Pay at Shop'),
         escapeCsv(order.paymentStatus || 'Pending'),
         escapeCsv(order.dispatchStatus || 'Pending Dispatch'),
@@ -1650,6 +1784,18 @@ Thank you for choosing Max Executive Tires!`;
           </div>
 
           <div style={{ marginBottom: '14px', height: '64px' }} className="flex items-center gap-2">
+            {/* Create Order Button */}
+            <button
+              id="admin-header-add-order-btn"
+              type="button"
+              onClick={() => setIsAddOrderModalOpen(true)}
+              className="inline-flex items-center gap-1.5 text-xs font-black text-white bg-[#0984E3] hover:bg-blue-600 px-3.5 py-2 rounded-xl shadow-xs transition cursor-pointer active:scale-95"
+              title="Create new customer reservation or fitting order with auto-save draft protection"
+            >
+              <Plus className="w-4 h-4" />
+              <span>Add Order</span>
+            </button>
+
             {/* Quick Barcode Scanner Button */}
             <button
               id="admin-header-scanner-btn"
@@ -1672,6 +1818,18 @@ Thank you for choosing Max Executive Tires!`;
             >
               <Download className="w-4 h-4 text-emerald-600" />
               <span>Export CSV (Accounting)</span>
+            </button>
+
+            {/* QuickBooks Tax & Accounting Center Button */}
+            <button
+              id="admin-header-quickbooks-tax-btn"
+              type="button"
+              onClick={() => setActiveModalTab('accounting')}
+              className="inline-flex items-center gap-1.5 text-xs font-black text-white bg-[#2CA01C] hover:bg-emerald-700 px-3.5 py-2 rounded-xl shadow-xs transition cursor-pointer active:scale-95"
+              title="Open QuickBooks Tax & Accounting Center with Dominica IRD Schedules & Sales Receipts"
+            >
+              <Calculator className="w-4 h-4" />
+              <span>QuickBooks Tax</span>
             </button>
 
             {/* Collapsed Admin Actions Menu */}
@@ -1715,6 +1873,14 @@ Thank you for choosing Max Executive Tires!`;
                   >
                     <Download className="w-4 h-4 text-emerald-600" />
                     <span>Export to CSV ({getVisibleOrders().length} visible)</span>
+                  </button>
+                  <button
+                    id="menu-open-quickbooks-tax-btn"
+                    onClick={() => { setActiveModalTab('accounting'); setIsAdminActionsMenuOpen(false); }}
+                    className="w-full text-left px-3 py-2 rounded-lg hover:bg-emerald-50 text-emerald-900 font-bold flex items-center gap-2 transition"
+                  >
+                    <Calculator className="w-4 h-4 text-[#2CA01C]" />
+                    <span>QuickBooks Tax & IRD Reports</span>
                   </button>
                   <button
                     onClick={() => { handleExportCurrentListPdf(); setIsAdminActionsMenuOpen(false); }}
@@ -1938,6 +2104,21 @@ Thank you for choosing Max Executive Tires!`;
             <span>Sales Summary (30 Days)</span>
           </button>
 
+          {/* Monthly Revenue 6-Month Recharts Breakdown Tab */}
+          <button
+            id="admin-tab-monthly-revenue"
+            data-testid="admin-tab-monthly-revenue"
+            onClick={() => setActiveModalTab('monthly-revenue')}
+            className={`inline-flex items-center gap-2 px-4 py-2 rounded-xl text-xs sm:text-sm font-bold transition ${
+              activeModalTab === 'monthly-revenue'
+                ? 'bg-indigo-600 text-white shadow-sm'
+                : 'bg-slate-100 text-slate-700 hover:bg-slate-200'
+            }`}
+          >
+            <TrendingUp className="w-4 h-4 text-indigo-500" />
+            <span>Monthly Revenue (6 Months)</span>
+          </button>
+
           {/* Monthly Workshop Performance Report Tab */}
           <button
             id="admin-tab-workshop-report"
@@ -1950,6 +2131,20 @@ Thank you for choosing Max Executive Tires!`;
           >
             <FileSpreadsheet className="w-4 h-4 text-blue-400" />
             <span>Workshop Performance Report</span>
+          </button>
+
+          {/* QuickBooks Tax & Accounting Center Tab */}
+          <button
+            id="admin-tab-accounting-report"
+            onClick={() => setActiveModalTab('accounting')}
+            className={`inline-flex items-center gap-2 px-4 py-2 rounded-xl text-xs sm:text-sm font-bold transition ${
+              activeModalTab === 'accounting'
+                ? 'bg-[#2CA01C] text-white shadow-sm'
+                : 'bg-emerald-50 text-emerald-800 hover:bg-emerald-100 border border-emerald-200'
+            }`}
+          >
+            <Calculator className="w-4 h-4 text-emerald-400" />
+            <span>QuickBooks Tax & Accounting</span>
           </button>
 
           <button
@@ -2146,11 +2341,19 @@ Thank you for choosing Max Executive Tires!`;
           </div>
         ) : activeModalTab === 'sales' ? (
           <div className="flex-1 overflow-y-auto py-2">
-            <AdminSalesSummaryChart orders={orders} tyres={tyres} />
+            <AdminSalesSummaryChart orders={orders} tyres={tyres} servicePrices={servicePrices} />
+          </div>
+        ) : activeModalTab === 'monthly-revenue' ? (
+          <div className="flex-1 overflow-y-auto py-2">
+            <AdminMonthlyRevenueChart orders={orders} servicePrices={servicePrices} />
           </div>
         ) : activeModalTab === 'workshop-report' ? (
           <div className="flex-1 overflow-y-auto py-2">
             <AdminWorkshopPerformanceReport orders={orders} tyres={tyres} />
+          </div>
+        ) : activeModalTab === 'accounting' ? (
+          <div className="flex-1 overflow-y-auto py-2">
+            <AdminQuickBooksAccountingReport orders={orders} tyres={tyres} servicePrices={servicePrices} />
           </div>
         ) : activeModalTab === 'pos' ? (
           <div className="flex-1 overflow-y-auto space-y-6 py-4 animate-fade-in">
@@ -2705,6 +2908,85 @@ Thank you for choosing Max Executive Tires!`;
                   </button>
                 </div>
 
+                {/* Batch Orders Actions Toolbar for History Tab */}
+                <div className="flex flex-wrap items-center justify-between gap-3 bg-slate-900 text-white p-3 sm:p-4 rounded-2xl shadow-lg border border-slate-800">
+                  <div className="flex items-center gap-3">
+                    <button
+                      type="button"
+                      onClick={() => {
+                        const allFilteredIds = filteredHistoryOrders.map(o => o.id);
+                        const allSelected = allFilteredIds.length > 0 && allFilteredIds.every(id => selectedOrderIds.includes(id));
+                        if (allSelected) {
+                          setSelectedOrderIds(prev => prev.filter(id => !allFilteredIds.includes(id)));
+                        } else {
+                          setSelectedOrderIds(prev => Array.from(new Set([...prev, ...allFilteredIds])));
+                        }
+                      }}
+                      className="flex items-center gap-2 text-xs font-bold text-slate-300 hover:text-white transition cursor-pointer"
+                    >
+                      {filteredHistoryOrders.length > 0 && filteredHistoryOrders.every(o => selectedOrderIds.includes(o.id)) ? (
+                        <CheckSquare className="w-4 h-4 text-blue-400" />
+                      ) : (
+                        <Square className="w-4 h-4 text-slate-400" />
+                      )}
+                      <span>
+                        Select All ({filteredHistoryOrders.length})
+                      </span>
+                    </button>
+
+                    {selectedOrderIds.length > 0 && (
+                      <span className="bg-blue-500/20 text-blue-400 text-xs font-mono font-bold px-2.5 py-0.5 rounded-full border border-blue-500/30">
+                        {selectedOrderIds.length} Selected • {selectedOrdersTyresList.length} Tyres
+                      </span>
+                    )}
+                  </div>
+
+                  {selectedOrderIds.length > 0 ? (
+                    <div className="flex items-center gap-2 flex-wrap">
+                      <button
+                        id="history-batch-print-orders-barcodes-btn"
+                        type="button"
+                        onClick={handleBulkPrintOrdersLabels}
+                        className="inline-flex items-center gap-1.5 px-3.5 py-1.5 rounded-xl bg-blue-600 hover:bg-blue-500 text-white text-xs font-black transition shadow-md cursor-pointer active:scale-95"
+                        title="Generate a single print sheet containing labels for all checked orders at once"
+                      >
+                        <Barcode className="w-4 h-4 text-white" />
+                        <span>Print Labels Sheet ({selectedOrdersTyresList.length} Tyres)</span>
+                      </button>
+
+                      <button
+                        type="button"
+                        onClick={handleBulkMarkSelectedCompleted}
+                        className="inline-flex items-center gap-1.5 px-3.5 py-1.5 rounded-xl bg-emerald-700 hover:bg-emerald-600 text-white text-xs font-bold transition shadow-xs cursor-pointer active:scale-95"
+                      >
+                        <CheckCircle2 className="w-3.5 h-3.5" />
+                        <span>Mark Dispatched</span>
+                      </button>
+
+                      <button
+                        type="button"
+                        onClick={handleBulkDeleteSelected}
+                        className="inline-flex items-center gap-1.5 px-3.5 py-1.5 rounded-xl bg-red-950/80 hover:bg-red-900 text-red-300 border border-red-800/60 text-xs font-bold transition shadow-xs cursor-pointer active:scale-95"
+                      >
+                        <Trash2 className="w-3.5 h-3.5" />
+                        <span>Delete</span>
+                      </button>
+
+                      <button
+                        type="button"
+                        onClick={() => setSelectedOrderIds([])}
+                        className="px-2.5 py-1.5 rounded-xl text-slate-400 hover:text-slate-200 text-xs font-medium cursor-pointer"
+                      >
+                        Clear Selection
+                      </button>
+                    </div>
+                  ) : (
+                    <div className="text-xs text-slate-400">
+                      <span>Check history orders to batch print labels or perform bulk operations</span>
+                    </div>
+                  )}
+                </div>
+
                 {filteredHistoryOrders.length === 0 ? (
                   <div className="text-center py-16 space-y-3">
                     <div className="w-14 h-14 bg-slate-100 text-slate-400 rounded-full flex items-center justify-center mx-auto">
@@ -2917,12 +3199,24 @@ Thank you for choosing Max Executive Tires!`;
                               <MessageSquare className="w-3.5 h-3.5 text-emerald-600" />
                               <span>WhatsApp Templates</span>
                             </button>
+                            {/* History Order Barcode Labels Print Button */}
                             <button
-                              id={`active-print-receipt-${order.id}`}
+                              id={`history-print-labels-${order.id}`}
+                              type="button"
+                              onClick={() => handlePrintOrderBarcodes(order)}
+                              className="inline-flex items-center gap-1.5 bg-indigo-600 hover:bg-indigo-700 text-white font-bold text-xs px-3 py-1.5 rounded-lg shadow-xs transition active:scale-95 cursor-pointer"
+                              title="Generate and print 2x4 barcode labels for items in this order"
+                            >
+                              <Barcode className="w-3.5 h-3.5 text-white" />
+                              <span>Print Labels ({order.items?.reduce((acc, it) => acc + (it.quantity || 1), 0) || 0})</span>
+                            </button>
+                            <button
+                              id={`history-print-receipt-${order.id}`}
+                              data-testid="print-receipt-btn"
                               type="button"
                               onClick={() => handlePrintReceipt(order)}
-                              className="inline-flex items-center gap-1.5 bg-[#0984E3] hover:bg-[#0873c4] text-white font-bold text-xs px-3 py-1.5 rounded-lg shadow-xs transition active:scale-95"
-                              title="Print official receipt with optimized browser print layout"
+                              className="inline-flex items-center gap-1.5 bg-[#0984E3] hover:bg-[#0873c4] text-white font-bold text-xs px-3 py-1.5 rounded-lg shadow-xs transition active:scale-95 cursor-pointer"
+                              title="Print official receipt with optimized browser print layout (A4 / 80mm Thermal)"
                             >
                               <Printer className="w-3.5 h-3.5 text-white" />
                               <span>Print Receipt</span>
@@ -3499,6 +3793,19 @@ Thank you for choosing Max Executive Tires!`;
                     </select>
                   </div>
 
+                  {/* Add Order Button */}
+                  <button
+                    id="admin-orders-add-order-btn"
+                    data-testid="admin-add-order-btn"
+                    type="button"
+                    onClick={() => setIsAddOrderModalOpen(true)}
+                    className="inline-flex items-center gap-1.5 px-3.5 py-2 rounded-xl bg-[#0984E3] hover:bg-blue-600 text-white text-xs font-black transition shadow-xs cursor-pointer active:scale-95"
+                    title="Create new customer reservation or workshop order with auto-save draft protection"
+                  >
+                    <Plus className="w-4 h-4 text-white" />
+                    <span>Add Order</span>
+                  </button>
+
                   <button
                     id="admin-orders-whatsapp-template-btn"
                     type="button"
@@ -3629,6 +3936,86 @@ Thank you for choosing Max Executive Tires!`;
                   </span>
                 </button>
               </div>
+            </div>
+
+            {/* Batch Orders Actions Toolbar (Batch Print Labels for multiple checked orders, Bulk Dispatched, Delete) */}
+            <div className="flex flex-wrap items-center justify-between gap-3 bg-slate-900 text-white p-3 sm:p-4 rounded-2xl shadow-lg border border-slate-800">
+              <div className="flex items-center gap-3">
+                <button
+                  type="button"
+                  onClick={() => {
+                    const allFilteredIds = filteredActiveOrders.map(o => o.id);
+                    const allSelected = allFilteredIds.length > 0 && allFilteredIds.every(id => selectedOrderIds.includes(id));
+                    if (allSelected) {
+                      setSelectedOrderIds(prev => prev.filter(id => !allFilteredIds.includes(id)));
+                    } else {
+                      setSelectedOrderIds(prev => Array.from(new Set([...prev, ...allFilteredIds])));
+                    }
+                  }}
+                  className="flex items-center gap-2 text-xs font-bold text-slate-300 hover:text-white transition cursor-pointer"
+                >
+                  {filteredActiveOrders.length > 0 && filteredActiveOrders.every(o => selectedOrderIds.includes(o.id)) ? (
+                    <CheckSquare className="w-4 h-4 text-blue-400" />
+                  ) : (
+                    <Square className="w-4 h-4 text-slate-400" />
+                  )}
+                  <span>
+                    Select All ({filteredActiveOrders.length})
+                  </span>
+                </button>
+
+                {selectedOrderIds.length > 0 && (
+                  <span className="bg-blue-500/20 text-blue-400 text-xs font-mono font-bold px-2.5 py-0.5 rounded-full border border-blue-500/30">
+                    {selectedOrderIds.length} Selected • {selectedOrdersTyresList.length} Tyres
+                  </span>
+                )}
+              </div>
+
+              {selectedOrderIds.length > 0 ? (
+                <div className="flex items-center gap-2 flex-wrap">
+                  {/* GENERATE BATCH PRINT SHEET BUTTON */}
+                  <button
+                    id="batch-print-orders-barcodes-btn"
+                    type="button"
+                    onClick={handleBulkPrintOrdersLabels}
+                    className="inline-flex items-center gap-1.5 px-3.5 py-1.5 rounded-xl bg-blue-600 hover:bg-blue-500 text-white text-xs font-black transition shadow-md cursor-pointer active:scale-95"
+                    title="Generate a single print sheet containing labels for all checked orders at once"
+                  >
+                    <Barcode className="w-4 h-4 text-white" />
+                    <span>Print Labels Sheet ({selectedOrdersTyresList.length} Tyres)</span>
+                  </button>
+
+                  <button
+                    type="button"
+                    onClick={handleBulkMarkSelectedCompleted}
+                    className="inline-flex items-center gap-1.5 px-3.5 py-1.5 rounded-xl bg-emerald-700 hover:bg-emerald-600 text-white text-xs font-bold transition shadow-xs cursor-pointer active:scale-95"
+                  >
+                    <CheckCircle2 className="w-3.5 h-3.5" />
+                    <span>Mark Dispatched</span>
+                  </button>
+
+                  <button
+                    type="button"
+                    onClick={handleBulkDeleteSelected}
+                    className="inline-flex items-center gap-1.5 px-3.5 py-1.5 rounded-xl bg-red-950/80 hover:bg-red-900 text-red-300 border border-red-800/60 text-xs font-bold transition shadow-xs cursor-pointer active:scale-95"
+                  >
+                    <Trash2 className="w-3.5 h-3.5" />
+                    <span>Delete</span>
+                  </button>
+
+                  <button
+                    type="button"
+                    onClick={() => setSelectedOrderIds([])}
+                    className="px-2.5 py-1.5 rounded-xl text-slate-400 hover:text-slate-200 text-xs font-medium cursor-pointer"
+                  >
+                    Clear Selection
+                  </button>
+                </div>
+              ) : (
+                <div className="text-xs text-slate-400">
+                  <span>Check orders to batch print labels or perform bulk actions</span>
+                </div>
+              )}
             </div>
 
             {filteredActiveOrders.length === 0 ? (
@@ -4020,12 +4407,25 @@ Thank you for choosing Max Executive Tires!`;
                       </div>
 
                       <div className="flex items-center gap-2 flex-wrap">
+                        {/* Order Barcode Labels Print Button */}
+                        <button
+                          id={`active-print-labels-${order.id}`}
+                          type="button"
+                          onClick={() => handlePrintOrderBarcodes(order)}
+                          className="inline-flex items-center gap-1.5 text-xs font-black text-white bg-indigo-600 hover:bg-indigo-500 px-3.5 py-2 rounded-xl shadow-xs transition active:scale-95 cursor-pointer"
+                          title="Generate 2x4 barcode labels for all tyres in this order"
+                        >
+                          <Barcode className="w-3.5 h-3.5 text-white" />
+                          <span>Print Labels ({order.items?.reduce((acc, it) => acc + (it.quantity || 1), 0) || 0})</span>
+                        </button>
+
                         <button
                           id={`active-print-receipt-${order.id}`}
+                          data-testid="print-receipt-btn"
                           type="button"
                           onClick={() => handlePrintReceipt(order)}
                           className="inline-flex items-center gap-1.5 text-xs font-bold text-white bg-[#0984E3] hover:bg-[#0873c4] px-3.5 py-2 rounded-xl shadow-xs transition active:scale-95 cursor-pointer"
-                          title="Print official receipt with optimized browser print layout"
+                          title="Print official receipt with optimized browser print layout (A4 / 80mm Thermal)"
                         >
                           <Printer className="w-3.5 h-3.5 text-white" />
                           <span>Print Receipt</span>
@@ -4705,8 +5105,14 @@ Thank you for choosing Max Executive Tires!`;
       {/* Global Barcode Labels & Print Center Modal */}
       <InventoryBarcodeCenterModal
         isOpen={isBarcodeCenterOpen}
-        onClose={() => setIsBarcodeCenterOpen(false)}
+        onClose={() => {
+          setIsBarcodeCenterOpen(false);
+          setBatchPrintOrdersTyres([]);
+          setBatchPrintOrdersTitle('');
+        }}
         tyres={tyres}
+        customQueuedTyres={batchPrintOrdersTyres.length > 0 ? batchPrintOrdersTyres : undefined}
+        sourceTitle={batchPrintOrdersTitle || undefined}
         onOpenScanner={() => setIsBarcodeScannerOpen(true)}
       />
 
@@ -4720,6 +5126,21 @@ Thank you for choosing Max Executive Tires!`;
         availableTyres={tyres}
         onOpenBarcodeCenter={() => setIsBarcodeCenterOpen(true)}
       />
+
+      {/* Admin Add Order Modal with localStorage Auto-Save */}
+      {onAddOrder && (
+        <AdminAddOrderModal
+          isOpen={isAddOrderModalOpen}
+          onClose={() => setIsAddOrderModalOpen(false)}
+          tyres={tyres}
+          servicePrices={{
+            mounting: servicePrices.mounting || 20,
+            valves: servicePrices.valves || 15,
+            disposal: servicePrices.disposal || servicePrices.shredding || 1
+          }}
+          onAddOrder={onAddOrder}
+        />
+      )}
     </div>
   );
 };

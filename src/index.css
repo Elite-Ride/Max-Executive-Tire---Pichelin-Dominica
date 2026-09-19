@@ -100,6 +100,7 @@
   max-height: 11.0in;
   min-height: 11.0in;
   padding: 0.5in 0.15625in;
+  border: 1px dashed #e2e8f0;
   background: #ffffff;
   display: grid;
   grid-template-columns: 4.0in 4.0in;
@@ -109,6 +110,19 @@
   box-sizing: border-box;
   margin: 0 auto;
   overflow: hidden;
+}
+
+.avery-2x4-label,
+.large-2x4-label {
+  padding: 0.25in;
+  box-sizing: border-box;
+}
+
+@media print {
+  .avery-5163-sheet,
+  .grid-2x4-sheet {
+    border: none !important;
+  }
 }
 
 @media print {
@@ -123,7 +137,7 @@
 
   @page barcode-page {
     size: 8.5in 11in portrait;
-    margin: 0 !important;
+    margin: 0.25in 0.125in;
   }
 
   body.is-printing-barcode-sheet {
@@ -372,6 +386,7 @@
 
   .avery-5163-sheet,
   .grid-2x4-sheet {
+    border: none !important;
     width: 8.5in !important;
     height: 11.0in !important;
     max-width: 8.5in !important;
@@ -408,6 +423,7 @@
     height: 2.0in !important;
     max-width: 4.0in !important;
     max-height: 2.0in !important;
+    padding: 0.25in !important;
     box-sizing: border-box !important;
     page-break-inside: avoid !important;
     break-inside: avoid !important;

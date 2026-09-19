@@ -18,10 +18,12 @@ import {
   Eye,
   ZoomIn,
   ZoomOut,
-  Maximize2
+  Maximize2,
+  HelpCircle
 } from 'lucide-react';
 import { AdminOrder } from './AdminOrdersModal';
 import { jsPDF } from 'jspdf';
+import { PrinterGuide } from './PrinterGuide';
 
 interface DailyManifestPrintPreviewModalProps {
   isOpen: boolean;
@@ -40,6 +42,7 @@ export const DailyManifestPrintPreviewModal: React.FC<DailyManifestPrintPreviewM
   const [zoomScale, setZoomScale] = useState<number>(100);
   const [densityMode, setDensityMode] = useState<'normal' | 'compact'>('normal');
   const [copied, setCopied] = useState(false);
+  const [isPrinterGuideOpen, setIsPrinterGuideOpen] = useState(false);
 
   // Manage print class on body
   useEffect(() => {
@@ -195,6 +198,21 @@ ${manifestOrders
 
           <div className="flex items-center gap-2">
             <button
+              id="manifest-printer-guide-btn"
+              type="button"
+              onClick={() => setIsPrinterGuideOpen((prev) => !prev)}
+              className={`inline-flex items-center gap-1.5 text-xs font-bold px-3 py-2.5 rounded-xl border transition cursor-pointer ${
+                isPrinterGuideOpen
+                  ? 'bg-amber-400 text-slate-950 border-amber-300 shadow-xs'
+                  : 'bg-slate-800 hover:bg-slate-700 text-amber-300 border-amber-400/30'
+              }`}
+              title="View print settings guide: Margins None and Scale 100%"
+            >
+              <HelpCircle className="w-3.5 h-3.5" />
+              <span>Printer Guide</span>
+            </button>
+
+            <button
               id="manifest-trigger-print-btn"
               type="button"
               onClick={handleTriggerPrint}
@@ -342,7 +360,14 @@ ${manifestOrders
         </div>
 
         {/* Scrollable Preview Stage displaying the physical A4 Paper */}
-        <div className="flex-1 overflow-auto p-4 sm:p-8 bg-slate-950/80 flex justify-center items-start">
+        <div className="flex-1 overflow-auto p-4 sm:p-8 bg-slate-950/80 flex flex-col items-center">
+          {/* Printer Guide Drawer if active */}
+          {isPrinterGuideOpen && (
+            <div className="w-full max-w-4xl mb-6 animate-fade-in no-print">
+              <PrinterGuide inline={true} className="border border-amber-400/40" />
+            </div>
+          )}
+
           {/* A4 Paper Sheet Wrapper */}
           <div
             id="daily-manifest-print-sheet"

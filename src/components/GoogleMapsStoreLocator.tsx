@@ -47,8 +47,17 @@ const DOMINICA_START_POINTS = [
 const checkIsValidKey = (key: string | undefined): boolean => {
   if (!key) return false;
   const trimmed = key.trim();
-  if (trimmed === 'YOUR_API_KEY' || trimmed === '@react-google-maps/api' || trimmed.includes('@')) return false;
-  return trimmed.length >= 20;
+  if (
+    trimmed === 'YOUR_API_KEY' || 
+    trimmed === '@react-google-maps/api' || 
+    trimmed.includes('@') ||
+    trimmed.includes('MY_GOOGLE_MAPS')
+  ) {
+    return false;
+  }
+  // Standard Google Maps Platform API keys start with AIza
+  if (!trimmed.startsWith('AIza')) return false;
+  return trimmed.length >= 25;
 };
 
 // Inner component to handle Route calculations using modern GMP Routes library (computeRoutes)
@@ -157,7 +166,35 @@ export const GoogleMapsStoreLocator: React.FC = () => {
     );
   });
 
-  const hasValidKey = checkIsValidKey(activeKey);
+  const [authFailed, setAuthFailed] = useState(false);
+
+  useEffect(() => {
+    const originalGmAuthFailure = (window as any).gm_authFailure;
+    (window as any).gm_authFailure = () => {
+      setAuthFailed(true);
+      if (typeof originalGmAuthFailure === 'function') {
+        originalGmAuthFailure();
+      }
+    };
+
+    const handleWindowError = (event: ErrorEvent) => {
+      if (
+        event.message?.includes('InvalidKeyMapError') ||
+        event.message?.includes('Google Maps JavaScript API') ||
+        event.message?.includes('gm_authFailure')
+      ) {
+        setAuthFailed(true);
+      }
+    };
+    window.addEventListener('error', handleWindowError);
+
+    return () => {
+      (window as any).gm_authFailure = originalGmAuthFailure;
+      window.removeEventListener('error', handleWindowError);
+    };
+  }, []);
+
+  const hasValidKey = checkIsValidKey(activeKey) && !authFailed;
   const activeOrigin = DOMINICA_START_POINTS.find((p) => p.id === selectedOrigin) || DOMINICA_START_POINTS[0];
 
   const handleRecenterShop = () => {
