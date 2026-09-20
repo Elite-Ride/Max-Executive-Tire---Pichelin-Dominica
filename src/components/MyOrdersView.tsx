@@ -19,13 +19,15 @@ import {
   Filter,
   Check,
   RotateCcw,
-  FileText
+  FileText,
+  Receipt
 } from 'lucide-react';
 import { AdminOrder } from './AdminOrdersModal';
 import { jsPDF } from 'jspdf';
 import { SHOP_LOCATION_INFO } from '../data/servicesData';
 import { ReceiptPrintModal } from './ReceiptPrintModal';
 import { CustomerOrderInvoiceModal } from './CustomerOrderInvoiceModal';
+import { ThermalReceiptModal } from './ThermalReceiptModal';
 
 export type ReservationStatusKey = 'Pending' | 'Ready for Fitting' | 'Completed';
 
@@ -150,6 +152,7 @@ export const MyOrdersView: React.FC<MyOrdersViewProps> = ({
   const [selectedPrintOrder, setSelectedPrintOrder] = useState<AdminOrder | null>(null);
   const [autoPrintOrder, setAutoPrintOrder] = useState<boolean>(false);
   const [selectedInvoiceOrder, setSelectedInvoiceOrder] = useState<AdminOrder | null>(null);
+  const [selectedThermalOrder, setSelectedThermalOrder] = useState<AdminOrder | null>(null);
 
   // Local status overrides for immediate responsive testing in UI
   const [localStatusOverrides, setLocalStatusOverrides] = useState<Record<string, 'Pending' | 'Ready for Fitting' | 'Completed'>>({});
@@ -508,12 +511,22 @@ export const MyOrdersView: React.FC<MyOrdersViewProps> = ({
                       </p>
                     </div>
 
-                    {/* Print, Invoice & PDF Action Buttons */}
+                    {/* Print, Thermal Receipt, Invoice & PDF Action Buttons */}
                     <div className="flex items-center gap-2 flex-wrap">
                       <button
                         type="button"
+                        onClick={() => setSelectedThermalOrder(order)}
+                        className="flex items-center gap-1.5 bg-emerald-700 hover:bg-emerald-600 text-white text-xs font-bold px-3 py-2 rounded-xl shadow-xs transition active:scale-95 border border-emerald-600 cursor-pointer"
+                        title="View and print compact 58mm/80mm Thermal Receipt with VAT breakdown & Tax ID"
+                      >
+                        <Receipt className="w-3.5 h-3.5 text-emerald-200" />
+                        <span>Thermal Receipt</span>
+                      </button>
+
+                      <button
+                        type="button"
                         onClick={() => setSelectedInvoiceOrder(order)}
-                        className="flex items-center gap-1.5 bg-slate-900 hover:bg-slate-800 text-white text-xs font-bold px-3.5 py-2 rounded-xl shadow-xs transition active:scale-95 border border-slate-700 cursor-pointer"
+                        className="flex items-center gap-1.5 bg-slate-900 hover:bg-slate-800 text-white text-xs font-bold px-3 py-2 rounded-xl shadow-xs transition active:scale-95 border border-slate-700 cursor-pointer"
                         title="View and print official Tax Invoice with business tax ID #1281761"
                       >
                         <FileText className="w-3.5 h-3.5 text-amber-400" />
@@ -523,17 +536,17 @@ export const MyOrdersView: React.FC<MyOrdersViewProps> = ({
                       <button
                         type="button"
                         onClick={() => handlePrintReceipt(order)}
-                        className="flex items-center gap-1.5 bg-[#0984E3] hover:bg-[#0873c4] text-white text-xs font-bold px-3.5 py-2 rounded-xl shadow-xs transition active:scale-95"
+                        className="flex items-center gap-1.5 bg-[#0984E3] hover:bg-[#0873c4] text-white text-xs font-bold px-3 py-2 rounded-xl shadow-xs transition active:scale-95 cursor-pointer"
                         title="Print clean official receipt"
                       >
                         <Printer className="w-3.5 h-3.5 text-white" />
-                        <span>Print Receipt</span>
+                        <span>Print A4</span>
                       </button>
 
                       <button
                         type="button"
                         onClick={() => handleExportPDF(order)}
-                        className="flex items-center gap-1.5 bg-slate-800 hover:bg-slate-700 text-white text-xs font-bold px-3.5 py-2 rounded-xl shadow-xs transition active:scale-95"
+                        className="flex items-center gap-1.5 bg-slate-800 hover:bg-slate-700 text-white text-xs font-bold px-3 py-2 rounded-xl shadow-xs transition active:scale-95 cursor-pointer"
                         title="Download PDF version"
                       >
                         <Download className="w-3.5 h-3.5 text-blue-400" />
@@ -811,6 +824,14 @@ export const MyOrdersView: React.FC<MyOrdersViewProps> = ({
         isOpen={selectedInvoiceOrder !== null}
         onClose={() => setSelectedInvoiceOrder(null)}
         order={selectedInvoiceOrder}
+        servicePrices={servicePrices}
+      />
+
+      {/* Narrow Thermal Receipt Modal (58mm/80mm Roll Mobile Print View) */}
+      <ThermalReceiptModal
+        isOpen={selectedThermalOrder !== null}
+        onClose={() => setSelectedThermalOrder(null)}
+        order={selectedThermalOrder}
         servicePrices={servicePrices}
       />
     </div>

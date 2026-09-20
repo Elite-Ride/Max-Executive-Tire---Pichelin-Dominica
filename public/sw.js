@@ -1,7 +1,7 @@
 // Max Executive Tires - Service Worker for Pichelin Offline & Intermittent Connectivity
 // Caches essential static assets, app shell, and the tyre catalog
 
-const CACHE_VERSION = 'v1.1.0';
+const CACHE_VERSION = 'v2.0.0';
 const STATIC_CACHE = `max-tires-static-${CACHE_VERSION}`;
 const CATALOG_CACHE = `max-tires-catalog-${CACHE_VERSION}`;
 const IMAGES_CACHE = `max-tires-images-${CACHE_VERSION}`;
@@ -53,7 +53,7 @@ self.addEventListener('activate', (event) => {
       const keys = await caches.keys();
       await Promise.all(
         keys.map((key) => {
-          if (key.startsWith('max-tires-') && !currentCaches.includes(key)) {
+          if (!currentCaches.includes(key)) {
             console.log('[SW] Deleting stale cache:', key);
             return caches.delete(key);
           }

@@ -19,6 +19,8 @@ export function registerServiceWorker(config?: ServiceWorkerConfig): void {
         .then((registration) => {
           console.log('[SW] ServiceWorker registered with scope:', registration.scope);
 
+          registration.update();
+
           registration.onupdatefound = () => {
             const installingWorker = registration.installing;
             if (installingWorker == null) {
@@ -27,10 +29,9 @@ export function registerServiceWorker(config?: ServiceWorkerConfig): void {
             installingWorker.onstatechange = () => {
               if (installingWorker.state === 'installed') {
                 if (navigator.serviceWorker.controller) {
-                  console.log('[SW] New content is available; please refresh.');
-                  if (config && config.onUpdate) {
-                    config.onUpdate(registration);
-                  }
+                  console.log('[SW] New content is available; refreshing cache...');
+                  // Auto reload to apply newest bundle if controller exists
+                  window.location.reload();
                 } else {
                   console.log('[SW] Content is cached for offline use in Pichelin!');
                   if (config && config.onSuccess) {
