@@ -18,12 +18,14 @@ import {
   Sparkles,
   Filter,
   Check,
-  RotateCcw
+  RotateCcw,
+  FileText
 } from 'lucide-react';
 import { AdminOrder } from './AdminOrdersModal';
 import { jsPDF } from 'jspdf';
 import { SHOP_LOCATION_INFO } from '../data/servicesData';
 import { ReceiptPrintModal } from './ReceiptPrintModal';
+import { CustomerOrderInvoiceModal } from './CustomerOrderInvoiceModal';
 
 export type ReservationStatusKey = 'Pending' | 'Ready for Fitting' | 'Completed';
 
@@ -147,6 +149,7 @@ export const MyOrdersView: React.FC<MyOrdersViewProps> = ({
   const [selectedStatusFilter, setSelectedStatusFilter] = useState<'ALL' | ReservationStatusKey>('ALL');
   const [selectedPrintOrder, setSelectedPrintOrder] = useState<AdminOrder | null>(null);
   const [autoPrintOrder, setAutoPrintOrder] = useState<boolean>(false);
+  const [selectedInvoiceOrder, setSelectedInvoiceOrder] = useState<AdminOrder | null>(null);
 
   // Local status overrides for immediate responsive testing in UI
   const [localStatusOverrides, setLocalStatusOverrides] = useState<Record<string, 'Pending' | 'Ready for Fitting' | 'Completed'>>({});
@@ -505,8 +508,18 @@ export const MyOrdersView: React.FC<MyOrdersViewProps> = ({
                       </p>
                     </div>
 
-                    {/* Print & PDF Action Buttons */}
+                    {/* Print, Invoice & PDF Action Buttons */}
                     <div className="flex items-center gap-2 flex-wrap">
+                      <button
+                        type="button"
+                        onClick={() => setSelectedInvoiceOrder(order)}
+                        className="flex items-center gap-1.5 bg-slate-900 hover:bg-slate-800 text-white text-xs font-bold px-3.5 py-2 rounded-xl shadow-xs transition active:scale-95 border border-slate-700 cursor-pointer"
+                        title="View and print official Tax Invoice with business tax ID #1281761"
+                      >
+                        <FileText className="w-3.5 h-3.5 text-amber-400" />
+                        <span>Tax Invoice</span>
+                      </button>
+
                       <button
                         type="button"
                         onClick={() => handlePrintReceipt(order)}
@@ -520,7 +533,7 @@ export const MyOrdersView: React.FC<MyOrdersViewProps> = ({
                       <button
                         type="button"
                         onClick={() => handleExportPDF(order)}
-                        className="flex items-center gap-1.5 bg-slate-900 hover:bg-slate-800 text-white text-xs font-bold px-3.5 py-2 rounded-xl shadow-xs transition active:scale-95"
+                        className="flex items-center gap-1.5 bg-slate-800 hover:bg-slate-700 text-white text-xs font-bold px-3.5 py-2 rounded-xl shadow-xs transition active:scale-95"
                         title="Download PDF version"
                       >
                         <Download className="w-3.5 h-3.5 text-blue-400" />
@@ -791,6 +804,14 @@ export const MyOrdersView: React.FC<MyOrdersViewProps> = ({
         order={selectedPrintOrder}
         servicePrices={servicePrices}
         autoPrint={autoPrintOrder}
+      />
+
+      {/* Printer-Friendly Official Tax Invoice Modal */}
+      <CustomerOrderInvoiceModal
+        isOpen={selectedInvoiceOrder !== null}
+        onClose={() => setSelectedInvoiceOrder(null)}
+        order={selectedInvoiceOrder}
+        servicePrices={servicePrices}
       />
     </div>
   );

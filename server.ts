@@ -4,6 +4,7 @@ import { createServer as createViteServer } from "vite";
 import dotenv from "dotenv";
 import { GoogleGenAI } from "@google/genai";
 import Stripe from "stripe";
+import { TYRES_DATA } from "./src/data/tyresData";
 
 dotenv.config();
 
@@ -32,6 +33,19 @@ async function startServer() {
       shop: "Max Executive Tires",
       location: "Maranatha Square, Pichelin, Dominica",
       currency: "XCD",
+    });
+  });
+
+  // API Route: Tyre Catalog (for offline caching & quick lookup)
+  app.get("/api/tyres", (_req, res) => {
+    res.setHeader("Cache-Control", "public, max-age=3600");
+    res.json({
+      status: "ok",
+      count: TYRES_DATA.length,
+      location: "Maranatha Square, Pichelin, Dominica",
+      currency: "XCD",
+      updatedAt: new Date().toISOString(),
+      tyres: TYRES_DATA,
     });
   });
 
@@ -148,6 +162,17 @@ Keep the tone warm, Caribbean-friendly, knowledgeable, concise, and structured w
       details: booking,
     });
   });
+
+  // Serve Service Worker with explicit JavaScript MIME type & no-cache headers for Pichelin offline support
+  app.get("/sw.js", (_req, res) => {
+    res.setHeader("Content-Type", "application/javascript");
+    res.setHeader("Service-Worker-Allowed", "/");
+    res.setHeader("Cache-Control", "no-cache, no-store, must-revalidate");
+    res.sendFile(path.join(process.cwd(), "public", "sw.js"));
+  });
+
+  // Serve static assets from public folder
+  app.use(express.static(path.join(process.cwd(), "public")));
 
   // Vite middleware setup
   if (process.env.NODE_ENV !== "production") {

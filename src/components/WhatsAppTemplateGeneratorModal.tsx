@@ -158,7 +158,7 @@ export const WhatsAppTemplateGeneratorModal: React.FC<WhatsAppTemplateGeneratorM
     }
 
     const tyresBrief = (currentOrder.items || [])
-      .map(item => `${item.quantity || 1}x ${item.tyre?.brand || 'Tyre'} ${item.tyre?.modelName || ''} (${item.tyre?.size || ''}) [${item.tyre?.condition || 'New'}]`)
+      .map(item => `${item.quantity || 1}x ${item.tyre?.brand || 'Tyre'} ${item.tyre?.modelName || ''} (${item.tyre?.size || ''}) [${item.tyre?.condition || 'Used'}]`)
       .join('\n• ');
 
     const servicesList: string[] = [];

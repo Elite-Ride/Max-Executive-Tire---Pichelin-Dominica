@@ -25,13 +25,15 @@ interface DailyManifestModalProps {
   onClose: () => void;
   orders: AdminOrder[];
   servicePrices?: Record<string, number>;
+  onOpenServiceSchedule?: () => void;
 }
 
 export const DailyManifestModal: React.FC<DailyManifestModalProps> = ({
   isOpen,
   onClose,
   orders,
-  servicePrices = { mounting: 20, valves: 15, shredding: 1 }
+  servicePrices = { mounting: 20, valves: 15, shredding: 1 },
+  onOpenServiceSchedule
 }) => {
   const [filterMode, setFilterMode] = useState<'pending' | 'ready' | 'all_active'>('all_active');
   const [copied, setCopied] = useState(false);
@@ -70,7 +72,7 @@ export const DailyManifestModal: React.FC<DailyManifestModalProps> = ({
         if (item.includeNewValves) totalValves += qty;
         if (item.includeShredding) totalShredding += qty;
 
-        const tyreLabel = `${item.tyre?.brand} ${item.tyre?.size || ''} (${item.tyre?.condition || 'New'})`;
+        const tyreLabel = `${item.tyre?.brand} ${item.tyre?.size || ''} (${item.tyre?.condition || 'Used'})`;
         tyreSummaryMap[tyreLabel] = (tyreSummaryMap[tyreLabel] || 0) + qty;
       });
     });
@@ -423,6 +425,19 @@ ${manifestOrders.map((o, i) => `${i + 1}. #${o.reservationCode} - ${o.customerNa
 
             {/* Print & Copy Buttons */}
             <div className="flex items-center gap-2">
+              {onOpenServiceSchedule && (
+                <button
+                  id="manifest-open-service-schedule-btn"
+                  type="button"
+                  onClick={onOpenServiceSchedule}
+                  className="inline-flex items-center gap-1.5 text-xs font-bold bg-emerald-700 hover:bg-emerald-800 text-white px-3.5 py-2 rounded-xl transition shadow-xs cursor-pointer active:scale-95"
+                  title="Switch to Daily Service Schedule (Ready for Fitting)"
+                >
+                  <Calendar className="w-4 h-4 text-emerald-200" />
+                  <span>Daily Service Schedule</span>
+                </button>
+              )}
+
               <button
                 id="manifest-open-a4-preview-top-btn"
                 type="button"

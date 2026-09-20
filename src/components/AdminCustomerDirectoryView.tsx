@@ -709,7 +709,7 @@ export const AdminCustomerDirectoryView: React.FC<AdminCustomerDirectoryViewProp
                             <span className="font-bold text-slate-900">{it.quantity}x</span>{' '}
                             <span>
                               {it.tyre?.brand} {it.tyre?.modelName} ({it.tyre?.size || 'Standard'}) [
-                              {it.tyre?.condition || 'New'}]
+                              {it.tyre?.condition || 'Used'}]
                             </span>
                             {it.includeMounting && (
                               <span className="ml-1.5 text-[10px] bg-blue-50 text-blue-700 font-bold px-1.5 py-0.5 rounded">

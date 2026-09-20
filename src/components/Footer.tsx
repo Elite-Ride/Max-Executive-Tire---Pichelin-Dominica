@@ -20,19 +20,10 @@ interface FooterProps {
 
 export const Footer: React.FC<FooterProps> = ({ setActiveTab, onOpenSOS }) => {
   return (
-    <footer className="bg-slate-950 text-slate-300 border-t border-slate-800">
+    <footer style={{ backgroundColor: '#23706e' }} className="text-slate-100 border-t border-emerald-900/40 w-full">
       <div 
-        style={{ 
-          marginTop: '-21px',
-          marginBottom: '6px',
-          paddingTop: '65px',
-          width: '841px',
-          marginLeft: '0px',
-          marginRight: '-12px',
-          paddingBottom: '56px',
-          backgroundColor: '#151212'
-        }}
-        className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 space-y-12"
+        style={{ backgroundColor: '#23706e' }}
+        className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 py-12 space-y-12"
       >
         
         {/* Main Footer Grid */}
@@ -155,25 +146,14 @@ export const Footer: React.FC<FooterProps> = ({ setActiveTab, onOpenSOS }) => {
         </div>
 
         {/* Bottom Bar */}
-        <div 
-          style={{ 
-            height: '65px',
-            marginTop: '-32px',
-            paddingTop: '31px', 
-            paddingBottom: '3px', 
-            paddingLeft: '0px', 
-            paddingRight: '1px', 
-            marginBottom: '-1px' 
-          }}
-          className="border-t border-slate-900 flex flex-col sm:flex-row items-center justify-between gap-4 text-xs text-slate-500"
-        >
+        <div className="border-t border-teal-800/60 pt-6 flex flex-col sm:flex-row items-center justify-between gap-4 text-xs text-teal-100/70">
           <p>
             © {new Date().getFullYear()} Max Executive Tires. Maranatha Square, Pichelin, Commonwealth of Dominica. All rights reserved.
           </p>
           <div className="flex items-center gap-2">
-            <span>Prices displayed in EC$ (XCD)</span>
+            <span style={{ color: '#2d66b8' }}>Prices displayed in EC$ (XCD)</span>
             <span>•</span>
-            <span className="text-[#0984E3] font-semibold">Nature Isle Motoring Excellence</span>
+            <span className="text-amber-300 font-semibold">Nature Isle Motoring Excellence</span>
           </div>
         </div>
 

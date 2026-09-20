@@ -73,6 +73,7 @@ import { ReceiptPrintModal, PrintableOrderData } from './ReceiptPrintModal';
 import { AdminCustomerDirectoryView } from './AdminCustomerDirectoryView';
 import { DailyManifestModal } from './DailyManifestModal';
 import { DailyManifestPrintPreviewModal } from './DailyManifestPrintPreviewModal';
+import { DailyServiceScheduleModal } from './DailyServiceScheduleModal';
 import { WhatsAppTemplateGeneratorModal } from './WhatsAppTemplateGeneratorModal';
 import { OrderTimelineProgressBar } from './OrderTimelineProgressBar';
 import { BarcodeScannerModal } from './BarcodeScannerModal';
@@ -572,6 +573,7 @@ export const AdminOrdersModal: React.FC<AdminOrdersModalProps> = ({
   // Daily Manifest Modal & A4 Print Preview Modal State
   const [isDailyManifestOpen, setIsDailyManifestOpen] = useState<boolean>(false);
   const [isDailyManifestPreviewOpen, setIsDailyManifestPreviewOpen] = useState<boolean>(false);
+  const [isDailyServiceScheduleOpen, setIsDailyServiceScheduleOpen] = useState<boolean>(false);
 
   // WhatsApp Customer Confirmation Template Generator State
   const [isWhatsAppGeneratorOpen, setIsWhatsAppGeneratorOpen] = useState<boolean>(false);
@@ -731,6 +733,77 @@ export const AdminOrdersModal: React.FC<AdminOrdersModalProps> = ({
       });
       setTimeout(() => setResendNotificationBanner(null), 6000);
     }, 600);
+  };
+
+  // Pre-filled SMS intent handler confirming 'Ready for Fitting' status
+  const handleNotifyCustomerSMSIntent = (order: AdminOrder) => {
+    let phone = (order.customerPhone || '').trim();
+    if (!phone) {
+      const prompted = prompt(
+        `Enter customer mobile phone number to trigger 'Ready for Fitting' SMS intent for order #${order.reservationCode}:`,
+        '+1 (767) '
+      );
+      if (!prompted || prompted.trim().length < 7) {
+        alert('A valid customer mobile phone number is required to trigger the SMS intent.');
+        return;
+      }
+      phone = prompted.trim();
+    }
+
+    setSendingSmsOrderId(order.id);
+
+    const timestamp = new Date().toLocaleString();
+    const itemsBrief = (order.items || [])
+      .map(i => `${i.quantity || 1}x ${i.tyre?.brand || 'Tyre'} ${i.tyre?.size || ''}`)
+      .join(', ');
+
+    const smsBody = `Max Executive Tires: Hi ${order.customerName}, your tyres (Order #${order.reservationCode}: ${itemsBrief}) are READY FOR FITTING at our workshop bay in Maranatha Square, Pichelin, Dominica! Total: EC$ ${order.totalXCD}. Call/WhatsApp: +1(767)616-0155.`;
+
+    // 1. Update order status to 'Ready for Fitting' and mark notified
+    onUpdateOrder(order.id, {
+      customerPhone: phone,
+      dispatchStatus: 'Ready for Fitting',
+      customerNotified: true,
+      notifiedAt: timestamp
+    });
+
+    // 2. Build pre-filled SMS intent URL for native messaging apps (iOS/Android)
+    const cleanPhone = phone.replace(/[^0-9+]/g, '');
+    const isIOS = typeof navigator !== 'undefined' && /iPad|iPhone|iPod/.test(navigator.userAgent);
+    const smsIntentUrl = `sms:${cleanPhone}${isIOS ? '&' : '?'}body=${encodeURIComponent(smsBody)}`;
+
+    // 3. Copy to clipboard as quick backup for desktop users
+    if (typeof navigator !== 'undefined' && navigator.clipboard && navigator.clipboard.writeText) {
+      navigator.clipboard.writeText(smsBody).catch(() => {});
+    }
+
+    // 4. Trigger SMS Intent
+    try {
+      window.location.href = smsIntentUrl;
+    } catch {
+      // Intent initiated
+    }
+
+    setSendingSmsOrderId(null);
+
+    // 5. Provide immediate UI feedback
+    setSmsNotificationModalData({
+      order: { ...order, customerPhone: phone, dispatchStatus: 'Ready for Fitting', customerNotified: true, notifiedAt: timestamp },
+      phone,
+      message: smsBody,
+      timestamp,
+      carrier: 'Flow / Digicel Dominica Native SMS Intent'
+    });
+
+    setSmsNotificationToast({
+      orderCode: order.reservationCode,
+      phone,
+      message: `SMS intent triggered for ${phone}: Order #${order.reservationCode} marked 'Ready for Fitting'!`
+    });
+
+    setTimeout(() => {
+      setSmsNotificationToast(null);
+    }, 6000);
   };
 
   // Mock 'Notify Customer via SMS' simulation handler
@@ -1294,7 +1367,7 @@ Thank you for choosing Max Executive Tires!`;
         }
 
         const svcStr = extraServices.length > 0 ? ` [${extraServices.join(', ')}]` : '';
-        return `${qty}x ${item.tyre?.brand || 'Tyre'} ${item.tyre?.modelName || ''} (${item.tyre?.size || 'Standard'}, ${item.tyre?.condition || 'New'}) @ EC$${tyreUnitPrice}${svcStr}`;
+        return `${qty}x ${item.tyre?.brand || 'Tyre'} ${item.tyre?.modelName || ''} (${item.tyre?.size || 'Standard'}, ${item.tyre?.condition || 'Used'}) @ EC$${tyreUnitPrice}${svcStr}`;
       }).join('; ');
 
       // Calculate net adjustments
@@ -3123,13 +3196,14 @@ Thank you for choosing Max Executive Tires!`;
                               <button
                                 id={`history-details-notify-sms-${order.id}`}
                                 type="button"
-                                onClick={() => handleNotifyCustomerSms(order)}
+                                onClick={() => handleNotifyCustomerSMSIntent(order)}
                                 disabled={sendingSmsOrderId === order.id}
                                 className="inline-flex items-center gap-1.5 px-3 py-1.5 rounded-xl bg-emerald-600 hover:bg-emerald-700 text-white font-bold text-xs shadow-xs transition disabled:opacity-50 active:scale-95 cursor-pointer"
-                                title={`Simulate sending confirmation SMS text to ${order.customerPhone}`}
+                                title={`Trigger pre-filled SMS intent to ${order.customerPhone} confirming Ready for Fitting`}
                               >
                                 <MessageSquare className={`w-3.5 h-3.5 ${sendingSmsOrderId === order.id ? 'animate-bounce' : ''}`} />
-                                <span>{sendingSmsOrderId === order.id ? 'Simulating SMS...' : 'Notify Customer via SMS'}</span>
+                                <span>Notify Customer</span>
+                                <span className="text-[9px] bg-emerald-800 text-white px-1.5 py-0.2 rounded-sm font-bold">SMS Intent</span>
                               </button>
                             </div>
                             <div className="grid grid-cols-1 sm:grid-cols-2 gap-2">
@@ -3155,7 +3229,7 @@ Thank you for choosing Max Executive Tires!`;
                           <span className="font-bold text-[10px] text-slate-400 uppercase tracking-wider block">Items & Services:</span>
                           {(order.items || []).map((item, i) => (
                             <div key={i} className="flex justify-between items-center text-slate-800">
-                              <span>{item.quantity || 1}x {item.tyre?.brand || 'Tyre'} {item.tyre?.modelName || ''} ({item.tyre?.size || ''}) [{item.tyre?.condition || 'New'}]</span>
+                              <span>{item.quantity || 1}x {item.tyre?.brand || 'Tyre'} {item.tyre?.modelName || ''} ({item.tyre?.size || ''}) [{item.tyre?.condition || 'Used'}]</span>
                               <span className="font-semibold">EC$ {((item.tyre?.priceXCD || 0) + (item.includeMounting ? 20 : 0) + (item.includeNewValves ? 15 : 0)) * (item.quantity || 1)}</span>
                             </div>
                           ))}
@@ -3181,13 +3255,14 @@ Thank you for choosing Max Executive Tires!`;
                             <button
                               id={`history-notify-sms-${order.id}`}
                               type="button"
-                              onClick={() => handleNotifyCustomerSms(order)}
+                              onClick={() => handleNotifyCustomerSMSIntent(order)}
                               disabled={sendingSmsOrderId === order.id}
-                              className="inline-flex items-center gap-1.5 bg-emerald-50 hover:bg-emerald-100 text-emerald-800 font-bold text-xs px-3 py-1.5 rounded-lg transition border border-emerald-300 shadow-xs disabled:opacity-50 active:scale-95 cursor-pointer"
-                              title={`Simulate sending SMS text confirmation to ${order.customerPhone}`}
+                              className="inline-flex items-center gap-1.5 bg-emerald-100 hover:bg-emerald-200 text-emerald-950 font-black text-xs px-3.5 py-2 rounded-xl transition border-2 border-emerald-400 shadow-xs disabled:opacity-50 active:scale-95 cursor-pointer"
+                              title={`Trigger pre-filled SMS intent to ${order.customerPhone} confirming Ready for Fitting`}
                             >
-                              <MessageSquare className={`w-3.5 h-3.5 text-emerald-600 ${sendingSmsOrderId === order.id ? 'animate-bounce' : ''}`} />
-                              <span>{sendingSmsOrderId === order.id ? 'Sending SMS...' : 'Notify Customer via SMS'}</span>
+                              <MessageSquare className={`w-3.5 h-3.5 text-emerald-700 ${sendingSmsOrderId === order.id ? 'animate-bounce' : ''}`} />
+                              <span>Notify Customer</span>
+                              <span className="text-[9px] bg-emerald-700 text-white font-black px-1.5 py-0.2 rounded-sm">SMS Intent</span>
                             </button>
                             <button
                               id={`history-whatsapp-template-${order.id}`}
@@ -3818,6 +3893,17 @@ Thank you for choosing Max Executive Tires!`;
                   </button>
 
                   <button
+                    id="admin-orders-daily-service-schedule-btn"
+                    type="button"
+                    onClick={() => setIsDailyServiceScheduleOpen(true)}
+                    className="inline-flex items-center gap-1.5 px-3.5 py-2 rounded-xl bg-emerald-700 hover:bg-emerald-800 text-white text-xs font-bold transition shadow-xs cursor-pointer active:scale-95"
+                    title="Printable Daily Service Schedule aggregating all Ready for Fitting orders for today"
+                  >
+                    <Calendar className="w-4 h-4 text-emerald-200" />
+                    <span>Daily Service Schedule</span>
+                  </button>
+
+                  <button
                     id="admin-orders-daily-manifest-btn"
                     type="button"
                     onClick={() => setIsDailyManifestOpen(true)}
@@ -4127,6 +4213,20 @@ Thank you for choosing Max Executive Tires!`;
                           <CheckCircle2 className="w-3 h-3" />
                           <span>{dispatchStatus === 'Dispatched' ? 'Completed (Click for Pending)' : 'Mark as Completed'}</span>
                         </button>
+
+                        {/* Direct Notify Customer SMS Intent button right on the top row */}
+                        <button
+                          id={`active-order-top-notify-sms-${order.id}`}
+                          type="button"
+                          onClick={() => handleNotifyCustomerSMSIntent(order)}
+                          disabled={sendingSmsOrderId === order.id}
+                          className="inline-flex items-center gap-1.5 text-[11px] font-black px-3 py-1 rounded-full bg-emerald-600 hover:bg-emerald-500 text-white border border-emerald-400 shadow-xs transition active:scale-95 cursor-pointer disabled:opacity-50"
+                          title={`Trigger pre-filled SMS intent to ${order.customerPhone} confirming Ready for Fitting`}
+                        >
+                          <MessageSquare className={`w-3 h-3 text-white ${sendingSmsOrderId === order.id ? 'animate-bounce' : ''}`} />
+                          <span>Notify Customer</span>
+                          <span className="text-[9px] bg-emerald-800 text-emerald-100 px-1.5 py-0.2 rounded-sm font-extrabold uppercase">SMS</span>
+                        </button>
                       </div>
 
                       <span className="text-[11px] text-slate-400 font-medium">{order.timestamp}</span>
@@ -4165,17 +4265,18 @@ Thank you for choosing Max Executive Tires!`;
                       <div className="bg-blue-50/80 border border-blue-200 rounded-xl p-4 space-y-3 text-xs text-slate-800 animate-fade-in">
                         <div className="flex flex-wrap items-center justify-between gap-2 border-b border-blue-200/60 pb-2">
                           <span className="font-bold text-blue-900 uppercase tracking-wider text-[10px] block">Customer Contact Details & Vehicle Model Information</span>
-                          {/* Mock Notify Customer via SMS Button within individual order details */}
+                          {/* Notify Customer via SMS Intent within individual order details */}
                           <button
                             id={`details-notify-sms-${order.id}`}
                             type="button"
-                            onClick={() => handleNotifyCustomerSms(order)}
+                            onClick={() => handleNotifyCustomerSMSIntent(order)}
                             disabled={sendingSmsOrderId === order.id}
                             className="inline-flex items-center gap-1.5 px-3 py-1.5 rounded-xl bg-emerald-600 hover:bg-emerald-700 text-white font-bold text-xs shadow-xs transition disabled:opacity-50 active:scale-95 cursor-pointer"
-                            title={`Simulate sending confirmation SMS text message to ${order.customerPhone}`}
+                            title={`Trigger pre-filled SMS intent to ${order.customerPhone} confirming Ready for Fitting`}
                           >
                             <MessageSquare className={`w-3.5 h-3.5 ${sendingSmsOrderId === order.id ? 'animate-bounce' : ''}`} />
-                            <span>{sendingSmsOrderId === order.id ? 'Simulating SMS...' : 'Notify Customer via SMS'}</span>
+                            <span>Notify Customer</span>
+                            <span className="text-[9px] bg-emerald-800 text-white px-1.5 py-0.2 rounded-sm font-bold">SMS Intent</span>
                           </button>
                         </div>
                         <div className="grid grid-cols-1 sm:grid-cols-2 gap-2.5">
@@ -4234,7 +4335,7 @@ Thank you for choosing Max Executive Tires!`;
                       {(order.items || []).map((item, idx) => (
                         <div key={idx} className="flex justify-between items-center text-slate-800 border-b border-slate-100 pb-1.5 last:border-0 last:pb-0">
                           <span>
-                            <strong>{item.quantity || 1}x</strong> {item.tyre?.brand || 'Tyre'} {item.tyre?.modelName || ''} ({item.tyre?.size || ''}) [{item.tyre?.condition || 'New'}]
+                            <strong>{item.quantity || 1}x</strong> {item.tyre?.brand || 'Tyre'} {item.tyre?.modelName || ''} ({item.tyre?.size || ''}) [{item.tyre?.condition || 'Used'}]
                             {item.includeMounting && <span className="text-[10px] text-blue-600 ml-1.5 bg-blue-50 px-1.5 py-0.5 rounded">Mounting</span>}
                             {item.includeNewValves && <span className="text-[10px] text-blue-600 ml-1.5 bg-blue-50 px-1.5 py-0.5 rounded">Valves</span>}
                           </span>
@@ -4474,17 +4575,18 @@ Thank you for choosing Max Executive Tires!`;
                           </button>
                         )}
 
-                        {/* Mock Notify Customer via SMS button */}
+                        {/* Pre-filled SMS intent button to Notify Customer */}
                         <button
-                          id={`notify-sms-btn-${order.id}`}
+                          id={`notify-customer-sms-btn-${order.id}`}
                           type="button"
-                          onClick={() => handleNotifyCustomerSms(order)}
+                          onClick={() => handleNotifyCustomerSMSIntent(order)}
                           disabled={sendingSmsOrderId === order.id}
-                          className="inline-flex items-center gap-1.5 text-xs font-bold text-emerald-800 bg-emerald-50 hover:bg-emerald-100 px-3.5 py-2 rounded-xl border border-emerald-300 transition shadow-xs disabled:opacity-50 active:scale-95 cursor-pointer"
-                          title={`Simulate sending SMS confirmation text to ${order.customerPhone}`}
+                          className="inline-flex items-center gap-1.5 text-xs font-black text-emerald-950 bg-emerald-100 hover:bg-emerald-200 px-3.5 py-2 rounded-xl border-2 border-emerald-400 transition shadow-xs disabled:opacity-50 active:scale-95 cursor-pointer"
+                          title={`Trigger pre-filled SMS intent to ${order.customerPhone} confirming Ready for Fitting`}
                         >
-                          <MessageSquare className={`w-3.5 h-3.5 text-emerald-600 ${sendingSmsOrderId === order.id ? 'animate-bounce' : ''}`} />
-                          <span>{sendingSmsOrderId === order.id ? 'Sending SMS...' : 'Notify Customer via SMS'}</span>
+                          <MessageSquare className={`w-3.5 h-3.5 text-emerald-700 ${sendingSmsOrderId === order.id ? 'animate-bounce' : ''}`} />
+                          <span>Notify Customer</span>
+                          <span className="text-[10px] bg-emerald-700 text-white font-black px-1.5 py-0.5 rounded-sm">SMS Intent</span>
                         </button>
 
                         <button
@@ -4633,7 +4735,7 @@ Thank you for choosing Max Executive Tires!`;
                     return (
                       <div key={idx} className="bg-white p-3 rounded-lg border border-slate-200 space-y-1">
                         <div className="flex justify-between font-bold text-slate-900">
-                          <span>{item.quantity || 1}x {item.tyre?.brand || 'Tyre'} {item.tyre?.modelName || ''} ({item.tyre?.size || ''}) [{(item.tyre?.condition || 'New').toUpperCase()}]</span>
+                          <span>{item.quantity || 1}x {item.tyre?.brand || 'Tyre'} {item.tyre?.modelName || ''} ({item.tyre?.size || ''}) [{(item.tyre?.condition || 'Used').toUpperCase()}]</span>
                           <span>EC$ {itemSubtotal}</span>
                         </div>
                         <div className="text-[11px] text-slate-500 pl-2 space-y-0.5">
@@ -4756,7 +4858,7 @@ Thank you for choosing Max Executive Tires!`;
                           {item.quantity || 1}x {item.tyre?.brand || 'Tyre'} {item.tyre?.modelName || ''} ({item.tyre?.size || ''})
                         </div>
                         <div className="text-[11px] text-slate-500">
-                          Condition: {(item.tyre?.condition || 'New').toUpperCase()}
+                          Condition: {(item.tyre?.condition || 'Used').toUpperCase()}
                           {item.includeMounting ? ' • Includes Mounting' : ''}
                           {item.includeNewValves ? ' • Includes Valves' : ''}
                         </div>
@@ -5069,6 +5171,19 @@ Thank you for choosing Max Executive Tires!`;
         onClose={() => setIsDailyManifestOpen(false)}
         orders={orders}
         servicePrices={servicePrices}
+        onOpenServiceSchedule={() => {
+          setIsDailyManifestOpen(false);
+          setIsDailyServiceScheduleOpen(true);
+        }}
+      />
+
+      {/* Daily Service Schedule Report Modal (Ready for Fitting) */}
+      <DailyServiceScheduleModal
+        isOpen={isDailyServiceScheduleOpen}
+        onClose={() => setIsDailyServiceScheduleOpen(false)}
+        orders={orders}
+        servicePrices={servicePrices}
+        onUpdateOrderStatus={(id, status) => onUpdateOrder(id, { dispatchStatus: status })}
       />
 
       {/* WhatsApp Pre-Formatted Customer Confirmation Template Generator */}

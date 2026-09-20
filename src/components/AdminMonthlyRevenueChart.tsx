@@ -66,9 +66,10 @@ export const AdminMonthlyRevenueChart: React.FC<AdminMonthlyRevenueChartProps> =
 }) => {
   const [chartMode, setChartMode] = useState<'stacked' | 'grouped' | 'composed'>('stacked');
   const [activeMetricFilter, setActiveMetricFilter] = useState<'all' | 'tyres' | 'services'>('all');
+  const [completedOrdersOnly, setCompletedOrdersOnly] = useState<boolean>(true);
 
   // Compute 6-Month Monthly Breakdown: Tyre Sales vs. Workshop Services
-  const { monthlyData, sixMonthTotals, topServiceCategories } = useMemo(() => {
+  const { monthlyData, sixMonthTotals, topServiceCategories, completedOrdersCount, allOrdersCount } = useMemo(() => {
     const now = new Date();
     const monthsMap = new Map<string, MonthlyRevenueData>();
 
@@ -114,7 +115,15 @@ export const AdminMonthlyRevenueChart: React.FC<AdminMonthlyRevenueChartProps> =
     }
 
     // Incorporate actual live orders from database/localStorage
-    orders.forEach((ord) => {
+    // If completedOrdersOnly is enabled, filter for completed/dispatched orders
+    const targetOrders = completedOrdersOnly
+      ? orders.filter(ord => {
+          const s = (ord.dispatchStatus || '').toLowerCase();
+          return s === 'completed' || s === 'dispatched';
+        })
+      : orders;
+
+    targetOrders.forEach((ord) => {
       let ordDate = new Date();
       if (ord.timestamp) {
         const parsed = new Date(ord.timestamp);
@@ -191,8 +200,15 @@ export const AdminMonthlyRevenueChart: React.FC<AdminMonthlyRevenueChartProps> =
     const serviceRatioPct = totalCombined > 0 ? ((totalServices / totalCombined) * 100).toFixed(1) : '0';
     const tyreRatioPct = totalCombined > 0 ? ((totalTyreSales / totalCombined) * 100).toFixed(1) : '0';
 
+    const completedCount = orders.filter(ord => {
+      const s = (ord.dispatchStatus || '').toLowerCase();
+      return s === 'completed' || s === 'dispatched';
+    }).length;
+
     return {
       monthlyData: dataList,
+      completedOrdersCount: completedCount,
+      allOrdersCount: orders.length,
       sixMonthTotals: {
         totalTyreSales,
         totalServices,
@@ -212,7 +228,7 @@ export const AdminMonthlyRevenueChart: React.FC<AdminMonthlyRevenueChartProps> =
         { name: 'Eco Tyre Shredding', rev: totalShredding, icon: '♻️', color: 'bg-teal-500' }
       ]
     };
-  }, [orders, servicePrices]);
+  }, [orders, servicePrices, completedOrdersOnly]);
 
   const handleExportMonthlyCsv = () => {
     const headers = [
@@ -425,35 +441,57 @@ export const AdminMonthlyRevenueChart: React.FC<AdminMonthlyRevenueChartProps> =
             </p>
           </div>
 
-          {/* Series filter */}
-          <div className="flex items-center gap-1.5 bg-slate-100 p-1 rounded-xl text-xs font-bold">
+          {/* Series filter & Completed Orders Toggle */}
+          <div className="flex items-center gap-2 flex-wrap">
+            {/* Completed Orders Toggle */}
             <button
+              id="admin-revenue-completed-filter-toggle"
               type="button"
-              onClick={() => setActiveMetricFilter('all')}
-              className={`px-3 py-1 rounded-lg transition cursor-pointer ${
-                activeMetricFilter === 'all' ? 'bg-white text-slate-900 shadow-xs' : 'text-slate-500 hover:text-slate-900'
+              onClick={() => setCompletedOrdersOnly(!completedOrdersOnly)}
+              className={`inline-flex items-center gap-1.5 px-3 py-1.5 rounded-xl text-xs font-bold transition cursor-pointer border shadow-2xs ${
+                completedOrdersOnly
+                  ? 'bg-emerald-50 text-emerald-800 border-emerald-300 hover:bg-emerald-100'
+                  : 'bg-slate-100 text-slate-600 border-slate-200 hover:bg-slate-200'
               }`}
+              title="Toggle between completed orders only or all recorded orders"
             >
-              Both Streams
+              <CheckCircle2 className={`w-3.5 h-3.5 ${completedOrdersOnly ? 'text-emerald-600' : 'text-slate-400'}`} />
+              <span>
+                {completedOrdersOnly
+                  ? `Completed Orders Only (${completedOrdersCount})`
+                  : `All Orders (${allOrdersCount})`}
+              </span>
             </button>
-            <button
-              type="button"
-              onClick={() => setActiveMetricFilter('tyres')}
-              className={`px-3 py-1 rounded-lg transition cursor-pointer ${
-                activeMetricFilter === 'tyres' ? 'bg-white text-blue-700 shadow-xs' : 'text-slate-500 hover:text-slate-900'
-              }`}
-            >
-              Tyre Sales Only
-            </button>
-            <button
-              type="button"
-              onClick={() => setActiveMetricFilter('services')}
-              className={`px-3 py-1 rounded-lg transition cursor-pointer ${
-                activeMetricFilter === 'services' ? 'bg-white text-emerald-700 shadow-xs' : 'text-slate-500 hover:text-slate-900'
-              }`}
-            >
-              Services Only
-            </button>
+
+            <div className="flex items-center gap-1.5 bg-slate-100 p-1 rounded-xl text-xs font-bold">
+              <button
+                type="button"
+                onClick={() => setActiveMetricFilter('all')}
+                className={`px-3 py-1 rounded-lg transition cursor-pointer ${
+                  activeMetricFilter === 'all' ? 'bg-white text-slate-900 shadow-xs' : 'text-slate-500 hover:text-slate-900'
+                }`}
+              >
+                Both Streams
+              </button>
+              <button
+                type="button"
+                onClick={() => setActiveMetricFilter('tyres')}
+                className={`px-3 py-1 rounded-lg transition cursor-pointer ${
+                  activeMetricFilter === 'tyres' ? 'bg-white text-blue-700 shadow-xs' : 'text-slate-500 hover:text-slate-900'
+                }`}
+              >
+                Tyre Sales Only
+              </button>
+              <button
+                type="button"
+                onClick={() => setActiveMetricFilter('services')}
+                className={`px-3 py-1 rounded-lg transition cursor-pointer ${
+                  activeMetricFilter === 'services' ? 'bg-white text-emerald-700 shadow-xs' : 'text-slate-500 hover:text-slate-900'
+                }`}
+              >
+                Services Only
+              </button>
+            </div>
           </div>
         </div>
 

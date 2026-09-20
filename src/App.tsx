@@ -1,5 +1,6 @@
 import React, { useState, useEffect, useMemo } from 'react';
 import { Navbar } from './components/Navbar';
+import { OfflineStatusBanner } from './components/OfflineStatusBanner';
 import { Hero } from './components/Hero';
 import { TireCatalog } from './components/TireCatalog';
 import { TireDetailModal } from './components/TireDetailModal';
@@ -141,6 +142,54 @@ export default function App() {
       dispatchStatus: 'Ready for Fitting'
     },
     {
+      id: 'ord-pichelin-04',
+      reservationCode: 'MTC-638291',
+      customerName: 'Marcus Fontaine',
+      customerPhone: '+1 (767) 245-8912',
+      customerEmail: 'mfontaine.dom@gmail.com',
+      vehicleInfo: 'Toyota Hilux 4x4 (Double Cab)',
+      preferredDate: 'Today, 10:30 AM',
+      items: [
+        {
+          id: 'cart-4',
+          tyre: TYRES_DATA[0],
+          quantity: 4,
+          includeMounting: true,
+          includeNewValves: true,
+          includeShredding: true
+        }
+      ],
+      totalXCD: (TYRES_DATA[0].priceXCD + 20 + 15 + 1) * 4,
+      paymentMethod: 'Stripe Online',
+      timestamp: 'Today, 8:00 AM',
+      paymentStatus: 'Confirmed',
+      dispatchStatus: 'Ready for Fitting'
+    },
+    {
+      id: 'ord-pichelin-05',
+      reservationCode: 'MTC-552190',
+      customerName: 'Janice Laurent',
+      customerPhone: '+1 (767) 275-3921',
+      customerEmail: 'janice.laurent@gmail.com',
+      vehicleInfo: 'Toyota RAV4 AWD',
+      preferredDate: 'Today, 3:30 PM',
+      items: [
+        {
+          id: 'cart-5',
+          tyre: TYRES_DATA[1] || TYRES_DATA[0],
+          quantity: 2,
+          includeMounting: true,
+          includeNewValves: true,
+          includeShredding: true
+        }
+      ],
+      totalXCD: ((TYRES_DATA[1] || TYRES_DATA[0]).priceXCD + 20 + 15 + 1) * 2,
+      paymentMethod: 'Pay at Shop / WhatsApp',
+      timestamp: 'Today, 9:15 AM',
+      paymentStatus: 'Pending',
+      dispatchStatus: 'Ready for Fitting'
+    },
+    {
       id: 'ord-pichelin-03',
       reservationCode: 'MTC-724189',
       customerName: 'Althea St. Jean',
@@ -225,6 +274,54 @@ export default function App() {
           dispatchStatus: 'Ready for Fitting'
         },
         {
+          id: 'ord-pichelin-04',
+          reservationCode: 'MTC-638291',
+          customerName: 'Marcus Fontaine',
+          customerPhone: '+1 (767) 245-8912',
+          customerEmail: 'mfontaine.dom@gmail.com',
+          vehicleInfo: 'Toyota Hilux 4x4 (Double Cab)',
+          preferredDate: 'Today, 10:30 AM',
+          items: [
+            {
+              id: 'cart-4',
+              tyre: TYRES_DATA[0],
+              quantity: 4,
+              includeMounting: true,
+              includeNewValves: true,
+              includeShredding: true
+            }
+          ],
+          totalXCD: (TYRES_DATA[0].priceXCD + 20 + 15 + 1) * 4,
+          paymentMethod: 'Stripe Online',
+          timestamp: 'Today, 8:00 AM',
+          paymentStatus: 'Confirmed',
+          dispatchStatus: 'Ready for Fitting'
+        },
+        {
+          id: 'ord-pichelin-05',
+          reservationCode: 'MTC-552190',
+          customerName: 'Janice Laurent',
+          customerPhone: '+1 (767) 275-3921',
+          customerEmail: 'janice.laurent@gmail.com',
+          vehicleInfo: 'Toyota RAV4 AWD',
+          preferredDate: 'Today, 3:30 PM',
+          items: [
+            {
+              id: 'cart-5',
+              tyre: TYRES_DATA[1] || TYRES_DATA[0],
+              quantity: 2,
+              includeMounting: true,
+              includeNewValves: true,
+              includeShredding: true
+            }
+          ],
+          totalXCD: ((TYRES_DATA[1] || TYRES_DATA[0]).priceXCD + 20 + 15 + 1) * 2,
+          paymentMethod: 'Pay at Shop / WhatsApp',
+          timestamp: 'Today, 9:15 AM',
+          paymentStatus: 'Pending',
+          dispatchStatus: 'Ready for Fitting'
+        },
+        {
           id: 'ord-pichelin-03',
           reservationCode: 'MTC-724189',
           customerName: 'Althea St. Jean',
@@ -253,6 +350,14 @@ export default function App() {
       return [];
     }
   });
+
+  // Real-time active orders count for admin badge (pending dispatch or workshop fitting)
+  const activeOrdersCount = useMemo(() => {
+    return adminOrders.filter(o => {
+      const s = (o.dispatchStatus || '').toLowerCase();
+      return s !== 'dispatched' && s !== 'completed' && s !== 'cancelled';
+    }).length;
+  }, [adminOrders]);
 
   const [whatsappCustomMessage, setWhatsappCustomMessage] = useState<string>(() => {
     try {
@@ -761,6 +866,9 @@ export default function App() {
           : 'bg-theme-tarmac text-slate-100'
     }`}>
       
+      {/* Pichelin Intermittent Offline Connectivity Banner */}
+      <OfflineStatusBanner />
+
       {/* Navigation Header */}
       <Navbar
         activeTab={activeTab}
@@ -772,6 +880,7 @@ export default function App() {
         openCart={() => setIsCartOpen(true)}
         openSOS={handleOpenSOS}
         adminOrdersCount={adminOrders.length}
+        activeOrdersCount={activeOrdersCount}
         openAdminOrders={handleOpenAdmin}
       />
 
@@ -824,7 +933,9 @@ export default function App() {
 
               <TireCatalog
                 tyres={filteredTyres}
-                
+                allTyres={tyresWithOverrides}
+                searchQuery={searchQuery}
+                onSearchChange={setSearchQuery}
                 onSelectTyre={(tyre) => setSelectedTyreDetail(tyre)}
                 onAddToCart={handleAddToCart}
               />
@@ -1020,14 +1131,7 @@ export default function App() {
 
 
       {/* Footer */}
-      <div 
-        style={{ 
-          marginTop: '-13px', 
-          paddingTop: '0px', 
-          marginBottom: '16px', 
-          height: '83px' 
-        }}
-      >
+      <div className="w-full">
         <Footer
           setActiveTab={setActiveTab}
           onOpenSOS={handleOpenSOS}

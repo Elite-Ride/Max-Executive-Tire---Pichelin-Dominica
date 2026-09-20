@@ -89,7 +89,7 @@ export const DailyManifestPrintPreviewModal: React.FC<DailyManifestPrintPreviewM
         if (item.includeNewValves) totalValves += qty;
         if (item.includeShredding) totalShredding += qty;
 
-        const tyreLabel = `${item.tyre?.brand || 'Tyre'} ${item.tyre?.size || ''} (${item.tyre?.condition || 'New'})`;
+        const tyreLabel = `${item.tyre?.brand || 'Tyre'} ${item.tyre?.size || ''} (${item.tyre?.condition || 'Used'})`;
         tyreSummaryMap[tyreLabel] = (tyreSummaryMap[tyreLabel] || 0) + qty;
       });
     });
@@ -541,7 +541,7 @@ ${manifestOrders
                                 <span className="font-black text-blue-900">{it.quantity}x</span>{' '}
                                 <span className="font-bold">{it.tyre?.brand}</span> {it.tyre?.modelName || ''}{' '}
                                 <span className="font-mono text-slate-700">({it.tyre?.size})</span>{' '}
-                                <span className="text-[8.5px] text-slate-500">[{it.tyre?.condition || 'New'}]</span>
+                                <span className="text-[8.5px] text-slate-500">[{it.tyre?.condition || 'Used'}]</span>
                               </div>
                             ))}
                           </div>

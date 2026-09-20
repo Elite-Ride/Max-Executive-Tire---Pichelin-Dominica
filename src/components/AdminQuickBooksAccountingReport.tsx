@@ -300,7 +300,7 @@ export const AdminQuickBooksAccountingReport: React.FC<AdminQuickBooksAccounting
           `"${ref}"`,
           `"${customer}"`,
           `"4010 - Tyre Sales: ${tyre?.brand || 'Tyre'} ${tyre?.size || ''}"`,
-          `"${(tyre?.modelName || 'Tyre Model').replace(/"/g, '""')} [${tyre?.condition || 'New'}]"`,
+          `"${(tyre?.modelName || 'Tyre Model').replace(/"/g, '""')} [${tyre?.condition || 'Used'}]"`,
           qty.toString(),
           rate.toFixed(2),
           amount.toFixed(2),
@@ -545,8 +545,8 @@ export const AdminQuickBooksAccountingReport: React.FC<AdminQuickBooksAccounting
       '========================================================================',
       'MAX EXECUTIVE TIRES LTD - OFFICIAL TAX FILING WORKSHEET',
       'COMMONWEALTH OF DOMINICA - INLAND REVENUE DEPARTMENT (IRD) VAT RETURN',
-      'Maranatha Square, Pichelin, Dominica | Tel: (767) 276-8973 / (767) 614-8973',
-      `Tax Registration / VAT TIN: DOM-VAT-7829-PICHELIN`,
+      'Maranatha Square, Pichelin, Dominica | Tel: +1 (767) 616-0155',
+      `Inland Revenue Tax ID: #1281761`,
       `Filing Period: ${period} | Report Generated: ${new Date().toLocaleString()}`,
       `Tax Accounting Basis: ${taxMethod === 'inclusive' ? 'VAT-Inclusive (15/115 Retail Factor)' : 'VAT-Exclusive (+15% Taxable)'}`,
       '========================================================================',
@@ -724,7 +724,7 @@ export const AdminQuickBooksAccountingReport: React.FC<AdminQuickBooksAccounting
           <div>
             <h1 class="company-name">MAX EXECUTIVE TIRES LTD</h1>
             <div class="tagline">Maranatha Square, Pichelin, Commonwealth of Dominica</div>
-            <div class="tagline">TIN / VAT Reg: DOM-VAT-7829-PICHELIN | Tel: (767) 276-8973</div>
+            <div class="tagline">Inland Revenue Tax ID: #1281761 | Tel: +1 (767) 616-0155</div>
           </div>
           <div style="text-align: right;">
             <span class="badge-qb">QuickBooks Style Tax Filing</span>
@@ -908,7 +908,7 @@ export const AdminQuickBooksAccountingReport: React.FC<AdminQuickBooksAccounting
               <span className="bg-slate-800 text-emerald-300 border border-emerald-500/30 font-bold text-[10px] px-2 py-0.5 rounded-md">
                 Dominica Inland Revenue (IRD) Standard VAT 15%
               </span>
-              <span className="text-slate-400 text-xs font-mono">TIN: DOM-VAT-7829-PICHELIN</span>
+              <span className="text-slate-400 text-xs font-mono">Inland Revenue Tax ID: #1281761</span>
             </div>
             <h2 className="text-xl sm:text-2xl font-black text-white tracking-tight flex items-center gap-2">
               <span>Financial & Tax Reports Center</span>

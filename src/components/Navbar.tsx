@@ -14,7 +14,8 @@ import {
   Bell,
   Calendar,
   FileText,
-  AlertTriangle
+  AlertTriangle,
+  Disc
 } from 'lucide-react';
 import { BackgroundTheme } from '../types';
 import { SHOP_LOCATION_INFO } from '../data/servicesData';
@@ -30,6 +31,7 @@ interface NavbarProps {
   openCart: () => void;
   openSOS: () => void;
   adminOrdersCount: number;
+  activeOrdersCount?: number;
   openAdminOrders: () => void;
   onOpenDeviceSimulator?: (platform?: 'ios' | 'android') => void;
 }
@@ -43,13 +45,19 @@ export const Navbar: React.FC<NavbarProps> = ({
   openCart,
   openSOS,
   adminOrdersCount,
+  activeOrdersCount,
   openAdminOrders,
   onOpenDeviceSimulator,
 }) => {
   const [mobileMenuOpen, setMobileMenuOpen] = useState(false);
 
+  const displayActiveOrdersCount = activeOrdersCount !== undefined ? activeOrdersCount : adminOrdersCount;
+
+  // Workshop links
   const navItems = [
+    { id: 'inventory', label: 'Tyre Inventory', icon: Disc },
     { id: 'services', label: 'Workshop Services & Guide', icon: Wrench },
+    { id: 'location', label: 'Fitting Bays & Location', icon: MapPin },
   ];
 
   const handleNavClick = (tabId: string) => {
@@ -125,25 +133,36 @@ export const Navbar: React.FC<NavbarProps> = ({
                 </button>
               );
             })}
+
+            {/* Admin Portal Button Alongside Workshop Links */}
+            <button
+              id="desktop-menu-admin-portal"
+              data-testid="desktop-nav-admin-portal-btn"
+              type="button"
+              onClick={openAdminOrders}
+              className="inline-flex items-center gap-2 px-3.5 py-2 rounded-lg text-sm font-bold transition text-amber-300 hover:text-white bg-amber-500/10 hover:bg-amber-500/20 border border-amber-500/30 hover:border-amber-400/60 shadow-xs cursor-pointer active:scale-95 group"
+              title="Workshop Admin Portal (Tyre Inventory, Orders Dispatch & Financial Analytics)"
+            >
+              <ShieldCheck className="w-4 h-4 text-amber-400 fill-amber-400/25 drop-shadow-[0_0_6px_rgba(251,191,36,0.35)] group-hover:scale-110 transition-transform" />
+              <span>Admin Portal</span>
+              {displayActiveOrdersCount > 0 ? (
+                <span 
+                  id="desktop-admin-active-orders-badge"
+                  className="inline-flex items-center justify-center bg-gradient-to-r from-amber-400 via-amber-500 to-yellow-400 text-slate-950 text-[11px] font-black px-2 py-0.5 rounded-full shadow-sm min-w-[20px] animate-pulse"
+                  title={`${displayActiveOrdersCount} active orders requiring workshop attention`}
+                >
+                  {displayActiveOrdersCount}
+                </span>
+              ) : (
+                <span className="inline-flex items-center justify-center bg-slate-800 text-amber-300/60 text-[10px] font-bold px-1.5 py-0.2 rounded-full border border-slate-700">
+                  0
+                </span>
+              )}
+            </button>
           </nav>
 
           {/* Action Buttons: Cart Drawer & Mobile Menu */}
           <div className="flex items-center gap-2 sm:gap-2.5">
-            {/* Admin Notifications Button */}
-            <button
-              onClick={openAdminOrders}
-              className="relative inline-flex items-center gap-2 bg-amber-600 hover:bg-amber-500 text-white text-xs sm:text-sm font-extrabold px-3.5 sm:px-4 py-2.5 rounded-xl border border-amber-400 shadow-md transition transform hover:scale-105"
-              title="Shop Admin Order Notifications & Management"
-            >
-              <Bell className="w-4 h-4 text-amber-100 animate-bounce" />
-              <span>Admin Portal ({adminOrdersCount})</span>
-              {adminOrdersCount > 0 && (
-                <span className="absolute -top-1.5 -right-1.5 w-5 h-5 rounded-full bg-red-600 text-white text-[10px] font-black flex items-center justify-center animate-pulse">
-                  {adminOrdersCount}
-                </span>
-              )}
-            </button>
-
             {/* Cart Drawer Trigger */}
             <button
               id="cart-button-nav"
@@ -229,22 +248,38 @@ export const Navbar: React.FC<NavbarProps> = ({
               </span>
             </button>
 
-            {/* Admin Portal (Mobile Drawer) */}
+            {/* Admin Portal in Mobile Menu Area Alongside Workshop Links */}
             <button
-              id="mobile-drawer-admin-btn"
+              id="mobile-drawer-admin-portal"
+              data-testid="mobile-drawer-admin-portal-btn"
+              type="button"
               onClick={() => {
                 setMobileMenuOpen(false);
                 openAdminOrders();
               }}
-              className="w-full flex items-center justify-between px-4 py-3 rounded-lg text-sm font-bold text-left bg-amber-600/20 border border-amber-500/40 text-amber-300 hover:bg-amber-600/30 transition active:scale-95"
+              className="w-full flex items-center justify-between px-4 py-3 rounded-lg text-sm font-bold text-left text-amber-200 bg-amber-500/10 hover:bg-amber-500/20 border border-amber-500/30 hover:border-amber-400/60 transition cursor-pointer"
             >
               <div className="flex items-center gap-3">
-                <Bell className="w-5 h-5 text-amber-400" />
-                <span className="text-white">Admin Portal</span>
+                <ShieldCheck className="w-5 h-5 text-amber-400 fill-amber-400/25 drop-shadow-[0_0_6px_rgba(251,191,36,0.35)]" />
+                <span>Admin Portal</span>
               </div>
-              <span className="text-[10px] bg-amber-600 text-white font-black px-2 py-0.5 rounded-md">
-                {adminOrdersCount} Orders
-              </span>
+              <div className="flex items-center gap-1.5">
+                {displayActiveOrdersCount > 0 ? (
+                  <span 
+                    id="mobile-admin-active-orders-badge"
+                    className="bg-gradient-to-r from-amber-400 via-amber-500 to-yellow-400 text-slate-950 text-xs font-black px-2 py-0.5 rounded-full shadow-xs animate-pulse"
+                  >
+                    {displayActiveOrdersCount} Active
+                  </span>
+                ) : (
+                  <span className="bg-slate-800 text-amber-300/60 text-xs font-bold px-2 py-0.5 rounded-full">
+                    0
+                  </span>
+                )}
+                <span className="text-[10px] bg-amber-400/20 text-amber-300 border border-amber-400/30 px-2 py-0.5 rounded-md font-extrabold uppercase tracking-wider">
+                  Staff
+                </span>
+              </div>
             </button>
 
             {/* Emergency Roadside SOS (Mobile Drawer) */}
