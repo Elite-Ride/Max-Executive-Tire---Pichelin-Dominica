@@ -48,7 +48,8 @@ import {
   FileSpreadsheet,
   CheckSquare,
   Square,
-  Calculator
+  Calculator,
+  BarChart2
 } from 'lucide-react';
 import { 
   BarChart, 
@@ -69,6 +70,8 @@ import { SHOP_LOCATION_INFO } from '../data/servicesData';
 import { ServicesSection } from './ServicesSection';
 import { MyOrdersView } from './MyOrdersView';
 import { AdminInventoryView } from './AdminInventoryView';
+import { D3StockHealthChart } from './D3StockHealthChart';
+import { AdminStockPrediction } from './AdminStockPrediction';
 import { ReceiptPrintModal, PrintableOrderData } from './ReceiptPrintModal';
 import { AdminCustomerDirectoryView } from './AdminCustomerDirectoryView';
 import { DailyManifestModal } from './DailyManifestModal';
@@ -178,7 +181,7 @@ export const AdminOrdersModal: React.FC<AdminOrdersModalProps> = ({
   onUpdateTyreStock,
   onAddNewTyre,
 }) => {
-  const [activeModalTab, setActiveModalTab] = useState<'orders' | 'inventory' | 'scanner' | 'barcodes' | 'history' | 'customers' | 'pos' | 'prices' | 'activity' | 'trends' | 'sales' | 'monthly-revenue' | 'workshop-report' | 'settings' | 'services' | 'myorders' | 'accounting'>('orders');
+  const [activeModalTab, setActiveModalTab] = useState<'orders' | 'inventory' | 'stock-health' | 'scanner' | 'barcodes' | 'history' | 'customers' | 'pos' | 'prices' | 'activity' | 'trends' | 'sales' | 'monthly-revenue' | 'workshop-report' | 'settings' | 'services' | 'myorders' | 'accounting'>('orders');
   const [isBarcodeScannerOpen, setIsBarcodeScannerOpen] = useState(false);
   const [isBarcodeCenterOpen, setIsBarcodeCenterOpen] = useState(false);
   const [customWhatsAppInput, setCustomWhatsAppInput] = useState(whatsappCustomMessage);
@@ -2086,6 +2089,21 @@ Thank you for choosing Max Executive Tires!`;
             <span>Tyre Inventory ({tyres.length})</span>
           </button>
 
+          {/* D3 Stock Health & Demand Prediction Tab */}
+          <button
+            id="admin-tab-stock-health"
+            data-testid="admin-tab-stock-health"
+            onClick={() => setActiveModalTab('stock-health')}
+            className={`inline-flex items-center gap-2 px-4 py-2 rounded-xl text-xs sm:text-sm font-bold transition ${
+              activeModalTab === 'stock-health'
+                ? 'bg-sky-600 text-white shadow-sm'
+                : 'bg-slate-100 text-slate-700 hover:bg-slate-200'
+            }`}
+          >
+            <BarChart2 className="w-4 h-4 text-sky-500" />
+            <span>Stock Health & AI Restock</span>
+          </button>
+
           {/* Barcode Scanner Tab */}
           <button
             id="admin-tab-scanner"
@@ -2325,6 +2343,7 @@ Thank you for choosing Max Executive Tires!`;
           <div className="flex-1 overflow-y-auto py-2">
             <AdminInventoryView
               tyres={tyres}
+              orders={orders}
               onUpdateTyrePrice={onUpdateTyrePrice}
               onUpdateTyreStock={onUpdateTyreStock}
               onAddNewTyre={onAddNewTyre}
@@ -2334,6 +2353,34 @@ Thank you for choosing Max Executive Tires!`;
               }}
               onOpenScanner={() => setIsBarcodeScannerOpen(true)}
               onOpenBarcodeCenter={() => setIsBarcodeCenterOpen(true)}
+            />
+          </div>
+        ) : activeModalTab === 'stock-health' ? (
+          <div className="flex-1 overflow-y-auto space-y-6 py-4 animate-fade-in">
+            <D3StockHealthChart
+              tyres={tyres}
+              onSelectTyre={(tyre) => {
+                // If clicked, user can quickly adjust stock
+                const nextStock = prompt(`Update stock count for ${tyre.brand} ${tyre.modelName} (${tyre.size}):`, String(tyre.stockCount));
+                if (nextStock !== null) {
+                  const val = parseInt(nextStock);
+                  if (!isNaN(val) && val >= 0) {
+                    onUpdateTyreStock?.(tyre.id, val);
+                  }
+                }
+              }}
+              onQuickAdjust={(tyre, delta) => {
+                const nextStock = Math.max(0, tyre.stockCount + delta);
+                onUpdateTyreStock?.(tyre.id, nextStock);
+              }}
+            />
+            <AdminStockPrediction
+              orders={orders}
+              tyres={tyres}
+              onRestockSelect={(tyre) => {
+                const current = tyre.stockCount;
+                onUpdateTyreStock?.(tyre.id, current + 4);
+              }}
             />
           </div>
         ) : activeModalTab === 'scanner' ? (

@@ -551,6 +551,26 @@ export default function App() {
     }
   };
 
+  // Keyboard shortcut: Ctrl+Shift+A (or Cmd+Shift+A on Mac) to instantly open AdminLoginModal or AdminOrdersModal
+  useEffect(() => {
+    const handleGlobalKeyDown = (e: KeyboardEvent) => {
+      if ((e.ctrlKey || e.metaKey) && e.shiftKey && (e.key === 'A' || e.key === 'a')) {
+        e.preventDefault();
+        handleOpenAdmin();
+      }
+    };
+
+    window.addEventListener('keydown', handleGlobalKeyDown);
+    return () => window.removeEventListener('keydown', handleGlobalKeyDown);
+  }, [isAdminLoggedIn]);
+
+  useEffect(() => {
+    if (activeTab === 'admin') {
+      handleOpenAdmin();
+      setActiveTab('inventory');
+    }
+  }, [activeTab]);
+
   const handleSuccessLogin = () => {
     setIsAdminLoggedIn(true);
     try {
@@ -882,6 +902,7 @@ export default function App() {
         adminOrdersCount={adminOrders.length}
         activeOrdersCount={activeOrdersCount}
         openAdminOrders={handleOpenAdmin}
+        isAdminLoggedIn={isAdminLoggedIn}
       />
 
       {/* Main Content Area */}

@@ -4,7 +4,6 @@ import {
   Phone, 
   Mail, 
   MessageSquare, 
-  ShieldCheck, 
   Wrench, 
   Truck, 
   Clock, 
@@ -92,7 +91,6 @@ export const Footer: React.FC<FooterProps> = ({ setActiveTab, onOpenSOS }) => {
                   Dominica Mountain Road Guide
                 </button>
               </li>
-
             </ul>
           </div>
 

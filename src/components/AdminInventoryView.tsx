@@ -35,7 +35,8 @@ import {
   ArrowDown,
   Upload,
   Mail,
-  Send
+  Send,
+  BarChart2
 } from 'lucide-react';
 import { Tyre, TyreCondition, TyreCategory } from '../types';
 import { getTyreBarcodeValue } from '../utils/barcodeGenerator';
@@ -45,6 +46,9 @@ import { BarcodeScannerModal } from './BarcodeScannerModal';
 import { PrinterGuide } from './PrinterGuide';
 import { AdminQuickAdjustModal } from './AdminQuickAdjustModal';
 import { AdminInventoryImportModal } from './AdminInventoryImportModal';
+import { D3StockHealthChart } from './D3StockHealthChart';
+import { AdminStockPrediction } from './AdminStockPrediction';
+import { AdminOrder } from './AdminOrdersModal';
 
 export interface PriceUpdateRecord {
   id: string;
@@ -104,6 +108,7 @@ const DEFAULT_PRICE_HISTORY: PriceUpdateRecord[] = [
 
 interface AdminInventoryViewProps {
   tyres: Tyre[];
+  orders?: AdminOrder[];
   onUpdateTyrePrice?: (tyreId: string, newPriceXCD: number) => void;
   onUpdateTyreStock?: (tyreId: string, newStock: number) => void;
   onAddNewTyre?: (newTyre: Tyre) => void;
@@ -114,6 +119,7 @@ interface AdminInventoryViewProps {
 
 export const AdminInventoryView: React.FC<AdminInventoryViewProps> = ({
   tyres,
+  orders = [],
   onUpdateTyrePrice,
   onUpdateTyreStock,
   onAddNewTyre,
@@ -126,6 +132,8 @@ export const AdminInventoryView: React.FC<AdminInventoryViewProps> = ({
   const [selectedCategory, setSelectedCategory] = useState<string>('ALL');
   const [stockFilter, setStockFilter] = useState<'ALL' | 'LOW' | 'OUT'>('ALL');
   const [showPriceTrendView, setShowPriceTrendView] = useState(false);
+  const [showD3Chart, setShowD3Chart] = useState(false);
+  const [showStockPredictions, setShowStockPredictions] = useState(false);
   const [priceHistorySearch, setPriceHistorySearch] = useState('');
   const [isBarcodeCenterOpen, setIsBarcodeCenterOpen] = useState(false);
   const [isScannerOpen, setIsScannerOpen] = useState(false);
@@ -849,8 +857,75 @@ export const AdminInventoryView: React.FC<AdminInventoryViewProps> = ({
               {priceHistory.length}
             </span>
           </button>
+
+          <button
+            onClick={() => setShowD3Chart(!showD3Chart)}
+            id="admin-inventory-d3-chart-btn"
+            data-testid="admin-inventory-d3-chart-btn"
+            className={`inline-flex items-center gap-1.5 font-bold text-xs px-3.5 py-2 rounded-xl shadow-xs transition cursor-pointer ${
+              showD3Chart
+                ? 'bg-sky-500 text-slate-950 font-black ring-2 ring-sky-300'
+                : 'bg-slate-800 hover:bg-slate-700 text-sky-300 border border-sky-500/40'
+            }`}
+            title="Toggle Interactive D3.js Stock Health Distribution Chart"
+          >
+            <BarChart2 className="w-4 h-4 text-sky-400" />
+            <span>{showD3Chart ? 'Hide Stock Chart' : 'Stock Health Chart (D3)'}</span>
+          </button>
+
+          <button
+            onClick={() => setShowStockPredictions(!showStockPredictions)}
+            id="admin-inventory-stock-predictions-btn"
+            data-testid="admin-inventory-stock-predictions-btn"
+            className={`inline-flex items-center gap-1.5 font-bold text-xs px-3.5 py-2 rounded-xl shadow-xs transition cursor-pointer ${
+              showStockPredictions
+                ? 'bg-purple-600 text-white font-black ring-2 ring-purple-300 shadow-md'
+                : 'bg-slate-800 hover:bg-slate-700 text-purple-300 border border-purple-500/40'
+            }`}
+            title="Toggle AI Predictive Stock Demand Forecasting"
+          >
+            <Sparkles className="w-4 h-4 text-purple-400" />
+            <span>{showStockPredictions ? 'Hide Demand AI' : 'Demand Forecasting AI'}</span>
+          </button>
         </div>
       </div>
+
+      {/* ============================================================ */}
+      {/* D3.JS STOCK HEALTH DISTRIBUTION CHART VIEW                   */}
+      {/* ============================================================ */}
+      {showD3Chart && (
+        <div className="animate-in fade-in slide-in-from-top-2 duration-200">
+          <D3StockHealthChart
+            tyres={tyres}
+            onSelectTyre={(tyre) => {
+              setQuickAdjustTyre(tyre);
+            }}
+            onQuickAdjust={(tyre, delta) => {
+              const updatedStock = Math.max(0, tyre.stockCount + delta);
+              if (onUpdateTyreStock) {
+                onUpdateTyreStock(tyre.id, updatedStock);
+                setInventoryNotification(`Stock for ${tyre.brand} ${tyre.modelName} updated to ${updatedStock} units.`);
+                setTimeout(() => setInventoryNotification(null), 4000);
+              }
+            }}
+          />
+        </div>
+      )}
+
+      {/* ============================================================ */}
+      {/* PREDICTIVE DEMAND FORECASTING AI VIEW                        */}
+      {/* ============================================================ */}
+      {showStockPredictions && (
+        <div className="animate-in fade-in slide-in-from-top-2 duration-200">
+          <AdminStockPrediction
+            orders={orders}
+            tyres={tyres}
+            onRestockSelect={(tyre) => {
+              setQuickAdjustTyre(tyre);
+            }}
+          />
+        </div>
+      )}
 
       {/* ============================================================ */}
       {/* TOGGLEABLE PRICE TREND & REVISION HISTORY VIEW               */}

@@ -2,16 +2,10 @@ import React, { useState } from 'react';
 import { 
   Phone, 
   MapPin, 
-  Clock, 
   ShoppingBag, 
   Menu, 
   X, 
-  Compass, 
-  Wrench, 
-  Sparkles,
   MessageSquare,
-  Bell,
-  Calendar,
   FileText,
   AlertTriangle
 } from 'lucide-react';
@@ -31,6 +25,7 @@ interface NavbarProps {
   openAdminOrders?: () => void;
   adminOrdersCount?: number;
   activeOrdersCount?: number;
+  isAdminLoggedIn?: boolean;
   onOpenDeviceSimulator?: (platform?: 'ios' | 'android') => void;
 }
 
@@ -42,12 +37,15 @@ export const Navbar: React.FC<NavbarProps> = ({
   cartCount,
   openCart,
   openSOS,
+  openAdminOrders,
+  adminOrdersCount = 0,
+  activeOrdersCount = 0,
+  isAdminLoggedIn = false,
 }) => {
   const [mobileMenuOpen, setMobileMenuOpen] = useState(false);
 
-  // Workshop links
+  // Top navigation items for customer browsing
   const navItems = [
-    { id: 'services', label: 'Workshop Services & Guide', icon: Wrench },
     { id: 'location', label: 'Fitting Bays & Location', icon: MapPin },
   ];
 
@@ -60,7 +58,7 @@ export const Navbar: React.FC<NavbarProps> = ({
 
   return (
     <header className="sticky top-0 z-40 bg-slate-950/95 backdrop-blur-md border-b border-slate-800 text-white shadow-md">
-      {/* Top Banner with Dominica info & Quick Hotline */}
+      {/* Top Banner with Dominica info & Quick Hotline (Completely without admin button) */}
       <div className="bg-slate-900/90 text-slate-200 text-xs font-medium py-1.5 px-4 sm:px-6 border-b border-slate-800">
         <div className="max-w-7xl mx-auto flex flex-wrap items-center justify-between gap-2">
           <div className="flex items-center gap-3">
@@ -75,7 +73,7 @@ export const Navbar: React.FC<NavbarProps> = ({
             </span>
           </div>
 
-          <div className="flex items-center gap-2 text-xs text-slate-300">
+          <div className="flex items-center gap-2 sm:gap-3 text-xs text-slate-300">
             <span className="hidden sm:inline-flex items-center gap-1.5 text-slate-400">
               <Phone className="w-3.5 h-3.5 text-[#0984E3]" />
               Direct:
@@ -103,8 +101,8 @@ export const Navbar: React.FC<NavbarProps> = ({
             <BrandLogo variant="navbar" showTagline={true} />
           </div>
 
-          {/* Desktop Navigation Links */}
-          <nav className="hidden lg:flex items-center gap-1.5">
+          {/* Desktop & Tablet Navigation Links */}
+          <nav className="hidden md:flex items-center gap-1 sm:gap-1.5">
             {navItems.map((item) => {
               const Icon = item.icon;
               const isActive = activeTab === item.id;
@@ -112,27 +110,28 @@ export const Navbar: React.FC<NavbarProps> = ({
                 <button
                   key={item.id}
                   id={`nav-tab-${item.id}`}
+                  data-testid={`nav-tab-${item.id}`}
                   onClick={() => handleNavClick(item.id)}
-                  className={`inline-flex items-center gap-2 px-3.5 py-2 rounded-lg text-sm font-semibold transition ${
+                  className={`inline-flex items-center gap-1.5 sm:gap-2 px-3 py-2 rounded-lg text-xs sm:text-sm font-bold transition cursor-pointer active:scale-95 ${
                     isActive 
                       ? 'bg-[#0984E3]/20 text-[#0984E3] border border-[#0984E3]/40 shadow-xs' 
                       : 'text-slate-300 hover:text-white hover:bg-slate-900'
                   }`}
                 >
                   <Icon className={`w-4 h-4 ${isActive ? 'text-[#0984E3]' : 'text-slate-400'}`} />
-                  {item.label}
+                  <span>{item.label}</span>
                 </button>
               );
             })}
           </nav>
 
-          {/* Action Buttons: Cart Drawer & Mobile Menu */}
+          {/* Action Buttons: Cart Drawer, SOS & Mobile Menu */}
           <div className="flex items-center gap-2 sm:gap-2.5">
             {/* Cart Drawer Trigger */}
             <button
               id="cart-button-nav"
               onClick={openCart}
-              className="relative inline-flex items-center gap-2 bg-emerald-600 hover:bg-emerald-500 text-white text-sm font-extrabold px-3.5 sm:px-4 py-2.5 rounded-xl shadow-md border border-emerald-400 transition transform hover:scale-105"
+              className="relative inline-flex items-center gap-2 bg-emerald-600 hover:bg-emerald-500 text-white text-sm font-extrabold px-3.5 sm:px-4 py-2 sm:py-2.5 rounded-xl shadow-md border border-emerald-400 transition transform hover:scale-105"
               aria-label="View reserved tyres and services"
             >
               <ShoppingBag className="w-4 h-4 text-white" />
@@ -151,7 +150,7 @@ export const Navbar: React.FC<NavbarProps> = ({
                 triggerSOSHaptic();
                 openSOS();
               }}
-              className="inline-flex items-center gap-1.5 bg-red-600 hover:bg-red-500 text-white text-xs sm:text-sm font-extrabold px-3 sm:px-3.5 py-2.5 rounded-xl shadow-md border border-red-400 transition transform hover:scale-105 active:scale-95"
+              className="inline-flex items-center gap-1.5 bg-red-600 hover:bg-red-500 text-white text-xs sm:text-sm font-extrabold px-3 sm:px-3.5 py-2 sm:py-2.5 rounded-xl shadow-md border border-red-400 transition transform hover:scale-105 active:scale-95"
               title="Emergency Roadside Puncture Rescue (Maranatha Square, Pichelin)"
               aria-label="Emergency Roadside Rescue SOS"
             >
@@ -164,7 +163,7 @@ export const Navbar: React.FC<NavbarProps> = ({
             <button
               id="mobile-menu-toggle"
               onClick={() => setMobileMenuOpen(!mobileMenuOpen)}
-              className="lg:hidden p-2 text-slate-300 hover:text-white rounded-lg hover:bg-slate-900"
+              className="md:hidden p-2 text-slate-300 hover:text-white rounded-lg hover:bg-slate-900 cursor-pointer"
               aria-label="Toggle menu"
             >
               {mobileMenuOpen ? <X className="w-6 h-6" /> : <Menu className="w-6 h-6" />}
@@ -175,8 +174,9 @@ export const Navbar: React.FC<NavbarProps> = ({
 
       {/* Mobile Drawer Menu */}
       {mobileMenuOpen && (
-        <div className="lg:hidden bg-slate-950 border-t border-slate-800 px-4 pt-3 pb-6 space-y-2 shadow-xl">
+        <div className="md:hidden bg-slate-950 border-t border-slate-800 px-4 pt-3 pb-6 space-y-2 shadow-xl">
           <div className="grid grid-cols-1 gap-1">
+            {/* Customer Navigation Tabs */}
             {navItems.map((item) => {
               const Icon = item.icon;
               const isActive = activeTab === item.id;
