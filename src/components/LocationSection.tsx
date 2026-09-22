@@ -19,7 +19,7 @@ import { GoogleMapsStoreLocator } from './GoogleMapsStoreLocator';
 import { PrintServiceMenuModal } from './PrintServiceMenuModal';
 
 interface LocationSectionProps {
-  onNavigateToServices?: (tab?: 'services' | 'guide' | 'disposal') => void;
+  onNavigateToServices?: (tab?: 'services' | 'disposal') => void;
 }
 
 export const LocationSection: React.FC<LocationSectionProps> = ({ onNavigateToServices }) => {
@@ -175,25 +175,14 @@ export const LocationSection: React.FC<LocationSectionProps> = ({ onNavigateToSe
               </button>
 
               {onNavigateToServices && (
-                <>
-                  <button
-                    type="button"
-                    onClick={() => onNavigateToServices('guide')}
-                    className="w-full inline-flex items-center justify-center gap-2 bg-blue-600/20 hover:bg-blue-600/30 text-blue-300 font-bold text-xs py-2.5 rounded-xl border border-blue-500/30 transition"
-                  >
-                    <ShieldCheck className="w-3.5 h-3.5 text-blue-400" />
-                    <span>Puncture Repair & Safety Guide</span>
-                  </button>
-
-                  <button
-                    type="button"
-                    onClick={() => onNavigateToServices('disposal')}
-                    className="w-full inline-flex items-center justify-center gap-2 bg-emerald-600/20 hover:bg-emerald-600/30 text-emerald-300 font-bold text-xs py-2.5 rounded-xl border border-emerald-500/30 transition"
-                  >
-                    <Leaf className="w-3.5 h-3.5 text-emerald-400" />
-                    <span>Eco Tyre Disposal & Shredder (Pichelin)</span>
-                  </button>
-                </>
+                <button
+                  type="button"
+                  onClick={() => onNavigateToServices('disposal')}
+                  className="w-full inline-flex items-center justify-center gap-2 bg-emerald-600/20 hover:bg-emerald-600/30 text-emerald-300 font-bold text-xs py-2.5 rounded-xl border border-emerald-500/30 transition"
+                >
+                  <Leaf className="w-3.5 h-3.5 text-emerald-400" />
+                  <span>Eco Tyre Disposal & Shredder (Pichelin)</span>
+                </button>
               )}
             </div>
           </div>

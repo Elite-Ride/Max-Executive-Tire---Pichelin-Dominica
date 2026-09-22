@@ -15,7 +15,7 @@ import { AdminLoginModal } from './components/AdminLoginModal';
 import { DeviceSimulatorModal, DevicePlatform } from './components/DeviceSimulatorModal';
 import { ErrorBoundary } from './components/ErrorBoundary';
 import { Footer } from './components/Footer';
-import { TYRES_DATA } from './data/tyresData';
+import { TYRES_DATA, getRepresentativeVehicleForTyre } from './data/tyresData';
 import { Tyre, CartItem, DominicaVehiclePreset, TyreCondition, BackgroundTheme } from './types';
 import { 
   Phone, 
@@ -32,7 +32,7 @@ import { triggerAddToCartHaptic, triggerSOSHaptic } from './utils/haptics';
 
 export default function App() {
   const [activeTab, setActiveTab] = useState<string>('inventory');
-  const [servicesSubTab, setServicesSubTab] = useState<'services' | 'guide' | 'disposal'>('services');
+  const [servicesSubTab, setServicesSubTab] = useState<'services' | 'disposal'>('services');
   const [bgTheme, setBgTheme] = useState<BackgroundTheme>(() => {
     try {
       return (localStorage.getItem('max_executive_bg_theme') as BackgroundTheme) || 'tarmac';
@@ -476,9 +476,16 @@ export default function App() {
     return allTyres.map(t => {
       const priceOverride = tyrePriceOverrides[t.id];
       const stockOverride = tyreStockOverrides[t.id];
+      const rep = getRepresentativeVehicleForTyre(t);
+      const rawPrice = priceOverride !== undefined ? priceOverride : t.priceXCD;
+      // Strictly enforce $125 - $160 XCD cap for all used tyres (including commercial heavy truck tyres)
+      const validPrice = t.condition === 'used'
+        ? Math.min(160, Math.max(125, rawPrice))
+        : rawPrice;
       return {
         ...t,
-        priceXCD: priceOverride !== undefined ? priceOverride : t.priceXCD,
+        image: rep.photo || t.image,
+        priceXCD: validPrice,
         stockCount: stockOverride !== undefined ? stockOverride : t.stockCount,
       };
     });
@@ -551,7 +558,7 @@ export default function App() {
     }
   };
 
-  // Keyboard shortcut: Ctrl+Shift+A (or Cmd+Shift+A on Mac) to instantly open AdminLoginModal or AdminOrdersModal
+  // Keyboard shortcut: Ctrl+Shift+A (or Cmd+Shift+A on Mac) or custom event to instantly open AdminLoginModal or AdminOrdersModal
   useEffect(() => {
     const handleGlobalKeyDown = (e: KeyboardEvent) => {
       if ((e.ctrlKey || e.metaKey) && e.shiftKey && (e.key === 'A' || e.key === 'a')) {
@@ -560,8 +567,16 @@ export default function App() {
       }
     };
 
+    const handleCustomAdminOpen = () => {
+      handleOpenAdmin();
+    };
+
     window.addEventListener('keydown', handleGlobalKeyDown);
-    return () => window.removeEventListener('keydown', handleGlobalKeyDown);
+    window.addEventListener('open-admin-portal', handleCustomAdminOpen);
+    return () => {
+      window.removeEventListener('keydown', handleGlobalKeyDown);
+      window.removeEventListener('open-admin-portal', handleCustomAdminOpen);
+    };
   }, [isAdminLoggedIn]);
 
   useEffect(() => {
@@ -1026,6 +1041,13 @@ export default function App() {
       <aside aria-label="Quick Assistance and Emergency Contacts" className="hidden md:flex fixed bottom-6 right-6 z-30 flex-col items-end gap-2.5">
         <button
           onClick={handleOpenSOS}
+          style={{
+            marginTop: '0px',
+            paddingTop: '4px',
+            paddingLeft: '27px',
+            paddingRight: '18px',
+            marginLeft: '0px',
+          }}
           className="group inline-flex items-center gap-2 bg-red-600 hover:bg-red-700 text-white font-bold text-xs px-4 py-2.5 rounded-full shadow-lg shadow-red-600/30 transition transform hover:scale-105"
           title="Emergency Roadside Puncture Rescue"
         >
@@ -1044,31 +1066,7 @@ export default function App() {
         </a>
       </aside>
 
-      {/* Floating Bottom Quick Action for Mobile */}
-      <div 
-        className="md:hidden fixed bottom-3 left-1/2 -translate-x-1/2 z-30 flex gap-2 justify-center items-center px-2 max-w-[calc(100vw-24px)]"
-        style={{ width: '500px', minHeight: '31px' }}
-      >
-        <button
-          onClick={handleOpenSOS}
-          className="bg-red-600 hover:bg-red-700 text-white text-xs font-bold px-2 rounded-lg shadow-md flex items-center justify-center gap-1.5 h-full py-1.5"
-          style={{ width: '199.5px' }}
-        >
-          <AlertTriangle className="w-4 h-4" />
-          <span>SOS Roadside</span>
-        </button>
 
-        <a
-          href={`https://wa.me/${SHOP_LOCATION_INFO.whatsapp.replace(/[^0-9]/g, '')}?text=${encodeURIComponent(whatsappCustomMessage)}`}
-          target="_blank"
-          rel="noopener noreferrer"
-          className="bg-emerald-600 hover:bg-emerald-500 text-white text-xs font-bold px-2 rounded-lg shadow-md flex items-center justify-center gap-1.5 h-full py-1.5"
-          style={{ width: '200.5px' }}
-        >
-          <MessageSquare className="w-4 h-4" />
-          <span>WhatsApp Shop</span>
-        </a>
-      </div>
 
       {/* Detail Modal */}
       {selectedTyreDetail && (
@@ -1152,7 +1150,18 @@ export default function App() {
 
 
       {/* Footer */}
-      <div className="w-full">
+      <div 
+        className="w-full"
+        style={{
+          height: 'auto',
+          minHeight: 'fit-content',
+          marginTop: '0px',
+          marginBottom: '0px',
+          marginLeft: '0px',
+          marginRight: '0px',
+          padding: '0px',
+        }}
+      >
         <Footer
           setActiveTab={setActiveTab}
           onOpenSOS={handleOpenSOS}

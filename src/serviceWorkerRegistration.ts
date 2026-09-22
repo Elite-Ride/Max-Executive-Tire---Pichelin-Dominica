@@ -7,79 +7,28 @@ export interface ServiceWorkerConfig {
   onError?: (error: Error) => void;
 }
 
-export function registerServiceWorker(config?: ServiceWorkerConfig): void {
+export function registerServiceWorker(): void {
   if (typeof window === 'undefined') return;
 
+  // Clear all Cache Storage instances
+  if ('caches' in window) {
+    caches.keys().then((keys) => {
+      keys.forEach((key) => {
+        caches.delete(key);
+      });
+    }).catch(() => {});
+  }
+
+  // Unregister all existing service workers completely
   if ('serviceWorker' in navigator) {
-    window.addEventListener('load', () => {
-      const swUrl = '/sw.js';
-
-      navigator.serviceWorker
-        .register(swUrl)
-        .then((registration) => {
-          console.log('[SW] ServiceWorker registered with scope:', registration.scope);
-
-          registration.update();
-
-          registration.onupdatefound = () => {
-            const installingWorker = registration.installing;
-            if (installingWorker == null) {
-              return;
-            }
-            installingWorker.onstatechange = () => {
-              if (installingWorker.state === 'installed') {
-                if (navigator.serviceWorker.controller) {
-                  console.log('[SW] New content is available; refreshing cache...');
-                  // Auto reload to apply newest bundle if controller exists
-                  window.location.reload();
-                } else {
-                  console.log('[SW] Content is cached for offline use in Pichelin!');
-                  if (config && config.onSuccess) {
-                    config.onSuccess(registration);
-                  }
-                }
-              }
-            };
-          };
-
-          // Cache the tyre catalog proactively in background
-          try {
-            fetch('/api/tyres')
-              .then((res) => res.json())
-              .then((data) => {
-                if (data && data.tyres) {
-                  localStorage.setItem('max_executive_offline_tyres_cache', JSON.stringify({
-                    timestamp: Date.now(),
-                    count: data.tyres.length,
-                    tyres: data.tyres
-                  }));
-                }
-              })
-              .catch((err) => {
-                console.log('[SW] Offline catalog background sync note:', err.message);
-              });
-          } catch (e) {
-            // Ignore non-blocking local storage errors
-          }
-        })
-        .catch((error) => {
-          console.warn('[SW] Error during service worker registration:', error);
-          if (config && config.onError) {
-            config.onError(error);
-          }
-        });
-    });
+    navigator.serviceWorker.getRegistrations().then((registrations) => {
+      for (const reg of registrations) {
+        reg.unregister().catch(() => {});
+      }
+    }).catch(() => {});
   }
 }
 
 export function unregisterServiceWorker(): void {
-  if ('serviceWorker' in navigator) {
-    navigator.serviceWorker.ready
-      .then((registration) => {
-        registration.unregister();
-      })
-      .catch((error) => {
-        console.error(error.message);
-      });
-  }
+  registerServiceWorker();
 }

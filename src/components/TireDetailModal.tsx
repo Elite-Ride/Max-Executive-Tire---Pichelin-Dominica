@@ -135,8 +135,8 @@ export const TireDetailModal: React.FC<TireDetailModalProps> = ({
           <div className="grid grid-cols-1 md:grid-cols-12 gap-6 items-start">
             <div className="md:col-span-5 h-56 rounded-xl overflow-hidden relative bg-slate-950">
               <img
-                src={tyre.image}
-                alt={`${tyre.brand} ${tyre.modelName}`}
+                src={repVehicle.photo || tyre.image}
+                alt={`${tyre.brand} ${tyre.modelName} fitment for ${repVehicle.vehicleName}`}
                 className="w-full h-full object-cover"
                 referrerPolicy="no-referrer"
               />

@@ -7,7 +7,8 @@ import {
   X, 
   MessageSquare,
   FileText,
-  AlertTriangle
+  AlertTriangle,
+  Shield
 } from 'lucide-react';
 import { BackgroundTheme } from '../types';
 import { SHOP_LOCATION_INFO } from '../data/servicesData';
@@ -73,19 +74,44 @@ export const Navbar: React.FC<NavbarProps> = ({
             </span>
           </div>
 
-          <div className="flex items-center gap-2 sm:gap-3 text-xs text-slate-300">
-            <span className="hidden sm:inline-flex items-center gap-1.5 text-slate-400">
+          <div className="flex items-center gap-2 sm:gap-2.5 text-xs text-slate-300 shrink-0">
+            <span className="hidden sm:inline-flex items-center gap-1.5 text-slate-400 font-medium">
               <Phone className="w-3.5 h-3.5 text-[#0984E3]" />
               Direct:
             </span>
             <a 
               href="tel:+17676160155"
-              className="inline-flex items-center gap-1.5 justify-center text-[#0984E3] hover:text-blue-300 hover:underline font-bold px-3 py-1 bg-slate-950/80 rounded-md border border-slate-700/80 transition"
+              id="header-direct-phone-link"
+              className="inline-flex items-center gap-1.5 justify-center text-[#0984E3] hover:text-blue-300 hover:underline font-bold px-3 py-1 bg-slate-950/80 rounded-md border border-slate-700/80 transition shrink-0 whitespace-nowrap"
               style={{ minHeight: '32px' }}
             >
-              <Phone className="w-3.5 h-3.5 sm:hidden text-[#0984E3]" />
+              <Phone className="w-3.5 h-3.5 text-[#0984E3]" />
               +1 767 616 0155
             </a>
+
+            {/* Admin Portal Button - Prominent, high-contrast gold badge right next to Direct Number */}
+            <button
+              id="header-admin-portal-btn"
+              onClick={() => {
+                if (openAdminOrders) {
+                  openAdminOrders();
+                } else {
+                  window.dispatchEvent(new CustomEvent('open-admin-portal'));
+                }
+              }}
+              className="inline-flex items-center gap-1.5 justify-center font-black px-3 py-1 bg-amber-400 hover:bg-amber-300 active:bg-amber-500 text-slate-950 rounded-md border border-amber-300 shadow-md transition cursor-pointer text-xs shrink-0 whitespace-nowrap active:scale-95 z-10"
+              style={{ minHeight: '32px' }}
+              title="Admin Portal (Staff Management & Orders)"
+              aria-label="Open Admin Portal"
+            >
+              <Shield className="w-3.5 h-3.5 text-slate-950 fill-slate-950" />
+              <span className="font-extrabold uppercase tracking-wide text-[11px]">Admin Portal</span>
+              {isAdminLoggedIn ? (
+                <span className="w-2 h-2 rounded-full bg-emerald-600 inline-block animate-pulse ml-0.5" title="Admin Active" />
+              ) : (
+                <span className="bg-slate-950 text-amber-300 text-[9px] font-black px-1 py-0.2 rounded uppercase">Staff</span>
+              )}
+            </button>
           </div>
         </div>
       </div>
@@ -231,6 +257,32 @@ export const Navbar: React.FC<NavbarProps> = ({
                 EMERGENCY
               </span>
             </button>
+
+            {/* Admin Portal (Mobile Drawer) */}
+            {openAdminOrders && (
+              <button
+                id="mobile-drawer-admin-btn"
+                onClick={() => {
+                  setMobileMenuOpen(false);
+                  openAdminOrders();
+                }}
+                className="w-full flex items-center justify-between px-4 py-3 rounded-lg text-sm font-bold text-left bg-slate-900 border border-amber-500/30 text-amber-400 hover:bg-slate-800 transition"
+              >
+                <div className="flex items-center gap-3">
+                  <Shield className="w-5 h-5 text-amber-400" />
+                  <span className="text-white">Admin Portal</span>
+                </div>
+                {isAdminLoggedIn ? (
+                  <span className="text-[10px] bg-emerald-600 text-white font-black px-2 py-0.5 rounded-md">
+                    ACTIVE
+                  </span>
+                ) : (
+                  <span className="text-[10px] bg-slate-800 text-amber-400 border border-amber-500/30 px-2 py-0.5 rounded-md font-semibold">
+                    STAFF
+                  </span>
+                )}
+              </button>
+            )}
           </div>
 
           <div className="pt-4 border-t border-slate-800 flex flex-col gap-2">

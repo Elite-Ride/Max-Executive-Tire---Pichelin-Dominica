@@ -625,8 +625,8 @@ export const TireCatalog: React.FC<TireCatalogProps> = ({
                 {/* Top Image & Badges */}
                 <div className="relative h-48 bg-slate-950 overflow-hidden">
                   <img
-                    src={tyre.image}
-                    alt={`${tyre.brand} ${tyre.modelName} ${tyre.size}`}
+                    src={getRepresentativeVehicleForTyre(tyre).photo || tyre.image}
+                    alt={`${tyre.brand} ${tyre.modelName} ${tyre.size} - Fitment for ${getRepresentativeVehicleForTyre(tyre).name}`}
                     className="w-full h-full object-cover group-hover:scale-105 transition-transform duration-500 opacity-90"
                     referrerPolicy="no-referrer"
                     loading="lazy"

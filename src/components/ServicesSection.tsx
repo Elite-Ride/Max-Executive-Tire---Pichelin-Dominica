@@ -21,14 +21,13 @@ import {
 import { Tyre } from '../types';
 import { TYRE_SERVICES, SHOP_LOCATION_INFO } from '../data/servicesData';
 import { PrintServiceMenuModal } from './PrintServiceMenuModal';
-import { PunctureRepairGuide } from './PunctureRepairGuide';
 import { EcoTyreDisposalSection } from './EcoTyreDisposalSection';
 
 interface ServicesSectionProps {
   onOpenSOS: () => void;
   servicePrices: Record<string, number>;
   tyres?: Tyre[];
-  initialTab?: 'services' | 'guide' | 'disposal';
+  initialTab?: 'services' | 'disposal';
 }
 
 export const ServicesSection: React.FC<ServicesSectionProps> = ({
@@ -42,7 +41,7 @@ export const ServicesSection: React.FC<ServicesSectionProps> = ({
   const [locating, setLocating] = useState(false);
   const [geoError, setGeoError] = useState<string | null>(null);
   const [isPrintMenuOpen, setIsPrintMenuOpen] = useState(false);
-  const [activeServicesTab, setActiveServicesTab] = useState<'services' | 'guide' | 'disposal'>(initialTab);
+  const [activeServicesTab, setActiveServicesTab] = useState<'services' | 'disposal'>('services');
 
   useEffect(() => {
     if (initialTab) {
@@ -156,19 +155,6 @@ export const ServicesSection: React.FC<ServicesSectionProps> = ({
           >
             <Wrench className="w-4 h-4 text-[#0984E3]" />
             <span>Workshop Services ({TYRE_SERVICES.length})</span>
-          </button>
-
-          <button
-            type="button"
-            onClick={() => setActiveServicesTab('guide')}
-            className={`inline-flex items-center gap-2 px-4 py-2 rounded-xl text-xs sm:text-sm font-bold transition ${
-              activeServicesTab === 'guide'
-                ? 'bg-slate-900 text-white shadow-xs'
-                : 'bg-slate-100 text-slate-700 hover:bg-slate-200'
-            }`}
-          >
-            <ShieldCheck className="w-4 h-4 text-blue-500" />
-            <span>Puncture Repair & Safety Guide</span>
           </button>
 
           <button
@@ -435,14 +421,7 @@ export const ServicesSection: React.FC<ServicesSectionProps> = ({
     </div>
   )}
 
-      {/* TAB CONTENT 2: PUNCTURE REPAIR & SAFETY GUIDE */}
-      {activeServicesTab === 'guide' && (
-        <div className="space-y-8 animate-fade-in">
-          <PunctureRepairGuide onOpenSOS={onOpenSOS} />
-        </div>
-      )}
-
-      {/* TAB CONTENT 3: ECO-FRIENDLY TYRE DISPOSAL & RECYCLING IN PICHELIN */}
+      {/* TAB CONTENT 2: ECO-FRIENDLY TYRE DISPOSAL & RECYCLING IN PICHELIN */}
       {activeServicesTab === 'disposal' && (
         <div className="space-y-8 animate-fade-in">
           <EcoTyreDisposalSection onOpenSOS={onOpenSOS} />

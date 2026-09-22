@@ -163,12 +163,35 @@ Keep the tone warm, Caribbean-friendly, knowledgeable, concise, and structured w
     });
   });
 
-  // Serve Service Worker with explicit JavaScript MIME type & no-cache headers for Pichelin offline support
-  app.get("/sw.js", (_req, res) => {
-    res.setHeader("Content-Type", "application/javascript");
+  // Serve Service Worker with explicit JavaScript MIME type & self-unregister script
+  const swCleanupScript = `// Max Executive Tires - Service Worker Unregistration & Cache Purge
+self.addEventListener('install', (e) => {
+  self.skipWaiting();
+});
+self.addEventListener('activate', (e) => {
+  e.waitUntil(
+    (async () => {
+      if ('caches' in self) {
+        const keys = await caches.keys();
+        await Promise.all(keys.map(k => caches.delete(k)));
+      }
+      try {
+        await self.registration.unregister();
+      } catch (err) {}
+      await self.clients.claim();
+    })()
+  );
+});
+self.addEventListener('fetch', (e) => {
+  e.respondWith(fetch(e.request));
+});
+`;
+
+  app.get(["/sw.js", "/service-worker.js"], (_req, res) => {
+    res.setHeader("Content-Type", "application/javascript; charset=utf-8");
     res.setHeader("Service-Worker-Allowed", "/");
     res.setHeader("Cache-Control", "no-cache, no-store, must-revalidate");
-    res.sendFile(path.join(process.cwd(), "public", "sw.js"));
+    res.send(swCleanupScript);
   });
 
   // Serve static assets from public folder

@@ -4,7 +4,7 @@ import { Elements, CardElement, useStripe, useElements } from '@stripe/react-str
 import { X, ShieldCheck, CreditCard, Lock, CheckCircle2, Loader2, AlertCircle } from 'lucide-react';
 import { CartItem } from '../types';
 
-const publishableKey = (import.meta as any).env.VITE_STRIPE_PUBLISHABLE_KEY || 'pk_test_maxexecutivetires';
+const publishableKey = (import.meta as any).env?.VITE_STRIPE_PUBLISHABLE_KEY || 'pk_test_maxexecutivetires';
 const stripePromise = loadStripe(publishableKey);
 
 interface StripePaymentModalProps {

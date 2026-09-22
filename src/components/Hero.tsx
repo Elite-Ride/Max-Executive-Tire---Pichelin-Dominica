@@ -79,9 +79,9 @@ export const Hero: React.FC<HeroProps> = ({
           {/* Executive Highlights Bento Cards */}
           <div className="grid grid-cols-1 sm:grid-cols-3 gap-4 pt-2 text-left">
             <div className="bg-slate-900/80 border border-slate-800 rounded-2xl p-4 hover:border-slate-700 transition">
-              <div className="text-[#0984E3] font-black text-lg">EC$ 95+</div>
+              <div className="text-[#0984E3] font-black text-lg">EC$ 125 – 160</div>
               <div className="text-xs font-bold text-white mt-0.5">Tested Used Tyres</div>
-              <div className="text-[11px] text-slate-400 mt-1">80%+ tread, 0 leaks, pressure tested & certified</div>
+              <div className="text-[11px] text-slate-400 mt-1">Starting from $125 to $160 • 80%+ tread, certified</div>
             </div>
 
             <div className="bg-slate-900/80 border border-slate-800 rounded-2xl p-4 hover:border-slate-700 transition">

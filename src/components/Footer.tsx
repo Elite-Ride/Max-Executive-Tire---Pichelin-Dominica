@@ -19,10 +19,28 @@ interface FooterProps {
 
 export const Footer: React.FC<FooterProps> = ({ setActiveTab, onOpenSOS }) => {
   return (
-    <footer style={{ backgroundColor: '#23706e' }} className="text-slate-100 border-t border-emerald-900/40 w-full">
+    <footer 
+      style={{ 
+        backgroundColor: '#23706e',
+        marginTop: '25px',
+        marginBottom: '0px',
+        paddingTop: '0px',
+        paddingBottom: '0px',
+        height: 'auto',
+        minHeight: 'fit-content'
+      }} 
+      className="text-slate-100 border-t border-emerald-900/40 w-full"
+    >
       <div 
-        style={{ backgroundColor: '#23706e' }}
-        className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 py-12 space-y-12"
+        style={{ 
+          backgroundColor: '#23706e',
+          height: 'auto',
+          minHeight: 'fit-content',
+          paddingTop: '32px',
+          marginTop: '20px',
+          marginBottom: '0px'
+        }}
+        className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 py-8 space-y-8"
       >
         
         {/* Main Footer Grid */}
@@ -144,7 +162,9 @@ export const Footer: React.FC<FooterProps> = ({ setActiveTab, onOpenSOS }) => {
         </div>
 
         {/* Bottom Bar */}
-        <div className="border-t border-teal-800/60 pt-6 flex flex-col sm:flex-row items-center justify-between gap-4 text-xs text-teal-100/70">
+        <div 
+          className="border-t border-teal-800/60 pt-6 flex flex-col sm:flex-row items-center justify-between gap-4 text-xs text-teal-100/70"
+        >
           <p>
             © {new Date().getFullYear()} Max Executive Tires. Maranatha Square, Pichelin, Commonwealth of Dominica. All rights reserved.
           </p>
