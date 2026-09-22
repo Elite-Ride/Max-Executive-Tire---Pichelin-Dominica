@@ -38,7 +38,10 @@ export const Hero: React.FC<HeroProps> = ({
       <div className="absolute inset-0 bg-[radial-gradient(ellipse_80%_60%_at_50%_-20%,rgba(9,132,227,0.18),transparent)] pointer-events-none"></div>
       <div className="absolute inset-0 opacity-[0.03] pointer-events-none bg-[radial-gradient(#ffffff_1px,transparent_1px)] [background-size:20px_20px]"></div>
 
-      <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 pt-5 pb-8 sm:pt-8 sm:pb-12 relative z-10">
+      <div 
+        style={{ backgroundColor: '#472626' }}
+        className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 pt-5 pb-8 sm:pt-8 sm:pb-12 relative z-10"
+      >
         
         {/* Top Badge & Live Status */}
         <div className="flex flex-wrap items-center justify-between gap-3 pb-4 mb-6 border-b border-slate-800/80">
