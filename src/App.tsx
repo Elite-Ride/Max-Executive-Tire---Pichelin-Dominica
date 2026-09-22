@@ -773,8 +773,14 @@ export default function App() {
       if (sortBy === 'price-desc') return b.priceXCD - a.priceXCD;
       if (sortBy === 'brand-asc') return a.brand.localeCompare(b.brand);
       if (sortBy === 'grip-desc') return b.dominicaMountainRating - a.dominicaMountainRating;
-      // Default: popular first, then special deals
-      return (b.isPopular ? 1 : 0) - (a.isPopular ? 1 : 0);
+      // Default: in strict order of rim diameter R13 to R20, then width, then aspect ratio
+      if (a.rimDiameter !== b.rimDiameter) {
+        return a.rimDiameter - b.rimDiameter;
+      }
+      if (a.width !== b.width) {
+        return a.width - b.width;
+      }
+      return a.aspectRatio - b.aspectRatio;
     });
   }, [
     selectedBrand,
@@ -972,6 +978,8 @@ export default function App() {
                 allTyres={tyresWithOverrides}
                 searchQuery={searchQuery}
                 onSearchChange={setSearchQuery}
+                selectedRim={selectedRim}
+                onSelectRim={setSelectedRim}
                 onSelectTyre={(tyre) => setSelectedTyreDetail(tyre)}
                 onAddToCart={handleAddToCart}
               />

@@ -30,6 +30,8 @@ interface TireCatalogProps {
   allTyres?: Tyre[];
   searchQuery?: string;
   onSearchChange?: (query: string) => void;
+  selectedRim?: string;
+  onSelectRim?: (rim: string) => void;
   onSelectTyre: (tyre: Tyre) => void;
   onAddToCart: (tyre: Tyre) => void;
 }
@@ -73,6 +75,8 @@ export const TireCatalog: React.FC<TireCatalogProps> = ({
   allTyres,
   searchQuery,
   onSearchChange,
+  selectedRim,
+  onSelectRim,
   onSelectTyre,
   onAddToCart,
 }) => {
@@ -101,22 +105,30 @@ export const TireCatalog: React.FC<TireCatalogProps> = ({
     return allTyres && allTyres.length > 0 ? allTyres : (TYRES_DATA || tyres);
   }, [allTyres, tyres]);
 
-  // If uncontrolled, filter local tyres by search query
+  // Filter & sort tyres: strictly ordered by rim diameter R13 to R20, then width, then aspect ratio
   const displayedTyres = useMemo(() => {
-    if (isControlled) {
-      return tyres;
+    let list = tyres;
+    if (!isControlled && internalSearch.trim()) {
+      const q = internalSearch.toLowerCase().trim();
+      list = tyres.filter((tyre) => {
+        const matchBrand = tyre.brand.toLowerCase().includes(q);
+        const matchModel = tyre.modelName.toLowerCase().includes(q);
+        const matchSize = tyre.size.toLowerCase().includes(q);
+        const matchDesc = tyre.shortDescription.toLowerCase().includes(q);
+        const matchCat = tyre.category.toLowerCase().includes(q);
+        return matchBrand || matchModel || matchSize || matchDesc || matchCat;
+      });
     }
-    if (!internalSearch.trim()) {
-      return tyres;
-    }
-    const q = internalSearch.toLowerCase().trim();
-    return tyres.filter((tyre) => {
-      const matchBrand = tyre.brand.toLowerCase().includes(q);
-      const matchModel = tyre.modelName.toLowerCase().includes(q);
-      const matchSize = tyre.size.toLowerCase().includes(q);
-      const matchDesc = tyre.shortDescription.toLowerCase().includes(q);
-      const matchCat = tyre.category.toLowerCase().includes(q);
-      return matchBrand || matchModel || matchSize || matchDesc || matchCat;
+
+    return [...list].sort((a, b) => {
+      // In strict order from R13 to R20
+      if (a.rimDiameter !== b.rimDiameter) {
+        return a.rimDiameter - b.rimDiameter;
+      }
+      if (a.width !== b.width) {
+        return a.width - b.width;
+      }
+      return a.aspectRatio - b.aspectRatio;
     });
   }, [tyres, isControlled, internalSearch]);
 
@@ -146,7 +158,10 @@ export const TireCatalog: React.FC<TireCatalogProps> = ({
       count: data.count,
       vehicleExample: data.vehicleExample,
       rim: data.rim,
-    }));
+    })).sort((a, b) => {
+      if (a.rim !== b.rim) return a.rim - b.rim;
+      return a.size.localeCompare(b.size);
+    });
 
     const brands = Object.entries(brandMap).map(([brand, count]) => ({
       brand,
@@ -161,15 +176,18 @@ export const TireCatalog: React.FC<TireCatalogProps> = ({
     const q = currentSearch.toLowerCase().trim();
     const cleanQ = q.replace(/[\s\/-]/g, '');
 
-    // Case 1: Empty input - show popular Dominica tyre sizes & top brands
+    // Case 1: Empty input - show popular Dominica tyre sizes in order from R13 to R20
     if (!q) {
       const popularSizes: SuggestionItem[] = [
-        '265/65 R17',
+        '175/70 R13',
+        '175/65 R14',
         '195/65 R15',
         '205/55 R16',
         '225/65 R17',
-        '195/80 R15',
-        '7.50 R16',
+        '265/65 R17',
+        '265/60 R18',
+        '235/55 R19',
+        '275/55 R20',
       ].map((sizeStr) => {
         const found = uniqueSizes.find((s) => s.size === sizeStr);
         return {
@@ -177,7 +195,7 @@ export const TireCatalog: React.FC<TireCatalogProps> = ({
           label: sizeStr,
           count: found ? found.count : 4,
           vehicleExample: found?.vehicleExample,
-          rim: found ? found.rim : 17,
+          rim: found ? found.rim : 15,
         };
       });
 
@@ -193,12 +211,16 @@ export const TireCatalog: React.FC<TireCatalogProps> = ({
       return [...popularSizes, ...topBrands];
     }
 
-    // Case 2: User is typing - match tyre sizes
+    // Case 2: User is typing - match tyre sizes in order of rim size R13 to R20
     const matchedSizes: SizeSuggestion[] = uniqueSizes
       .filter((s) => {
         const sizeNorm = s.size.toLowerCase();
         const sizeClean = sizeNorm.replace(/[\s\/-]/g, '');
         return sizeNorm.includes(q) || sizeClean.includes(cleanQ);
+      })
+      .sort((a, b) => {
+        if (a.rim !== b.rim) return a.rim - b.rim;
+        return a.size.localeCompare(b.size);
       })
       .slice(0, 8)
       .map((s) => ({
@@ -307,21 +329,48 @@ export const TireCatalog: React.FC<TireCatalogProps> = ({
     }
   };
 
-  // Quick preset pills for Dominica
+  // Rim diameter profile options strictly in order from R13 to R20
+  const rimProfiles = [
+    { label: 'All Sizes', value: '' },
+    { label: 'R13', value: '13' },
+    { label: 'R14', value: '14' },
+    { label: 'R15', value: '15' },
+    { label: 'R16', value: '16' },
+    { label: 'R17', value: '17' },
+    { label: 'R18', value: '18' },
+    { label: 'R19', value: '19' },
+    { label: 'R20', value: '20' },
+  ];
+
+  // Quick preset pills strictly in order from R13 to R20
   const quickPills = [
-    { label: '265/65 R17', hint: 'Hilux / 4x4' },
-    { label: '195/65 R15', hint: 'Sedan / Hatch' },
-    { label: '205/55 R16', hint: 'Corolla' },
-    { label: '225/65 R17', hint: 'RAV4 / CR-V' },
-    { label: '195/80 R15', hint: 'HiAce Bus' },
-    { label: 'Bridgestone', hint: 'Brand' },
-    { label: 'Michelin', hint: 'Brand' },
+    { label: '175/70 R13', hint: 'R13 Compact' },
+    { label: '175/65 R14', hint: 'R14 Vitz' },
+    { label: '195/65 R15', hint: 'R15 Sedan' },
+    { label: '205/55 R16', hint: 'R16 Corolla' },
+    { label: '265/65 R17', hint: 'R17 Hilux' },
+    { label: '265/60 R18', hint: 'R18 Prado' },
+    { label: '235/55 R19', hint: 'R19 SUV' },
+    { label: '275/55 R20', hint: 'R20 Luxury' },
   ];
 
   return (
     <div id="tyres-catalog-grid" className="space-y-6">
       {/* Header Section */}
-      <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-2">
+      <div 
+        style={{
+          marginBottom: '3px',
+          paddingBottom: '0px',
+          paddingTop: '0px',
+          marginLeft: '-4px',
+          marginTop: '-7px',
+          height: '163px',
+          marginRight: '-5px',
+          paddingLeft: '0px',
+          paddingRight: '0px',
+        }}
+        className="flex flex-col sm:flex-row sm:items-center justify-between gap-2"
+      >
         <div>
           <div className="flex items-center gap-2.5">
             <h2 className="text-2xl font-bold tracking-tight" style={{ color: '#0dec5a' }}>
@@ -548,17 +597,65 @@ export const TireCatalog: React.FC<TireCatalogProps> = ({
           )}
         </div>
 
-        {/* Quick Filter Size Pills */}
-        <div className="flex flex-wrap items-center gap-1.5 text-xs">
+        {/* Rim Size Profiles in Order: R13 to R20 */}
+        <div id="rim-sizes-profile-bar" className="space-y-1.5 pt-1 border-t border-slate-100">
+          <div className="flex items-center justify-between">
+            <span className="text-[11px] font-bold text-slate-600 uppercase tracking-wider flex items-center gap-1.5">
+              <Layers className="w-3.5 h-3.5 text-[#0984E3]" />
+              <span>Tire Sizes Profile (In Order R13 to R20):</span>
+            </span>
+            <span className="text-[10px] text-slate-400 font-medium">
+              Click rim profile to filter
+            </span>
+          </div>
+
+          <div className="flex items-center gap-1.5 overflow-x-auto pb-1 no-scrollbar">
+            {rimProfiles.map((profile) => {
+              const isSelected = (selectedRim || '') === profile.value;
+              const countForRim = profile.value 
+                ? fullTyrePool.filter((t) => t.rimDiameter.toString() === profile.value).length
+                : fullTyrePool.length;
+
+              return (
+                <button
+                  key={profile.label}
+                  id={`filter-rim-${profile.label.toLowerCase().replace(/\s+/g, '-')}`}
+                  type="button"
+                  onClick={() => {
+                    if (onSelectRim) {
+                      onSelectRim(isSelected ? '' : profile.value);
+                    }
+                  }}
+                  className={`inline-flex items-center gap-1.5 px-3 py-1.5 rounded-lg text-xs font-bold transition-all cursor-pointer shrink-0 ${
+                    isSelected
+                      ? 'bg-[#0984E3] text-white shadow-xs ring-2 ring-[#0984E3]/30'
+                      : 'bg-slate-100 hover:bg-slate-200 text-slate-700 border border-slate-200/80 hover:border-slate-300'
+                  }`}
+                >
+                  <span className="font-mono">{profile.label}</span>
+                  <span className={`text-[10px] px-1.5 py-0.5 rounded-full font-sans ${
+                    isSelected ? 'bg-white/20 text-white' : 'bg-slate-200/80 text-slate-500'
+                  }`}>
+                    {countForRim}
+                  </span>
+                </button>
+              );
+            })}
+          </div>
+        </div>
+
+        {/* Quick Filter Size Pills in Order R13 to R20 */}
+        <div className="flex flex-wrap items-center gap-1.5 text-xs pt-1 border-t border-slate-100">
           <span className="text-[11px] font-bold text-slate-400 uppercase tracking-wider flex items-center gap-1 mr-1">
             <Tag className="w-3 h-3 text-slate-400" />
-            <span>Popular in Dominica:</span>
+            <span>Sizes Profile (R13 - R20):</span>
           </span>
           {quickPills.map((pill) => {
             const isActive = currentSearch.toLowerCase() === pill.label.toLowerCase();
             return (
               <button
                 key={pill.label}
+                id={`pill-size-${pill.label.toLowerCase().replace(/[\s\/]/g, '-')}`}
                 type="button"
                 onClick={() => {
                   if (isActive) {
