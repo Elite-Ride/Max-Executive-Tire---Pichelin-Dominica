@@ -170,8 +170,6 @@ export const Footer: React.FC<FooterProps> = ({ setActiveTab, onOpenSOS }) => {
           </p>
           <div className="flex items-center gap-2">
             <span style={{ color: '#2d66b8' }}>Prices displayed in EC$ (XCD)</span>
-            <span>•</span>
-            <span className="text-amber-300 font-semibold">Nature Isle Motoring Excellence</span>
           </div>
         </div>
 

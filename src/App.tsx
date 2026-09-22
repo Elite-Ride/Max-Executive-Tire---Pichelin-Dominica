@@ -1042,16 +1042,20 @@ export default function App() {
         <button
           onClick={handleOpenSOS}
           style={{
-            marginTop: '0px',
-            paddingTop: '4px',
-            paddingLeft: '27px',
-            paddingRight: '18px',
-            marginLeft: '0px',
+            marginRight: '8px',
+            marginBottom: '-3px',
+            marginTop: '4px',
+            marginLeft: '1px',
+            paddingTop: '13px',
+            paddingBottom: '11px',
+            paddingRight: '25px',
+            paddingLeft: '16px',
+            height: 'auto',
           }}
-          className="group inline-flex items-center gap-2 bg-red-600 hover:bg-red-700 text-white font-bold text-xs px-4 py-2.5 rounded-full shadow-lg shadow-red-600/30 transition transform hover:scale-105"
+          className="group inline-flex items-center gap-2 bg-red-600 hover:bg-red-700 text-white font-bold text-xs rounded-full shadow-lg shadow-red-600/30 transition-colors"
           title="Emergency Roadside Puncture Rescue"
         >
-          <AlertTriangle className="w-4 h-4 animate-bounce" />
+          <AlertTriangle className="w-4 h-4" />
           <span>Roadside SOS</span>
         </button>
 
@@ -1059,7 +1063,15 @@ export default function App() {
           href={`https://wa.me/${SHOP_LOCATION_INFO.whatsapp.replace(/[^0-9]/g, '')}?text=${encodeURIComponent(whatsappCustomMessage)}`}
           target="_blank"
           rel="noopener noreferrer"
-          className="inline-flex items-center gap-2 bg-emerald-600 hover:bg-emerald-500 text-white font-bold text-xs px-4 py-2.5 rounded-full shadow-lg shadow-emerald-600/30 transition transform hover:scale-105"
+          style={{
+            margin: '0px',
+            paddingTop: '10px',
+            paddingBottom: '10px',
+            paddingLeft: '16px',
+            paddingRight: '16px',
+            height: 'auto',
+          }}
+          className="inline-flex items-center gap-2 bg-emerald-600 hover:bg-emerald-500 text-white font-bold text-xs rounded-full shadow-lg shadow-emerald-600/30 transition-colors"
         >
           <MessageSquare className="w-4 h-4" />
           <span>WhatsApp Shop</span>
