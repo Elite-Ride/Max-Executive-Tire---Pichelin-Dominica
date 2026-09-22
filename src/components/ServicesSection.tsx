@@ -184,7 +184,7 @@ export const ServicesSection: React.FC<ServicesSectionProps> = ({
       {/* TAB CONTENT 1: WORKSHOP SERVICES GRID */}
       {activeServicesTab === 'services' && (
         <div className="space-y-12">
-          <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-6">
+          <div className="grid grid-cols-1 md:grid-cols-2 gap-6 items-stretch">
         {TYRE_SERVICES.map((service, index) => {
           const isRoadside = service.id === 'srv-roadside';
           const isShredder = service.id === 'srv-shredder';
@@ -192,9 +192,9 @@ export const ServicesSection: React.FC<ServicesSectionProps> = ({
             <div
               key={service.id}
               id={`service-card-${service.id}`}
-              className={`bg-white rounded-2xl p-6 sm:p-8 border shadow-sm hover:shadow-md transition flex flex-col justify-between relative overflow-hidden group ${
+              className={`bg-white rounded-2xl p-6 sm:p-8 border shadow-sm hover:shadow-md transition flex flex-col justify-between relative overflow-hidden group h-full ${
                 isRoadside 
-                  ? 'border-red-200 bg-gradient-to-br from-white to-red-50/30 lg:col-span-2' 
+                  ? 'border-red-200 bg-gradient-to-br from-white to-red-50/30' 
                   : isShredder
                     ? 'border-emerald-200 bg-gradient-to-br from-white to-emerald-50/20'
                     : 'border-slate-200'
@@ -256,13 +256,22 @@ export const ServicesSection: React.FC<ServicesSectionProps> = ({
                 </div>
               </div>
 
-              <div className="pt-6 mt-6 border-t border-slate-100 flex items-center justify-between">
+              <div className="pt-6 mt-6 border-t border-slate-100 flex flex-col sm:flex-row sm:items-center justify-between gap-4">
                 <div>
-                  <span className="text-[10px] text-slate-400 uppercase tracking-wider block font-medium">Workshop Fee</span>
-                  <span className="text-xl font-bold text-slate-900">
-                    EC$ {servicePrices[service.id] ?? service.priceXCD}
+                  <span className="text-[10px] text-slate-500 uppercase tracking-wider block font-semibold">
+                    {isRoadside ? 'Dispatch Fee' : 'Workshop Fee'}
                   </span>
-                  <span className="text-[10px] text-slate-500 block">
+                  <div className="flex items-baseline gap-2 flex-wrap mt-0.5">
+                    <span className="text-xl font-bold text-slate-900">
+                      EC$ {servicePrices[service.id] ?? service.priceXCD}
+                    </span>
+                    {isRoadside && (
+                      <span className="text-xs font-semibold text-amber-700 bg-amber-50 border border-amber-200/80 px-2 py-0.5 rounded-md">
+                        + plus applicable charges
+                      </span>
+                    )}
+                  </div>
+                  <span className="text-[10px] text-slate-500 block mt-0.5">
                     ({service.durationMinutes} mins approx)
                   </span>
                 </div>
@@ -271,7 +280,7 @@ export const ServicesSection: React.FC<ServicesSectionProps> = ({
                   <button
                     type="button"
                     onClick={onOpenSOS}
-                    className="inline-flex items-center gap-2 bg-red-600 hover:bg-red-700 text-white font-bold text-xs px-5 py-3 rounded-xl shadow-xs transition transform active:scale-95 animate-pulse"
+                    className="inline-flex items-center justify-center gap-2 bg-red-600 hover:bg-red-700 text-white font-bold text-xs px-4 py-2.5 rounded-xl shadow-xs transition transform active:scale-95 animate-pulse whitespace-nowrap"
                   >
                     <Truck className="w-4 h-4" />
                     <span>Dispatch SOS Mobile Unit</span>
@@ -283,7 +292,7 @@ export const ServicesSection: React.FC<ServicesSectionProps> = ({
                       setActiveServicesTab('disposal');
                       window.scrollTo({ top: 350, behavior: 'smooth' });
                     }}
-                    className="inline-flex items-center gap-1.5 bg-emerald-700 hover:bg-emerald-800 text-white text-xs font-bold px-3.5 py-2 rounded-xl transition shadow-xs"
+                    className="inline-flex items-center justify-center gap-1.5 bg-emerald-700 hover:bg-emerald-800 text-white text-xs font-bold px-4 py-2.5 rounded-xl transition shadow-xs whitespace-nowrap"
                   >
                     <Leaf className="w-3.5 h-3.5" />
                     <span>Eco Guide & Calculator</span>

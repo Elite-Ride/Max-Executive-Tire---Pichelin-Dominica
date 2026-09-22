@@ -208,6 +208,11 @@ export const PrintServiceMenuModal: React.FC<PrintServiceMenuModalProps> = ({
                       </td>
                       <td className="p-2.5 text-right align-top whitespace-nowrap">
                         <div className="font-bold text-slate-900 text-sm">EC$ {price}</div>
+                        {srv.id === 'srv-roadside' ? (
+                          <div className="text-[10px] text-amber-700 font-semibold">Dispatch fee + plus applicable charges</div>
+                        ) : (
+                          <div className="text-[10px] text-slate-500">Workshop fee</div>
+                        )}
                       </td>
                     </tr>
                   );
