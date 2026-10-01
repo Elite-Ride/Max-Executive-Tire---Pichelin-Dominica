@@ -190,13 +190,23 @@ export const AdminOrdersModal: React.FC<AdminOrdersModalProps> = ({
   // Workshop POS Hardware Peripherals State (Printer, Scanner, Cash Drawer, Card Terminal)
   const [isHardwareModalOpen, setIsHardwareModalOpen] = useState(false);
   const [hardwareState, setHardwareState] = useState<HardwareStatusState>({
+    activePrinterType: 'hp_laserjet',
+    hpLaserJetConnected: true,
+    hpLaserJetModel: 'HP LaserJet Pro 4001n/dn (Mono Laser 1200 DPI, 42 ppm)',
+    hpLaserJetIp: '192.168.1.180',
+    hpLaserJetDuplex: true,
+
+    thermalPrinterConnected: true,
+    thermalPrinterModel: 'POS 80mm High-Speed ESC/POS Thermal Receipt Printer',
+    thermalPrinterPort: 'USB',
+
     printerConnected: true,
-    printerModel: 'Epson TM-T88VI 80mm ESC/POS Thermal & 8.5x11 Sheet',
-    printerPort: 'USB',
+    printerModel: 'HP LaserJet Pro 4001n/dn & Thermal 80mm POS',
+    printerPort: 'Network IP',
     autoPrintReceipt: true,
 
     scannerConnected: true,
-    scannerModel: 'Honeywell Xenon 1900G / Zebra DS2208 2D Imager',
+    scannerModel: 'NetumScan NS-L5 / SD-2000 Handheld Barcode Scanner (USB Wedge & 2.4G)',
     scannerMode: 'USB Wedge',
     soundEnabled: true,
 
@@ -2353,6 +2363,7 @@ Thank you for choosing Max Executive Tires!`;
               }}
               onOpenScanner={() => setIsBarcodeScannerOpen(true)}
               onOpenBarcodeCenter={() => setIsBarcodeCenterOpen(true)}
+              onOpenHardwareModal={() => setIsHardwareModalOpen(true)}
             />
           </div>
         ) : activeModalTab === 'stock-health' ? (

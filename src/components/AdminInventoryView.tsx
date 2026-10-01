@@ -36,11 +36,17 @@ import {
   Upload,
   Mail,
   Send,
-  BarChart2
+  BarChart2,
+  Copy,
+  Zap,
+  Scissors,
+  Layers,
+  FileText
 } from 'lucide-react';
 import { Tyre, TyreCondition, TyreCategory } from '../types';
-import { getTyreBarcodeValue } from '../utils/barcodeGenerator';
+import { getTyreBarcodeValue, generateTyreUpcA, formatUpcA } from '../utils/barcodeGenerator';
 import { TyreBarcodeLabel } from './TyreBarcodeLabel';
+import { UpcABarcode } from './UpcABarcode';
 import { InventoryBarcodeCenterModal } from './InventoryBarcodeCenterModal';
 import { BarcodeScannerModal } from './BarcodeScannerModal';
 import { PrinterGuide } from './PrinterGuide';
@@ -49,6 +55,7 @@ import { AdminInventoryImportModal } from './AdminInventoryImportModal';
 import { D3StockHealthChart } from './D3StockHealthChart';
 import { AdminStockPrediction } from './AdminStockPrediction';
 import { AdminOrder } from './AdminOrdersModal';
+import { playBarcodeBeep, playPrinterFeedSound } from '../utils/hardwareAudio';
 
 export interface PriceUpdateRecord {
   id: string;
@@ -115,6 +122,7 @@ interface AdminInventoryViewProps {
   onAddToPos?: (tyre: Tyre) => void;
   onOpenScanner?: () => void;
   onOpenBarcodeCenter?: () => void;
+  onOpenHardwareModal?: () => void;
 }
 
 export const AdminInventoryView: React.FC<AdminInventoryViewProps> = ({
@@ -126,6 +134,7 @@ export const AdminInventoryView: React.FC<AdminInventoryViewProps> = ({
   onAddToPos,
   onOpenScanner,
   onOpenBarcodeCenter,
+  onOpenHardwareModal,
 }) => {
   const [searchQuery, setSearchQuery] = useState('');
   const [selectedCondition, setSelectedCondition] = useState<'ALL' | 'new' | 'used'>('ALL');
@@ -136,6 +145,9 @@ export const AdminInventoryView: React.FC<AdminInventoryViewProps> = ({
   const [showStockPredictions, setShowStockPredictions] = useState(false);
   const [priceHistorySearch, setPriceHistorySearch] = useState('');
   const [isBarcodeCenterOpen, setIsBarcodeCenterOpen] = useState(false);
+  const [singleSymbology, setSingleSymbology] = useState<'upc_a' | 'code128'>('upc_a');
+  const [copiedBarcode, setCopiedBarcode] = useState(false);
+  const [scannedFeedback, setScannedFeedback] = useState<string | null>(null);
   const [isScannerOpen, setIsScannerOpen] = useState(false);
   const [singleTyreToPrint, setSingleTyreToPrint] = useState<Tyre | null>(null);
   const [singlePreviewMode, setSinglePreviewMode] = useState<'grid' | 'content_only'>('grid');
@@ -794,11 +806,23 @@ export const AdminInventoryView: React.FC<AdminInventoryViewProps> = ({
             }}
             id="admin-inventory-barcodes-btn"
             className="inline-flex items-center gap-1.5 bg-blue-600 hover:bg-blue-500 text-white font-black text-xs px-3.5 py-2 rounded-xl shadow-xs transition active:scale-95 cursor-pointer"
-            title="Generate & print barcodes for all inventory (Tyre Size, Barcode, Retail Price)"
+            title="Generate & print standard UPC-A barcodes for all tyre inventory (HP LaserJet 10-Up sheets or Thermal)"
           >
             <Barcode className="w-4 h-4 text-blue-200" />
-            <span>Barcode Labels</span>
+            <span>UPC-A Barcode Center</span>
           </button>
+
+          {onOpenHardwareModal && (
+            <button
+              onClick={onOpenHardwareModal}
+              id="admin-inventory-hardware-hub-btn"
+              className="inline-flex items-center gap-1.5 bg-slate-800 hover:bg-slate-700 text-amber-300 border border-amber-500/40 font-bold text-xs px-3.5 py-2 rounded-xl shadow-xs transition active:scale-95 cursor-pointer"
+              title="Configure HP LaserJet Pro 4001, Thermal Receipt Printer, and NetumScan Barcode Scanner"
+            >
+              <Zap className="w-4 h-4 text-amber-400" />
+              <span>POS Hardware Hub</span>
+            </button>
+          )}
 
           <button
             onClick={() => setIsAddModalOpen(true)}
@@ -1472,9 +1496,9 @@ export const AdminInventoryView: React.FC<AdminInventoryViewProps> = ({
                       className={`inline-flex items-center gap-1 font-bold text-left transition cursor-pointer select-none group/th ${
                         sortField === 'barcode' ? 'text-[#0984E3]' : 'text-slate-700 hover:text-[#0984E3]'
                       }`}
-                      title="Sort by Barcode"
+                      title="Sort by UPC-A Barcode"
                     >
-                      <span>Barcode of Size</span>
+                      <span>UPC-A Barcode (12-Digit)</span>
                       {renderSortIcon('barcode')}
                     </button>
                   </th>
@@ -1636,17 +1660,33 @@ export const AdminInventoryView: React.FC<AdminInventoryViewProps> = ({
                         </span>
                       </td>
 
-                      {/* Barcode of Tyre Size */}
+                      {/* Standard UPC-A Barcode of Tyre */}
                       <td className="py-3 px-3">
-                        <button
-                          type="button"
-                          onClick={() => setSingleTyreToPrint(tyre)}
-                          className="group/bc inline-flex items-center gap-1.5 bg-slate-100 hover:bg-blue-50 text-slate-800 hover:text-blue-700 px-2.5 py-1 rounded-lg border border-slate-200 hover:border-blue-300 font-mono text-[10.5px] font-bold transition cursor-pointer"
-                          title="Print Barcode Tag (Tyre Size, Barcode, Retail Price)"
-                        >
-                          <Barcode className="w-3.5 h-3.5 text-slate-500 group-hover/bc:text-blue-600" />
-                          <span>{getTyreBarcodeValue(tyre)}</span>
-                        </button>
+                        {(() => {
+                          const upc = generateTyreUpcA(tyre);
+                          const formatted = formatUpcA(upc);
+                          return (
+                            <button
+                              type="button"
+                              onClick={() => {
+                                setSingleSymbology('upc_a');
+                                setSingleTyreToPrint(tyre);
+                              }}
+                              className="group/bc inline-flex flex-col items-start gap-1 bg-slate-50 hover:bg-blue-50 text-slate-800 hover:text-blue-700 px-2.5 py-1.5 rounded-xl border border-slate-200 hover:border-blue-300 transition cursor-pointer text-left shadow-2xs"
+                              title={`Print UPC-A Barcode: ${formatted} (HP LaserJet & Thermal ready)`}
+                            >
+                              <div className="flex items-center gap-1.5 text-blue-600">
+                                <Barcode className="w-3.5 h-3.5 text-slate-500 group-hover/bc:text-blue-600 shrink-0" />
+                                <span className="font-mono text-[11px] font-black tracking-wider text-slate-800 group-hover/bc:text-blue-700">
+                                  {formatted}
+                                </span>
+                              </div>
+                              <div className="w-28 h-3.5 overflow-hidden opacity-85 group-hover/bc:opacity-100">
+                                <UpcABarcode value={upc} height={14} showText={false} />
+                              </div>
+                            </button>
+                          );
+                        })()}
                       </td>
 
                       {/* Condition */}
@@ -2086,14 +2126,23 @@ export const AdminInventoryView: React.FC<AdminInventoryViewProps> = ({
 
       {/* Single Tyre Barcode Tag Print Preview Modal */}
       {singleTyreToPrint && (
-        <div id="single-barcode-print-modal" className="fixed inset-0 z-70 bg-black/80 backdrop-blur-xs flex items-center justify-center p-4 animate-fade-in">
-          <div className="bg-slate-900 border border-slate-700 rounded-2xl max-w-lg w-full p-5 text-white space-y-4 shadow-2xl">
+        <div id="single-barcode-print-modal" className="fixed inset-0 z-70 bg-black/80 backdrop-blur-xs flex items-center justify-center p-4 animate-fade-in overflow-y-auto">
+          <div className="bg-slate-900 border border-slate-700 rounded-3xl max-w-xl w-full p-6 text-white space-y-4 shadow-2xl my-6">
             <div className="flex items-center justify-between border-b border-slate-800 pb-3">
-              <div className="flex items-center gap-2">
-                <Barcode className="w-5 h-5 text-blue-400" />
+              <div className="flex items-center gap-2.5">
+                <div className="w-10 h-10 rounded-xl bg-blue-600/30 border border-blue-500/40 text-blue-400 flex items-center justify-center font-bold">
+                  <Barcode className="w-5 h-5" />
+                </div>
                 <div>
-                  <h4 className="text-sm font-black text-white">2&quot; × 4&quot; Tyre Barcode Label</h4>
-                  <p className="text-[11px] text-slate-400">Compatible with 8½&quot; × 11&quot; label sheets (Avery 5163 / 5263 / 8163)</p>
+                  <h4 className="text-sm font-black text-white flex items-center gap-2">
+                    <span>Tyre Barcode Tag &amp; Hardware Hub</span>
+                    <span className="text-[10px] bg-blue-500/20 text-blue-300 font-mono px-2 py-0.5 rounded-full border border-blue-400/30">
+                      UPC-A Retail Standard
+                    </span>
+                  </h4>
+                  <p className="text-[11px] text-slate-400">
+                    {singleTyreToPrint.brand} {singleTyreToPrint.modelName} ({singleTyreToPrint.size})
+                  </p>
                 </div>
               </div>
               <div className="flex items-center gap-2">
@@ -2121,6 +2170,14 @@ export const AdminInventoryView: React.FC<AdminInventoryViewProps> = ({
               </div>
             </div>
 
+            {/* Notification / Scanner Toast */}
+            {scannedFeedback && (
+              <div className="bg-emerald-500/20 border border-emerald-500/40 text-emerald-300 px-3.5 py-2 rounded-xl text-xs font-bold flex items-center gap-2 animate-fade-in">
+                <CheckCircle2 className="w-4 h-4 text-emerald-400" />
+                <span>{scannedFeedback}</span>
+              </div>
+            )}
+
             {/* Printer Guide Panel when opened */}
             {isSinglePrinterGuideOpen && (
               <div className="animate-fade-in">
@@ -2128,40 +2185,71 @@ export const AdminInventoryView: React.FC<AdminInventoryViewProps> = ({
               </div>
             )}
 
-            {/* Preview Mode Switch: Grid / Sheet Layout vs Content-Only */}
-            <div className="flex items-center justify-between bg-slate-950/60 p-2 rounded-xl border border-slate-800">
-              <span className="text-xs text-slate-400 font-bold">Preview Display:</span>
-              <div className="flex items-center bg-slate-900 p-0.5 rounded-xl border border-slate-700 shadow-xs">
-                <button
-                  type="button"
-                  onClick={() => setSinglePreviewMode('grid')}
-                  className={`px-3 py-1 rounded-lg text-xs font-bold flex items-center gap-1.5 transition cursor-pointer ${
-                    singlePreviewMode === 'grid'
-                      ? 'bg-blue-600 text-white shadow-xs'
-                      : 'text-slate-400 hover:text-slate-200'
-                  }`}
-                  title="Grid view with label sheet borders and cut outlines"
-                >
-                  <Grid className="w-3.5 h-3.5" />
-                  <span>Grid Outline</span>
-                </button>
-                <button
-                  type="button"
-                  onClick={() => setSinglePreviewMode('content_only')}
-                  className={`px-3 py-1 rounded-lg text-xs font-bold flex items-center gap-1.5 transition cursor-pointer ${
-                    singlePreviewMode === 'content_only'
-                      ? 'bg-amber-400 text-slate-950 font-black shadow-xs'
-                      : 'text-slate-400 hover:text-slate-200'
-                  }`}
-                  title="Content-only preview: inspect barcode and text without sheet outline borders"
-                >
-                  <Eye className="w-3.5 h-3.5" />
-                  <span>Content-Only</span>
-                </button>
+            {/* Controls: Symbology & Preview Mode */}
+            <div className="grid grid-cols-1 sm:grid-cols-2 gap-2 bg-slate-950/70 p-2.5 rounded-2xl border border-slate-800">
+              {/* Symbology Selection */}
+              <div>
+                <span className="text-[10px] text-slate-400 font-bold uppercase tracking-wider block mb-1">Barcode Symbology:</span>
+                <div className="flex items-center bg-slate-900 p-0.5 rounded-xl border border-slate-700">
+                  <button
+                    type="button"
+                    onClick={() => setSingleSymbology('upc_a')}
+                    className={`flex-1 py-1 px-2 rounded-lg text-xs font-bold transition flex items-center justify-center gap-1 ${
+                      singleSymbology === 'upc_a'
+                        ? 'bg-blue-600 text-white shadow-xs'
+                        : 'text-slate-400 hover:text-white'
+                    }`}
+                  >
+                    <span>UPC-A (12-Digit)</span>
+                  </button>
+                  <button
+                    type="button"
+                    onClick={() => setSingleSymbology('code128')}
+                    className={`flex-1 py-1 px-2 rounded-lg text-xs font-bold transition flex items-center justify-center gap-1 ${
+                      singleSymbology === 'code128'
+                        ? 'bg-blue-600 text-white shadow-xs'
+                        : 'text-slate-400 hover:text-white'
+                    }`}
+                  >
+                    <span>Code 128</span>
+                  </button>
+                </div>
+              </div>
+
+              {/* Preview Display Mode */}
+              <div>
+                <span className="text-[10px] text-slate-400 font-bold uppercase tracking-wider block mb-1">Preview Display:</span>
+                <div className="flex items-center bg-slate-900 p-0.5 rounded-xl border border-slate-700">
+                  <button
+                    type="button"
+                    onClick={() => setSinglePreviewMode('grid')}
+                    className={`flex-1 py-1 px-2 rounded-lg text-xs font-bold flex items-center justify-center gap-1 transition ${
+                      singlePreviewMode === 'grid'
+                        ? 'bg-blue-600 text-white shadow-xs'
+                        : 'text-slate-400 hover:text-white'
+                    }`}
+                  >
+                    <Grid className="w-3 h-3" />
+                    <span>Avery 2&quot;×4&quot;</span>
+                  </button>
+                  <button
+                    type="button"
+                    onClick={() => setSinglePreviewMode('content_only')}
+                    className={`flex-1 py-1 px-2 rounded-lg text-xs font-bold flex items-center justify-center gap-1 transition ${
+                      singlePreviewMode === 'content_only'
+                        ? 'bg-amber-400 text-slate-950 font-black shadow-xs'
+                        : 'text-slate-400 hover:text-white'
+                    }`}
+                  >
+                    <Eye className="w-3 h-3" />
+                    <span>Label Only</span>
+                  </button>
+                </div>
               </div>
             </div>
 
-            <div className={`flex justify-center py-3 rounded-xl p-4 overflow-hidden transition-all ${
+            {/* Label Rendering Area */}
+            <div className={`flex justify-center py-3 rounded-2xl p-4 overflow-hidden transition-all ${
               singlePreviewMode === 'content_only'
                 ? 'bg-white shadow-inner border-2 border-dashed border-amber-400/40'
                 : 'bg-slate-950/80 border border-slate-800'
@@ -2171,24 +2259,141 @@ export const AdminInventoryView: React.FC<AdminInventoryViewProps> = ({
                 variant="avery_2x4"
                 showBorder={singlePreviewMode === 'grid'}
                 showQr={true}
+                symbology={singleSymbology}
               />
             </div>
 
-            <div className="bg-slate-800/60 p-3 rounded-xl border border-slate-700/60 text-xs text-slate-300 space-y-1">
-              <div className="flex items-center justify-between">
-                <span className="text-slate-400">Label Dimensions:</span>
-                <span className="font-mono font-bold text-white">4.0&quot; wide × 2.0&quot; high (10-Up on 8.5&quot;×11&quot;)</span>
-              </div>
-              <div className="flex items-center justify-between">
-                <span className="text-slate-400">Tyre Size & Barcode:</span>
-                <span className="font-mono font-bold text-blue-400">{singleTyreToPrint.size} • {getTyreBarcodeValue(singleTyreToPrint)}</span>
-              </div>
-              <div className="flex items-center justify-between">
-                <span className="text-slate-400">Price Display:</span>
-                <span className="text-emerald-400 font-bold">EC$ {singleTyreToPrint.priceXCD} (≈ US$ {(singleTyreToPrint.priceXCD / 2.7).toFixed(0)})</span>
+            {/* Barcode & Tyre Metadata Summary */}
+            {(() => {
+              const upc = generateTyreUpcA(singleTyreToPrint);
+              const formattedUpc = formatUpcA(upc);
+              const activeBarcodeVal = singleSymbology === 'upc_a' ? formattedUpc : getTyreBarcodeValue(singleTyreToPrint);
+
+              return (
+                <div className="bg-slate-800/60 p-3.5 rounded-2xl border border-slate-700/60 text-xs text-slate-300 space-y-2">
+                  <div className="flex items-center justify-between flex-wrap gap-2">
+                    <div className="flex items-center gap-2">
+                      <span className="text-slate-400 font-bold">Standard Barcode:</span>
+                      <span className="font-mono font-black text-amber-300 tracking-wider text-sm">
+                        {activeBarcodeVal}
+                      </span>
+                    </div>
+
+                    <button
+                      type="button"
+                      onClick={() => {
+                        navigator.clipboard.writeText(singleSymbology === 'upc_a' ? upc : getTyreBarcodeValue(singleTyreToPrint));
+                        setCopiedBarcode(true);
+                        setTimeout(() => setCopiedBarcode(false), 2000);
+                      }}
+                      className="inline-flex items-center gap-1 bg-slate-700 hover:bg-slate-600 text-slate-200 px-2.5 py-1 rounded-lg text-[11px] font-bold transition cursor-pointer"
+                    >
+                      {copiedBarcode ? <Check className="w-3 h-3 text-emerald-400" /> : <Copy className="w-3 h-3" />}
+                      <span>{copiedBarcode ? 'Copied!' : 'Copy Code'}</span>
+                    </button>
+                  </div>
+
+                  <div className="grid grid-cols-2 sm:grid-cols-4 gap-2 pt-2 border-t border-slate-700/60 text-[11px]">
+                    <div>
+                      <span className="text-slate-500 block">Retail Price</span>
+                      <span className="text-emerald-400 font-bold">EC$ {singleTyreToPrint.priceXCD.toFixed(2)}</span>
+                    </div>
+                    <div>
+                      <span className="text-slate-500 block">USD Est.</span>
+                      <span className="text-slate-300 font-semibold">≈ US$ {(singleTyreToPrint.priceXCD / 2.70).toFixed(0)}</span>
+                    </div>
+                    <div>
+                      <span className="text-slate-500 block">Stock Count</span>
+                      <span className="text-white font-bold">{singleTyreToPrint.stockCount} units</span>
+                    </div>
+                    <div>
+                      <span className="text-slate-500 block">Condition</span>
+                      <span className={singleTyreToPrint.condition === 'new' ? 'text-emerald-300 font-bold' : 'text-amber-300 font-bold'}>
+                        {singleTyreToPrint.condition === 'new' ? 'Brand New' : 'Inspected Used'}
+                      </span>
+                    </div>
+                  </div>
+                </div>
+              );
+            })()}
+
+            {/* Hardware Direct Actions: LaserJet Pro 4001, Thermal Receipt, and NetumScan */}
+            <div className="bg-slate-950/80 p-3 rounded-2xl border border-slate-800 space-y-2">
+              <span className="text-[10px] text-slate-400 font-bold uppercase tracking-wider block">
+                Hardware Device Execution:
+              </span>
+              <div className="grid grid-cols-1 sm:grid-cols-3 gap-2">
+                {/* Print via HP LaserJet Pro 4001n/dn */}
+                <button
+                  type="button"
+                  onClick={() => {
+                    playPrinterFeedSound();
+                    window.print();
+                  }}
+                  id="print-hp-laserjet-modal-btn"
+                  className="bg-slate-800 hover:bg-slate-700 border border-slate-700 hover:border-blue-400 text-white p-2.5 rounded-xl text-left transition flex flex-col justify-between cursor-pointer active:scale-95 group"
+                  title="Print sharp 1200 DPI barcode label using HP LaserJet Pro 4001n/dn"
+                >
+                  <div className="flex items-center justify-between mb-1">
+                    <Printer className="w-4 h-4 text-blue-400 group-hover:scale-110 transition-transform" />
+                    <span className="text-[9px] bg-blue-500/20 text-blue-300 px-1.5 py-0.5 rounded font-mono font-bold">1200 DPI</span>
+                  </div>
+                  <div>
+                    <span className="text-xs font-black block text-slate-200 group-hover:text-white">HP LaserJet Pro</span>
+                    <span className="text-[10px] text-slate-400">4001n/dn Laser Sheet</span>
+                  </div>
+                </button>
+
+                {/* Print via Thermal Receipt Printer */}
+                <button
+                  type="button"
+                  onClick={() => {
+                    playPrinterFeedSound();
+                    window.print();
+                  }}
+                  id="print-thermal-receipt-modal-btn"
+                  className="bg-slate-800 hover:bg-slate-700 border border-slate-700 hover:border-emerald-400 text-white p-2.5 rounded-xl text-left transition flex flex-col justify-between cursor-pointer active:scale-95 group"
+                  title="Print continuous 80mm adhesive roll or receipt tag"
+                >
+                  <div className="flex items-center justify-between mb-1">
+                    <FileText className="w-4 h-4 text-emerald-400 group-hover:scale-110 transition-transform" />
+                    <span className="text-[9px] bg-emerald-500/20 text-emerald-300 px-1.5 py-0.5 rounded font-mono font-bold">80mm ESC</span>
+                  </div>
+                  <div>
+                    <span className="text-xs font-black block text-slate-200 group-hover:text-white">Thermal Receipt</span>
+                    <span className="text-[10px] text-slate-400">High-Speed Continuous</span>
+                  </div>
+                </button>
+
+                {/* Test NetumScan Barcode Scanner Gun */}
+                <button
+                  type="button"
+                  onClick={() => {
+                    playBarcodeBeep();
+                    const upc = generateTyreUpcA(singleTyreToPrint);
+                    setScannedFeedback(`NetumScan Beep: Captured UPC-A ${formatUpcA(upc)}`);
+                    if (onAddToPos) {
+                      onAddToPos(singleTyreToPrint);
+                    }
+                    setTimeout(() => setScannedFeedback(null), 3000);
+                  }}
+                  id="test-netumscan-gun-modal-btn"
+                  className="bg-slate-800 hover:bg-slate-700 border border-slate-700 hover:border-amber-400 text-white p-2.5 rounded-xl text-left transition flex flex-col justify-between cursor-pointer active:scale-95 group"
+                  title="Simulate hardware trigger on NetumScan barcode scanner gun"
+                >
+                  <div className="flex items-center justify-between mb-1">
+                    <ScanLine className="w-4 h-4 text-amber-400 group-hover:scale-110 transition-transform" />
+                    <span className="text-[9px] bg-amber-500/20 text-amber-300 px-1.5 py-0.5 rounded font-mono font-bold">Gun Beep</span>
+                  </div>
+                  <div>
+                    <span className="text-xs font-black block text-slate-200 group-hover:text-white">NetumScan Gun</span>
+                    <span className="text-[10px] text-slate-400">Scan &amp; Add to POS</span>
+                  </div>
+                </button>
               </div>
             </div>
 
+            {/* Modal Bottom Navigation */}
             <div className="flex items-center justify-between gap-2 pt-2 border-t border-slate-800">
               <button
                 type="button"
@@ -2213,12 +2418,13 @@ export const AdminInventoryView: React.FC<AdminInventoryViewProps> = ({
                 <button
                   type="button"
                   onClick={() => {
+                    playPrinterFeedSound();
                     window.print();
                   }}
                   className="px-4 py-2 rounded-xl bg-blue-600 hover:bg-blue-500 text-white text-xs font-black transition flex items-center gap-1.5 shadow-md cursor-pointer active:scale-95"
                 >
                   <Printer className="w-4 h-4" />
-                  <span>Print 2&quot;×4&quot; Label</span>
+                  <span>Print Barcode Tag</span>
                 </button>
               </div>
             </div>

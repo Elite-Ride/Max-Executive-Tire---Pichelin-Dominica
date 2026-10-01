@@ -1,7 +1,8 @@
 import React, { useMemo, useState, useEffect } from 'react';
 import { Tyre } from '../types';
-import { encodeToCode128, getTyreBarcodeValue } from '../utils/barcodeGenerator';
+import { encodeToCode128, getTyreBarcodeValue, generateTyreUpcA, formatUpcA } from '../utils/barcodeGenerator';
 import { generateTyreQrDataUrl } from '../utils/qrGenerator';
+import { UpcABarcode } from './UpcABarcode';
 
 export interface LabelFieldConfig {
   showBrand: boolean;
@@ -20,6 +21,7 @@ export const DEFAULT_LABEL_FIELDS: LabelFieldConfig = {
 interface TyreBarcodeLabelProps {
   tyre: Tyre;
   variant?: 'shelf_tag' | 'compact_sticker' | 'avery_2x4' | 'large_2x4' | 'full_card' | 'thermal_receipt';
+  symbology?: 'upc_a' | 'code128';
   showQr?: boolean;
   showBorder?: boolean;
   className?: string;
@@ -30,6 +32,7 @@ interface TyreBarcodeLabelProps {
 export const TyreBarcodeLabel: React.FC<TyreBarcodeLabelProps> = ({
   tyre,
   variant = 'avery_2x4',
+  symbology = 'upc_a',
   showQr = true,
   showBorder = true,
   className = '',
@@ -37,6 +40,7 @@ export const TyreBarcodeLabel: React.FC<TyreBarcodeLabelProps> = ({
   onPrintSingle,
 }) => {
   const barcodeValue = useMemo(() => getTyreBarcodeValue(tyre), [tyre]);
+  const upcAValue = useMemo(() => generateTyreUpcA(tyre), [tyre]);
   const binaryBars = useMemo(() => encodeToCode128(barcodeValue), [barcodeValue]);
   const [qrCodeUrl, setQrCodeUrl] = useState<string>('');
 
@@ -138,32 +142,46 @@ export const TyreBarcodeLabel: React.FC<TyreBarcodeLabelProps> = ({
 
         {/* Barcode & QR */}
         <div className="flex flex-col items-center justify-center pt-1 border-t border-black">
-          <svg
-            className="w-full max-w-[180px]"
-            height={barHeight}
-            viewBox={`0 0 ${totalSvgWidth} ${barHeight}`}
-            preserveAspectRatio="none"
-            aria-label={`Barcode for ${tyre.size}`}
-          >
-            {binaryBars.split('').map((bit, idx) => {
-              if (bit === '1') {
-                return (
-                  <rect
-                    key={idx}
-                    x={idx * barWidth}
-                    y={0}
-                    width={barWidth}
-                    height={barHeight}
-                    fill="#000000"
-                  />
-                );
-              }
-              return null;
-            })}
-          </svg>
-          <span className="text-[8px] font-mono font-bold tracking-widest text-black mt-0.5">
-            {barcodeValue}
-          </span>
+          {symbology === 'upc_a' ? (
+            <div className="w-full flex justify-center py-0.5">
+              <UpcABarcode
+                value={upcAValue}
+                tyre={tyre}
+                width={170}
+                height={30}
+                showText={true}
+              />
+            </div>
+          ) : (
+            <svg
+              className="w-full max-w-[180px]"
+              height={barHeight}
+              viewBox={`0 0 ${totalSvgWidth} ${barHeight}`}
+              preserveAspectRatio="none"
+              aria-label={`Barcode for ${tyre.size}`}
+            >
+              {binaryBars.split('').map((bit, idx) => {
+                if (bit === '1') {
+                  return (
+                    <rect
+                      key={idx}
+                      x={idx * barWidth}
+                      y={0}
+                      width={barWidth}
+                      height={barHeight}
+                      fill="#000000"
+                    />
+                  );
+                }
+                return null;
+              })}
+            </svg>
+          )}
+          {symbology !== 'upc_a' && (
+            <span className="text-[8px] font-mono font-bold tracking-widest text-black mt-0.5">
+              {barcodeValue}
+            </span>
+          )}
           <div className="flex items-center justify-between w-full text-[7.5px] text-slate-600 mt-0.5 px-1">
             <span>Stock: {tyre.stockCount}</span>
             <span>SKU: {tyre.id}</span>
@@ -254,37 +272,56 @@ export const TyreBarcodeLabel: React.FC<TyreBarcodeLabelProps> = ({
         <div className="flex items-center justify-between gap-2 pt-0.5">
           <div className="flex-1 flex flex-col items-center justify-center overflow-hidden">
             <div className="w-full flex justify-center overflow-hidden">
-              <svg
-                className="w-full max-w-[210px]"
-                height={barHeight}
-                viewBox={`0 0 ${totalSvgWidth} ${barHeight}`}
-                preserveAspectRatio="none"
-                aria-label={`Barcode for ${tyre.size}`}
-              >
-                {binaryBars.split('').map((bit, idx) => {
-                  if (bit === '1') {
-                    return (
-                      <rect
-                        key={idx}
-                        x={idx * barWidth}
-                        y={0}
-                        width={barWidth}
-                        height={barHeight}
-                        fill="#000000"
-                      />
-                    );
-                  }
-                  return null;
-                })}
-              </svg>
+              {symbology === 'upc_a' ? (
+                <UpcABarcode
+                  value={upcAValue}
+                  tyre={tyre}
+                  width={210}
+                  height={24}
+                  showText={true}
+                />
+              ) : (
+                <svg
+                  className="w-full max-w-[210px]"
+                  height={barHeight}
+                  viewBox={`0 0 ${totalSvgWidth} ${barHeight}`}
+                  preserveAspectRatio="none"
+                  aria-label={`Barcode for ${tyre.size}`}
+                >
+                  {binaryBars.split('').map((bit, idx) => {
+                    if (bit === '1') {
+                      return (
+                        <rect
+                          key={idx}
+                          x={idx * barWidth}
+                          y={0}
+                          width={barWidth}
+                          height={barHeight}
+                          fill="#000000"
+                        />
+                      );
+                    }
+                    return null;
+                  })}
+                </svg>
+              )}
             </div>
 
-            <div className="w-full flex items-center justify-between text-[8px] font-mono font-bold text-slate-700 tracking-wider mt-0.5 px-0.5 leading-none">
-              <span>{barcodeValue}</span>
-              <span className="text-[7.5px] text-slate-500 font-sans font-semibold">
-                Stock: {tyre.stockCount} | {tyre.category}
-              </span>
-            </div>
+            {symbology !== 'upc_a' && (
+              <div className="w-full flex items-center justify-between text-[8px] font-mono font-bold text-slate-700 tracking-wider mt-0.5 px-0.5 leading-none">
+                <span>{barcodeValue}</span>
+                <span className="text-[7.5px] text-slate-500 font-sans font-semibold">
+                  Stock: {tyre.stockCount} | {tyre.category}
+                </span>
+              </div>
+            )}
+            {symbology === 'upc_a' && (
+              <div className="w-full flex items-center justify-between text-[7px] text-slate-500 font-sans font-semibold px-0.5 leading-none mt-0.5">
+                <span>SKU: {tyre.id}</span>
+                <span>Stock: {tyre.stockCount}</span>
+                <span>{tyre.category}</span>
+              </div>
+            )}
           </div>
 
           {showQr && qrCodeUrl && (
@@ -395,37 +432,56 @@ export const TyreBarcodeLabel: React.FC<TyreBarcodeLabelProps> = ({
         <div className="flex items-center justify-between gap-2 pt-0.5">
           <div className="flex-1 flex flex-col items-center justify-center overflow-hidden">
             <div className="w-full flex justify-center overflow-hidden">
-              <svg
-                className="w-full max-w-[220px]"
-                height={barHeight}
-                viewBox={`0 0 ${totalSvgWidth} ${barHeight}`}
-                preserveAspectRatio="none"
-                aria-label={`Barcode for ${tyre.size}`}
-              >
-                {binaryBars.split('').map((bit, idx) => {
-                  if (bit === '1') {
-                    return (
-                      <rect
-                        key={idx}
-                        x={idx * barWidth}
-                        y={0}
-                        width={barWidth}
-                        height={barHeight}
-                        fill="#000000"
-                      />
-                    );
-                  }
-                  return null;
-                })}
-              </svg>
+              {symbology === 'upc_a' ? (
+                <UpcABarcode
+                  value={upcAValue}
+                  tyre={tyre}
+                  width={220}
+                  height={26}
+                  showText={true}
+                />
+              ) : (
+                <svg
+                  className="w-full max-w-[220px]"
+                  height={barHeight}
+                  viewBox={`0 0 ${totalSvgWidth} ${barHeight}`}
+                  preserveAspectRatio="none"
+                  aria-label={`Barcode for ${tyre.size}`}
+                >
+                  {binaryBars.split('').map((bit, idx) => {
+                    if (bit === '1') {
+                      return (
+                        <rect
+                          key={idx}
+                          x={idx * barWidth}
+                          y={0}
+                          width={barWidth}
+                          height={barHeight}
+                          fill="#000000"
+                        />
+                      );
+                    }
+                    return null;
+                  })}
+                </svg>
+              )}
             </div>
 
-            <div className="w-full flex items-center justify-between text-[9px] font-mono font-bold text-slate-700 tracking-wider mt-0.5 px-1">
-              <span>{barcodeValue}</span>
-              <span className="text-[8px] text-slate-500 font-sans font-semibold">
-                Stock: {tyre.stockCount} | {tyre.category}
-              </span>
-            </div>
+            {symbology !== 'upc_a' && (
+              <div className="w-full flex items-center justify-between text-[9px] font-mono font-bold text-slate-700 tracking-wider mt-0.5 px-1">
+                <span>{barcodeValue}</span>
+                <span className="text-[8px] text-slate-500 font-sans font-semibold">
+                  Stock: {tyre.stockCount} | {tyre.category}
+                </span>
+              </div>
+            )}
+            {symbology === 'upc_a' && (
+              <div className="w-full flex items-center justify-between text-[7.5px] text-slate-500 font-sans font-semibold px-1 leading-none mt-0.5">
+                <span>SKU: {tyre.id}</span>
+                <span>Stock: {tyre.stockCount}</span>
+                <span>{tyre.category}</span>
+              </div>
+            )}
           </div>
 
           {showQr && qrCodeUrl && (
@@ -531,35 +587,53 @@ export const TyreBarcodeLabel: React.FC<TyreBarcodeLabelProps> = ({
       <div className="mt-1 flex items-center justify-between gap-2 bg-white pt-1">
         <div className="flex-1 flex flex-col items-center justify-center overflow-hidden">
           <div className="w-full flex justify-center overflow-hidden">
-            <svg
-              className="w-full max-w-[200px]"
-              height={barHeight}
-              viewBox={`0 0 ${totalSvgWidth} ${barHeight}`}
-              preserveAspectRatio="none"
-              aria-label={`Barcode for ${tyre.size}`}
-            >
-              {binaryBars.split('').map((bit, idx) => {
-                if (bit === '1') {
-                  return (
-                    <rect
-                      key={idx}
-                      x={idx * barWidth}
-                      y={0}
-                      width={barWidth}
-                      height={barHeight}
-                      fill="#000000"
-                    />
-                  );
-                }
-                return null;
-              })}
-            </svg>
+            {symbology === 'upc_a' ? (
+              <UpcABarcode
+                value={upcAValue}
+                tyre={tyre}
+                width={200}
+                height={26}
+                showText={true}
+              />
+            ) : (
+              <svg
+                className="w-full max-w-[200px]"
+                height={barHeight}
+                viewBox={`0 0 ${totalSvgWidth} ${barHeight}`}
+                preserveAspectRatio="none"
+                aria-label={`Barcode for ${tyre.size}`}
+              >
+                {binaryBars.split('').map((bit, idx) => {
+                  if (bit === '1') {
+                    return (
+                      <rect
+                        key={idx}
+                        x={idx * barWidth}
+                        y={0}
+                        width={barWidth}
+                        height={barHeight}
+                        fill="#000000"
+                      />
+                    );
+                  }
+                  return null;
+                })}
+              </svg>
+            )}
           </div>
 
-          <div className="w-full flex items-center justify-between text-[8px] font-mono font-bold text-slate-700 tracking-wider mt-0.5 px-1">
-            <span>{barcodeValue}</span>
-            <span className="text-[7px] text-slate-400 uppercase">Stock: {tyre.stockCount}</span>
-          </div>
+          {symbology !== 'upc_a' && (
+            <div className="w-full flex items-center justify-between text-[8px] font-mono font-bold text-slate-700 tracking-wider mt-0.5 px-1">
+              <span>{barcodeValue}</span>
+              <span className="text-[7px] text-slate-400 uppercase">Stock: {tyre.stockCount}</span>
+            </div>
+          )}
+          {symbology === 'upc_a' && (
+            <div className="w-full flex items-center justify-between text-[7px] text-slate-500 font-sans font-semibold px-1 leading-none mt-0.5">
+              <span>SKU: {tyre.id}</span>
+              <span>Stock: {tyre.stockCount}</span>
+            </div>
+          )}
         </div>
 
         {showQr && qrCodeUrl && (

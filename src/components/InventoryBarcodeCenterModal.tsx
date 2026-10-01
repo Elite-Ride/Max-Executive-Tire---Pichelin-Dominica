@@ -62,6 +62,8 @@ export const InventoryBarcodeCenterModal: React.FC<InventoryBarcodeCenterModalPr
   const [selectedCondition, setSelectedCondition] = useState<'ALL' | 'new' | 'used'>('ALL');
   const [selectedIds, setSelectedIds] = useState<string[]>([]);
   const [labelFormat, setLabelFormat] = useState<LabelPaperFormat>('avery_5163');
+  const [symbology, setSymbology] = useState<'upc_a' | 'code128'>('upc_a');
+  const [targetPrinter, setTargetPrinter] = useState<'hp_laserjet' | 'thermal_receipt'>('hp_laserjet');
   const [previewScale, setPreviewScale] = useState<number>(0.85); // 0.5, 0.75, 0.85 (Fit), 1.0 (1:1)
   const [quantityMode, setQuantityMode] = useState<LabelQuantityMode>('one_each');
   const [customCopies, setCustomCopies] = useState<number>(2);
@@ -280,9 +282,9 @@ export const InventoryBarcodeCenterModal: React.FC<InventoryBarcodeCenterModalPr
 
   const handleDownloadPDF = () => {
     try {
-      const doc = generateBarcodeLabelsPDF(sheets, labelFormat, showBorders);
-      doc.save(`Max_Executive_Barcode_Labels_${Date.now()}.pdf`);
-      setPrintStatusMessage('PDF generated and downloaded successfully!');
+      const doc = generateBarcodeLabelsPDF(sheets, labelFormat, showBorders, symbology);
+      doc.save(`Max_Executive_Barcode_Labels_${symbology}_${Date.now()}.pdf`);
+      setPrintStatusMessage(`PDF generated and downloaded successfully (${symbology === 'upc_a' ? 'Standard UPC-A' : 'Code 128'})!`);
       setTimeout(() => setPrintStatusMessage(null), 4000);
     } catch (err) {
       console.error('Failed to generate PDF:', err);
@@ -446,6 +448,66 @@ export const InventoryBarcodeCenterModal: React.FC<InventoryBarcodeCenterModalPr
                 >
                   <Eye className="w-3.5 h-3.5" />
                   <span>Content-Only</span>
+                </button>
+              </div>
+
+              {/* Barcode Symbology Selector (UPC-A vs Code 128) */}
+              <div className="flex items-center bg-slate-950/80 p-0.5 rounded-xl border border-slate-700 shadow-xs">
+                <span className="text-[10px] text-slate-400 font-bold px-2 uppercase">Symbology:</span>
+                <button
+                  type="button"
+                  onClick={() => setSymbology('upc_a')}
+                  id="symbology-upca-btn"
+                  className={`px-2.5 py-1 rounded-lg text-xs font-bold transition cursor-pointer ${
+                    symbology === 'upc_a'
+                      ? 'bg-blue-600 text-white shadow-xs'
+                      : 'text-slate-400 hover:text-slate-200'
+                  }`}
+                  title="Standard 12-digit UPC-A barcode used for retail tyre tagging and NetumScan POS scanning"
+                >
+                  <span>UPC-A (12-Digit)</span>
+                </button>
+                <button
+                  type="button"
+                  onClick={() => setSymbology('code128')}
+                  id="symbology-code128-btn"
+                  className={`px-2.5 py-1 rounded-lg text-xs font-bold transition cursor-pointer ${
+                    symbology === 'code128'
+                      ? 'bg-blue-600 text-white shadow-xs'
+                      : 'text-slate-400 hover:text-slate-200'
+                  }`}
+                  title="Code 128 barcode format for alphanumeric warehouse tracking"
+                >
+                  <span>Code 128</span>
+                </button>
+              </div>
+
+              {/* Target Printer Profile */}
+              <div className="flex items-center bg-slate-950/80 p-0.5 rounded-xl border border-slate-700 shadow-xs">
+                <span className="text-[10px] text-slate-400 font-bold px-2 uppercase">Printer:</span>
+                <button
+                  type="button"
+                  onClick={() => setTargetPrinter('hp_laserjet')}
+                  className={`px-2.5 py-1 rounded-lg text-xs font-bold transition cursor-pointer flex items-center gap-1 ${
+                    targetPrinter === 'hp_laserjet'
+                      ? 'bg-emerald-600 text-white shadow-xs'
+                      : 'text-slate-400 hover:text-slate-200'
+                  }`}
+                  title="HP LaserJet Pro 4001n/dn (1200 DPI crisp laser sheets)"
+                >
+                  <span>HP 4001n/dn</span>
+                </button>
+                <button
+                  type="button"
+                  onClick={() => setTargetPrinter('thermal_receipt')}
+                  className={`px-2.5 py-1 rounded-lg text-xs font-bold transition cursor-pointer flex items-center gap-1 ${
+                    targetPrinter === 'thermal_receipt'
+                      ? 'bg-emerald-600 text-white shadow-xs'
+                      : 'text-slate-400 hover:text-slate-200'
+                  }`}
+                  title="Thermal Receipt Printer (80mm continuous ESC/POS roll)"
+                >
+                  <span>Thermal 80mm</span>
                 </button>
               </div>
 
@@ -720,6 +782,7 @@ export const InventoryBarcodeCenterModal: React.FC<InventoryBarcodeCenterModalPr
                       }
                       showBorder={showBorders}
                       showQr={showQrCode}
+                      symbology={symbology}
                       onPrintSingle={() => handlePrintSingleLabel(tyre)}
                     />
                   </div>
@@ -825,6 +888,7 @@ export const InventoryBarcodeCenterModal: React.FC<InventoryBarcodeCenterModalPr
                                 variant={labelFormat === 'avery_5163' ? 'avery_2x4' : 'large_2x4'}
                                 showBorder={showBorders}
                                 showQr={showQrCode}
+                                symbology={symbology}
                                 onPrintSingle={() => handlePrintSingleLabel(tyre)}
                               />
                             </div>

@@ -32,8 +32,7 @@
     "react": "^19.0.1",
     "react-dom": "^19.0.1",
     "recharts": "^3.10.1",
-    "stripe": "^22.6.2",
-    "vite": "^6.2.3"
+    "stripe": "^22.6.2"
   },
   "devDependencies": {
     "@types/canvas-confetti": "^1.9.0",
@@ -47,5 +46,11 @@
     "tsx": "^4.21.0",
     "typescript": "~5.8.2",
     "vite": "^6.2.3"
+  },
+  "overrides": {
+    "qs": "^6.16.0"
+  },
+  "resolutions": {
+    "qs": "^6.16.0"
   }
 }

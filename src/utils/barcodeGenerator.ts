@@ -61,6 +61,183 @@ export function encodeToCode128(text: string): string {
   return binaryString;
 }
 
+// --- UPC-A BARCODE SPECIFICATIONS & ENCODING ---
+
+// UPC-A Left Hand (L-Code) Patterns (7 modules per digit)
+const UPCA_L_CODES: string[] = [
+  '0001101', // 0
+  '0011001', // 1
+  '0010011', // 2
+  '0111101', // 3
+  '0100011', // 4
+  '0110001', // 5
+  '0101111', // 6
+  '0111011', // 7
+  '0110111', // 8
+  '0001011', // 9
+];
+
+// UPC-A Right Hand (R-Code) Patterns (7 modules per digit, bitwise NOT of L-codes)
+const UPCA_R_CODES: string[] = [
+  '1110010', // 0
+  '1100110', // 1
+  '1101100', // 2
+  '1000010', // 3
+  '1011100', // 4
+  '1001110', // 5
+  '1010000', // 6
+  '1000100', // 7
+  '1001000', // 8
+  '1110100', // 9
+];
+
+/**
+ * Calculates standard UPC-A Modulo 10 Check Digit for an 11-digit string.
+ */
+export function calculateUpcACheckDigit(elevenDigits: string): number {
+  const digits = elevenDigits.replace(/\D/g, '').slice(0, 11);
+  if (digits.length !== 11) return 0;
+
+  let oddSum = 0;
+  let evenSum = 0;
+
+  for (let i = 0; i < 11; i++) {
+    const d = parseInt(digits[i], 10);
+    // 0-indexed: 0, 2, 4, 6, 8, 10 are odd positions (1st, 3rd, 5th, etc.)
+    if (i % 2 === 0) {
+      oddSum += d;
+    } else {
+      evenSum += d;
+    }
+  }
+
+  const total = oddSum * 3 + evenSum;
+  const mod = total % 10;
+  return mod === 0 ? 0 : 10 - mod;
+}
+
+/**
+ * Generates a standard, valid 12-digit UPC-A barcode for any tyre product.
+ * Format: 0 (System) + 84920 (Manufacturer) + XXXXX (5-Digit Tyre SKU) + C (Check Digit)
+ */
+export function generateTyreUpcA(tyre: {
+  id?: string;
+  size: string;
+  barcode?: string;
+  width?: number;
+  rimDiameter?: number;
+  aspectRatio?: number;
+}): string {
+  // If tyre already has a valid 12-digit barcode, verify and use it
+  if (tyre.barcode && /^\d{12}$/.test(tyre.barcode.trim())) {
+    const raw = tyre.barcode.trim();
+    const expectedCheck = calculateUpcACheckDigit(raw.slice(0, 11));
+    if (parseInt(raw[11], 10) === expectedCheck) {
+      return raw;
+    }
+  }
+
+  // System Number: 0 (Regular consumer / automotive retail merchandise)
+  const systemDigit = '0';
+  // Company / Manufacturer Prefix: 84920 (Max Executive Tires Dominica)
+  const companyPrefix = '84920';
+
+  // Build deterministic 5-digit product SKU from tyre dimensions and ID
+  let skuNum = 0;
+  if (tyre.width && tyre.rimDiameter) {
+    skuNum = (tyre.width * 100 + Math.round(tyre.rimDiameter)) % 100000;
+  } else {
+    // Extract numerical digits from size (e.g. 2055516 -> 20516)
+    const rawNums = tyre.size.replace(/\D/g, '');
+    if (rawNums.length >= 5) {
+      skuNum = parseInt(rawNums.slice(0, 5), 10);
+    }
+  }
+
+  // Mix in tyre ID to ensure uniqueness for tyres of same size (e.g., brand variations)
+  if (tyre.id) {
+    let hash = 0;
+    for (let i = 0; i < tyre.id.length; i++) {
+      hash = (hash * 31 + tyre.id.charCodeAt(i)) % 10000;
+    }
+    skuNum = (skuNum + hash) % 100000;
+  }
+
+  const skuStr = skuNum.toString().padStart(5, '0');
+  const elevenDigits = `${systemDigit}${companyPrefix}${skuStr}`;
+  const checkDigit = calculateUpcACheckDigit(elevenDigits);
+
+  return `${elevenDigits}${checkDigit}`;
+}
+
+/**
+ * Formats a 12-digit UPC-A string into standard human-readable format:
+ * "0 84920 20516 7"
+ */
+export function formatUpcA(upc: string): string {
+  const digits = upc.replace(/\D/g, '');
+  if (digits.length !== 12) return upc;
+  return `${digits[0]} ${digits.slice(1, 6)} ${digits.slice(6, 11)} ${digits[11]}`;
+}
+
+export interface UpcAModule {
+  isBar: boolean;
+  isGuard: boolean;
+}
+
+/**
+ * Encodes a 12-digit UPC-A string into 95 binary modules with guard flags.
+ * Standard UPC-A:
+ * - 3 modules Left Guard ('101')
+ * - 42 modules Left 6 digits (L-codes)
+ * - 5 modules Center Guard ('01010')
+ * - 42 modules Right 6 digits (R-codes)
+ * - 3 modules Right Guard ('101')
+ * Total = 95 modules
+ */
+export function encodeToUpcA(upc12: string): { binary: string; modules: UpcAModule[] } {
+  const digits = upc12.replace(/\D/g, '');
+  if (digits.length !== 12) {
+    // Return empty fallback
+    return { binary: '', modules: [] };
+  }
+
+  const modules: UpcAModule[] = [];
+
+  const addBits = (bitStr: string, isGuard: boolean) => {
+    for (let i = 0; i < bitStr.length; i++) {
+      modules.push({
+        isBar: bitStr[i] === '1',
+        isGuard,
+      });
+    }
+  };
+
+  // 1. Left Guard (101)
+  addBits('101', true);
+
+  // 2. First 6 digits (L-Codes)
+  for (let i = 0; i < 6; i++) {
+    const digit = parseInt(digits[i], 10);
+    addBits(UPCA_L_CODES[digit] || '0001101', false);
+  }
+
+  // 3. Center Guard (01010)
+  addBits('01010', true);
+
+  // 4. Last 6 digits (R-Codes)
+  for (let i = 6; i < 12; i++) {
+    const digit = parseInt(digits[i], 10);
+    addBits(UPCA_R_CODES[digit] || '1110010', false);
+  }
+
+  // 5. Right Guard (101)
+  addBits('101', true);
+
+  const binary = modules.map((m) => (m.isBar ? '1' : '0')).join('');
+  return { binary, modules };
+}
+
 /**
  * Standardize Tyre Size into clean Barcode identifier
  * e.g. "205/55 R16" -> "MET-2055516"

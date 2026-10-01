@@ -24,7 +24,9 @@ async function startServer() {
   const app = express();
   const PORT = 3000;
 
-  app.use(express.json());
+  // Security hardening: use simple querystring parser (avoids qs vulnerabilities)
+  app.set("query parser", "simple");
+  app.use(express.json({ limit: "1mb" }));
 
   // API Route: Health Check
   app.get("/api/health", (_req, res) => {

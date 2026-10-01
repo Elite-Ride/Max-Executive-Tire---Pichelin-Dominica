@@ -46,9 +46,7 @@ export const Navbar: React.FC<NavbarProps> = ({
   const [mobileMenuOpen, setMobileMenuOpen] = useState(false);
 
   // Top navigation items for customer browsing
-  const navItems = [
-    { id: 'location', label: 'Fitting Bays & Location', icon: MapPin },
-  ];
+  const navItems: { id: string; label: string; icon: React.ComponentType<{ className?: string }> }[] = [];
 
   const handleNavClick = (tabId: string) => {
     setActiveTab(tabId);

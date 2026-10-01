@@ -1,6 +1,6 @@
 import { jsPDF } from 'jspdf';
 import { Tyre } from '../types';
-import { encodeToCode128, getTyreBarcodeValue } from './barcodeGenerator';
+import { encodeToCode128, getTyreBarcodeValue, generateTyreUpcA, encodeToUpcA, formatUpcA } from './barcodeGenerator';
 import { LabelPaperFormat } from '../components/InventoryBarcodeCenterModal';
 
 export interface LabelSheetItem {
@@ -20,7 +20,8 @@ export interface LabelSheetItem {
 export function generateBarcodeLabelsPDF(
   sheets: LabelSheetItem[][],
   labelFormat: LabelPaperFormat = 'avery_5163',
-  showBorders: boolean = true
+  showBorders: boolean = true,
+  symbology: 'upc_a' | 'code128' = 'upc_a'
 ): jsPDF {
   const doc = new jsPDF({
     orientation: 'portrait',
@@ -154,64 +155,115 @@ export function generateBarcodeLabelsPDF(
       doc.setTextColor(100, 116, 139);
       doc.text(`≈ US$ ${priceUS}`, rightX, y + 0.62, { align: 'right' });
 
-      // 3. Code 128 Barcode Generation & Vector Rendering
-      const barcodeValue = getTyreBarcodeValue(tyre);
-      const binaryBars = encodeToCode128(barcodeValue);
+      // 3. Barcode Generation & Vector Rendering (UPC-A or Code 128)
+      if (symbology === 'upc_a') {
+        const upc12 = generateTyreUpcA(tyre);
+        const { modules } = encodeToUpcA(upc12);
 
-      if (binaryBars) {
-        const barcodeY = y + 0.68;
-        const barcodeH = 0.38;
-        const totalBits = binaryBars.length;
-        // Total barcode width centered on label
-        const barAreaW = 3.3;
-        const barUnitW = barAreaW / totalBits;
-        const barStartX = x + (labelWidth - barAreaW) / 2;
+        if (modules.length === 95) {
+          const barcodeY = y + 0.68;
+          const dataH = 0.36;
+          const guardH = 0.42; // standard extended guard bars in UPC-A
+          const barAreaW = 2.8;
+          const unitW = barAreaW / 95;
+          const barStartX = x + (labelWidth - barAreaW) / 2;
 
-        doc.setFillColor(0, 0, 0);
+          doc.setFillColor(0, 0, 0);
 
-        let curRunLength = 0;
-        let curRunStart = 0;
-
-        for (let b = 0; b < totalBits; b++) {
-          if (binaryBars[b] === '1') {
-            if (curRunLength === 0) {
-              curRunStart = b;
+          modules.forEach((mod, idx) => {
+            if (mod.isBar) {
+              const bh = mod.isGuard ? guardH : dataH;
+              doc.rect(barStartX + idx * unitW, barcodeY, unitW + 0.002, bh, 'F');
             }
-            curRunLength++;
+          });
+
+          // Standard UPC-A Human-Readable Number System below bars
+          const metaY = barcodeY + dataH + 0.12;
+          const formatted = formatUpcA(upc12);
+          const parts = formatted.split(' ');
+
+          doc.setFontSize(7.5);
+          doc.setFont('courier', 'bold');
+          doc.setTextColor(15, 23, 42);
+
+          if (parts.length === 4) {
+            // System digit on left outside
+            doc.text(parts[0], barStartX - 0.08, metaY, { align: 'right' });
+            // Left 5 digits
+            doc.text(parts[1], barStartX + 24 * unitW, metaY, { align: 'center' });
+            // Right 5 digits
+            doc.text(parts[2], barStartX + 71 * unitW, metaY, { align: 'center' });
+            // Check digit on right outside
+            doc.text(parts[3], barStartX + barAreaW + 0.08, metaY, { align: 'left' });
           } else {
-            if (curRunLength > 0) {
-              doc.rect(
-                barStartX + curRunStart * barUnitW,
-                barcodeY,
-                curRunLength * barUnitW,
-                barcodeH,
-                'F'
-              );
-              curRunLength = 0;
+            doc.text(upc12, barStartX + barAreaW / 2, metaY, { align: 'center' });
+          }
+
+          // Footer info
+          doc.setFontSize(6.5);
+          doc.setFont('helvetica', 'bold');
+          doc.setTextColor(100, 116, 139);
+          doc.text(`SKU: ${tyre.id} | Stock: ${tyre.stockCount}`, rightX, metaY, { align: 'right' });
+        }
+      } else {
+        const barcodeValue = getTyreBarcodeValue(tyre);
+        const binaryBars = encodeToCode128(barcodeValue);
+
+        if (binaryBars) {
+          const barcodeY = y + 0.68;
+          const barcodeH = 0.38;
+          const totalBits = binaryBars.length;
+          // Total barcode width centered on label
+          const barAreaW = 3.3;
+          const barUnitW = barAreaW / totalBits;
+          const barStartX = x + (labelWidth - barAreaW) / 2;
+
+          doc.setFillColor(0, 0, 0);
+
+          let curRunLength = 0;
+          let curRunStart = 0;
+
+          for (let b = 0; b < totalBits; b++) {
+            if (binaryBars[b] === '1') {
+              if (curRunLength === 0) {
+                curRunStart = b;
+              }
+              curRunLength++;
+            } else {
+              if (curRunLength > 0) {
+                doc.rect(
+                  barStartX + curRunStart * barUnitW,
+                  barcodeY,
+                  curRunLength * barUnitW,
+                  barcodeH,
+                  'F'
+                );
+                curRunLength = 0;
+              }
             }
           }
-        }
-        if (curRunLength > 0) {
-          doc.rect(
-            barStartX + curRunStart * barUnitW,
-            barcodeY,
-            curRunLength * barUnitW,
-            barcodeH,
-            'F'
-          );
-        }
+          if (curRunLength > 0) {
+            doc.rect(
+              barStartX + curRunStart * barUnitW,
+              barcodeY,
+              curRunLength * barUnitW,
+              barcodeH,
+              'F'
+            );
+          }
 
-        // 4. Barcode Text & Stock Metadata Footer below bars
-        const metaY = barcodeY + barcodeH + 0.12;
-        doc.setFontSize(7);
-        doc.setFont('courier', 'bold');
-        doc.setTextColor(30, 41, 59);
-        doc.text(barcodeValue, padX, metaY);
+          // 4. Barcode Text & Stock Metadata Footer below bars
+          const metaY = barcodeY + barcodeH + 0.12;
+          doc.setFontSize(7);
+          doc.setFont('courier', 'bold');
+          doc.setTextColor(30, 41, 59);
+          doc.text(barcodeValue, padX, metaY);
 
-        doc.setFontSize(6.5);
-        doc.setFont('helvetica', 'bold');
-        doc.setTextColor(100, 116, 139);
-        doc.text(`Stock: ${tyre.stockCount} | Cat: ${tyre.category}`, rightX, metaY, { align: 'right' });
+          doc.setFontSize(6.5);
+          doc.setFont('helvetica', 'bold');
+          doc.setTextColor(100, 116, 139);
+          doc.text(`Stock: ${tyre.stockCount} | Cat: ${tyre.category}`, rightX, metaY, { align: 'right' });
+        }
       }
     });
   });
