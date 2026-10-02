@@ -80,7 +80,6 @@ export const TireCatalog: React.FC<TireCatalogProps> = ({
   onSelectTyre,
   onAddToCart,
 }) => {
-  const [isCollapsed, setIsCollapsed] = useState(false);
   const [internalSearch, setInternalSearch] = useState('');
   const [isDropdownOpen, setIsDropdownOpen] = useState(false);
   const [highlightedIndex, setHighlightedIndex] = useState<number>(-1);
@@ -358,22 +357,11 @@ export const TireCatalog: React.FC<TireCatalogProps> = ({
     <div id="tyres-catalog-grid" className="space-y-6">
       {/* Header Section */}
       <div 
-        style={{
-          marginBottom: '3px',
-          paddingBottom: '0px',
-          paddingTop: '0px',
-          marginLeft: '-4px',
-          marginTop: '-7px',
-          height: '163px',
-          marginRight: '-5px',
-          paddingLeft: '0px',
-          paddingRight: '0px',
-        }}
-        className="flex flex-col sm:flex-row sm:items-center justify-between gap-2"
+        className="flex flex-col sm:flex-row sm:items-center justify-between gap-4"
       >
         <div>
           <div className="flex items-center gap-2.5">
-            <h2 className="text-2xl font-bold tracking-tight" style={{ color: '#0dec5a' }}>
+            <h2 className="text-2xl font-black tracking-tight text-white">
               In-Stock Tyres at Maranatha Square, Pichelin
             </h2>
             {isOnline ? (
@@ -388,23 +376,9 @@ export const TireCatalog: React.FC<TireCatalogProps> = ({
               </span>
             )}
           </div>
-          <p className="text-sm text-slate-500">
+          <p className="text-sm text-slate-400">
             Showing {displayedTyres.length} matching {displayedTyres.length === 1 ? 'tyre' : 'tyres'} ready for same-day workshop fitting or roadside delivery
           </p>
-        </div>
-
-        <div className="flex items-center gap-3">
-          <button
-            id="catalog-collapse-toggle-btn"
-            onClick={() => setIsCollapsed(!isCollapsed)}
-            className="px-3 py-1.5 bg-slate-200 hover:bg-slate-300 text-slate-800 text-xs font-bold rounded-lg transition cursor-pointer"
-          >
-            {isCollapsed ? 'Expand Items ▾' : 'Collapse Items ▴'}
-          </button>
-          <div className="flex items-center gap-2 text-xs font-semibold text-slate-600 bg-slate-100 px-3 py-1.5 rounded-lg border border-slate-200">
-            <ShieldCheck className="w-4 h-4 text-emerald-600" />
-            <span>All used tyres 100% leak tested</span>
-          </div>
         </div>
       </div>
 
@@ -702,10 +676,6 @@ export const TireCatalog: React.FC<TireCatalogProps> = ({
               <span>Clear Search Query</span>
             </button>
           )}
-        </div>
-      ) : isCollapsed ? (
-        <div className="bg-slate-50 border border-slate-200 rounded-2xl p-4 text-center text-xs text-slate-600">
-          Items collapsed ({displayedTyres.length} items hidden). Click <button onClick={() => setIsCollapsed(false)} className="text-[#0984E3] font-bold underline cursor-pointer">Expand Items</button> to view.
         </div>
       ) : (
         <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-6">

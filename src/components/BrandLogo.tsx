@@ -137,17 +137,11 @@ export const BrandLogo: React.FC<BrandLogoProps> = ({
       {/* Text column for shop location badge */}
       <div className="hidden sm:flex flex-col justify-center">
         <span className="font-extrabold text-sm text-white tracking-tight flex items-center gap-1.5">
-          <span 
-            className="text-amber-400 font-serif italic inline-block"
-            style={{ width: '118.758px', fontSize: '11px', paddingRight: '10px', marginRight: '5px', textAlign: 'center' }}
-          >
+          <span className="text-amber-400 font-serif italic text-xs">
             Pichelin, Dominica
           </span>
         </span>
-        <span 
-          className="text-slate-400 font-medium"
-          style={{ fontSize: '12px', paddingRight: '5px', textAlign: 'center' }}
-        >
+        <span className="text-slate-400 font-medium text-xs">
           Sales, Fitting & Workshop Bays
         </span>
       </div>

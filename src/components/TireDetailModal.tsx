@@ -2,7 +2,6 @@ import React, { useState } from 'react';
 import { 
   X, 
   ShieldCheck, 
-  CheckCircle2, 
   Mountain, 
   Wrench, 
   Disc, 
@@ -253,28 +252,6 @@ export const TireDetailModal: React.FC<TireDetailModalProps> = ({
               </div>
             </div>
           </div>
-
-            {/* Inspection Checklist */}
-            <div className="bg-slate-50 rounded-xl p-4 border border-slate-200">
-              <div className="grid grid-cols-1 sm:grid-cols-2 gap-2 text-xs">
-                <div className="flex items-center gap-2 text-slate-700 font-medium">
-                  <CheckCircle2 className="w-4 h-4 text-emerald-600 shrink-0" />
-                  <span>Pressure tank tested at 55 PSI</span>
-                </div>
-                <div className="flex items-center gap-2 text-slate-700 font-medium">
-                  <CheckCircle2 className="w-4 h-4 text-emerald-600 shrink-0" />
-                  <span>Zero sidewall bulges or cuts</span>
-                </div>
-                <div className="flex items-center gap-2 text-slate-700 font-medium">
-                  <CheckCircle2 className="w-4 h-4 text-emerald-600 shrink-0" />
-                  <span>Bead seating edge clean & sealed</span>
-                </div>
-                <div className="flex items-center gap-2 text-slate-700 font-medium">
-                  <CheckCircle2 className="w-4 h-4 text-emerald-600 shrink-0" />
-                  <span>{tyre.warranty}</span>
-                </div>
-              </div>
-            </div>
 
           {/* Technical Specs & Dominica Suitability */}
           <div className="grid grid-cols-2 sm:grid-cols-4 gap-3 text-xs">

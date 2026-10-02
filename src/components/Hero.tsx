@@ -39,34 +39,12 @@ export const Hero: React.FC<HeroProps> = ({
       <div className="absolute inset-0 opacity-[0.03] pointer-events-none bg-[radial-gradient(#ffffff_1px,transparent_1px)] [background-size:20px_20px]"></div>
 
       <div 
-        style={{ backgroundColor: '#472626' }}
-        className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 pt-5 pb-8 sm:pt-8 sm:pb-12 relative z-10"
+        className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 pt-8 pb-10 sm:pt-12 sm:pb-16 relative z-10"
       >
-        
-        {/* Top Badge & Live Status */}
-        <div className="flex flex-wrap items-center justify-between gap-3 pb-4 mb-6 border-b border-slate-800/80">
-          <div 
-            style={{ width: '732.047px', height: '47px', fontSize: '15px' }}
-            className="inline-flex items-center gap-2 bg-slate-900/90 border border-slate-800 px-3.5 py-1.5 rounded-full font-semibold text-slate-300 shadow-xs overflow-hidden"
-          >
-            <span className="text-amber-400 italic font-serif hidden md:inline">"Where quality meets the road!"</span>
-            <span className="text-slate-500">•</span>
-            <MapPin className="w-3.5 h-3.5 text-[#E17055]" />
-            <span>Maranatha Square, Pichelin</span>
-          </div>
-
-
-        </div>
-
         {/* Main Hero Container */}
         <div className="max-w-4xl mx-auto text-center space-y-8">
           
           <div className="space-y-4">
-            <span className="inline-flex items-center gap-2 text-[#0984E3] font-bold text-xs sm:text-sm tracking-widest uppercase bg-blue-500/10 border border-blue-500/20 px-4 py-1.5 rounded-full">
-              <ShieldCheck className="w-4 h-4 text-[#0984E3]" />
-              Dominica's Trusted Tyre & Wheel Care Specialist
-            </span>
-            
             <h1 className="text-3xl sm:text-4xl md:text-5xl lg:text-6xl font-black tracking-tight text-white leading-[1.15]">
               Conquer Every <br className="hidden sm:inline" />
               <span className="text-transparent bg-clip-text bg-gradient-to-r from-blue-400 via-sky-300 to-amber-200">

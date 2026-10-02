@@ -80,8 +80,7 @@ export const Navbar: React.FC<NavbarProps> = ({
             <a 
               href="tel:+17676160155"
               id="header-direct-phone-link"
-              className="inline-flex items-center gap-1.5 justify-center text-[#0984E3] hover:text-blue-300 hover:underline font-bold px-3 py-1 bg-slate-950/80 rounded-md border border-slate-700/80 transition shrink-0 whitespace-nowrap"
-              style={{ minHeight: '32px' }}
+              className="inline-flex items-center gap-1.5 justify-center text-[#0984E3] hover:text-blue-300 hover:underline font-bold px-3 py-1 bg-slate-950/80 rounded-md border border-slate-700/80 transition shrink-0 whitespace-nowrap min-h-[32px]"
             >
               <Phone className="w-3.5 h-3.5 text-[#0984E3]" />
               +1 767 616 0155
@@ -97,8 +96,7 @@ export const Navbar: React.FC<NavbarProps> = ({
                   window.dispatchEvent(new CustomEvent('open-admin-portal'));
                 }
               }}
-              className="inline-flex items-center gap-1.5 justify-center font-black px-3 py-1 bg-amber-400 hover:bg-amber-300 active:bg-amber-500 text-slate-950 rounded-md border border-amber-300 shadow-md transition cursor-pointer text-xs shrink-0 whitespace-nowrap active:scale-95 z-10"
-              style={{ minHeight: '32px' }}
+              className="inline-flex items-center gap-1.5 justify-center font-black px-3 py-1 bg-amber-400 hover:bg-amber-300 active:bg-amber-500 text-slate-950 rounded-md border border-amber-300 shadow-md transition cursor-pointer text-xs shrink-0 whitespace-nowrap active:scale-95 z-10 min-h-[32px]"
               title="Admin Portal (Staff Management & Orders)"
               aria-label="Open Admin Portal"
             >

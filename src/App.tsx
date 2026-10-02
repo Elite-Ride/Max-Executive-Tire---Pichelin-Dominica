@@ -953,28 +953,12 @@ export default function App() {
 
         {/* Tab-driven Content Container */}
         <div 
-          style={{ 
-            height: '494.5px', 
-            width: '920px', 
-            marginTop: '-26px', 
-            marginBottom: '-12px',
-            paddingTop: '5px',
-            paddingBottom: '0px',
-            paddingLeft: '26px'
-          }} 
-          className="mx-auto px-4 sm:px-6 lg:px-8 py-8 sm:py-12 space-y-12 overflow-y-auto"
+          className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 py-8 sm:py-12 space-y-12"
         >
           
           {/* TAB 1: Inventory & Sales */}
           {activeTab === 'inventory' && (
             <div 
-              style={{
-                fontSize: '15px',
-                marginTop: '-14px',
-                marginBottom: '0px',
-                marginLeft: '-8px',
-                marginRight: '-6px'
-              }} 
               className="space-y-8 animate-fade-in"
             >
 
@@ -1007,11 +991,6 @@ export default function App() {
           {/* TAB 2: Location & Workshop Schedule */}
           {activeTab === 'location' && (
             <div 
-              style={{
-                fontSize: '11px',
-                marginTop: '-15px',
-                marginBottom: '13px'
-              }} 
               className="animate-fade-in space-y-12"
             >
               <LocationSection 
@@ -1055,18 +1034,7 @@ export default function App() {
       <aside aria-label="Quick Assistance and Emergency Contacts" className="hidden md:flex fixed bottom-6 right-6 z-30 flex-col items-end gap-2.5">
         <button
           onClick={handleOpenSOS}
-          style={{
-            marginRight: '8px',
-            marginBottom: '-3px',
-            marginTop: '4px',
-            marginLeft: '1px',
-            paddingTop: '13px',
-            paddingBottom: '11px',
-            paddingRight: '25px',
-            paddingLeft: '16px',
-            height: 'auto',
-          }}
-          className="group inline-flex items-center gap-2 bg-red-600 hover:bg-red-700 text-white font-bold text-xs rounded-full shadow-lg shadow-red-600/30 transition-colors"
+          className="group inline-flex items-center gap-2 bg-red-600 hover:bg-red-700 text-white font-bold text-xs px-4 py-2.5 rounded-full shadow-lg shadow-red-600/30 transition-colors"
           title="Emergency Roadside Puncture Rescue"
         >
           <AlertTriangle className="w-4 h-4" />
@@ -1077,15 +1045,7 @@ export default function App() {
           href={`https://wa.me/${SHOP_LOCATION_INFO.whatsapp.replace(/[^0-9]/g, '')}?text=${encodeURIComponent(whatsappCustomMessage)}`}
           target="_blank"
           rel="noopener noreferrer"
-          style={{
-            margin: '0px',
-            paddingTop: '10px',
-            paddingBottom: '10px',
-            paddingLeft: '16px',
-            paddingRight: '16px',
-            height: 'auto',
-          }}
-          className="inline-flex items-center gap-2 bg-emerald-600 hover:bg-emerald-500 text-white font-bold text-xs rounded-full shadow-lg shadow-emerald-600/30 transition-colors"
+          className="inline-flex items-center gap-2 bg-emerald-600 hover:bg-emerald-500 text-white font-bold text-xs px-4 py-2.5 rounded-full shadow-lg shadow-emerald-600/30 transition-colors"
         >
           <MessageSquare className="w-4 h-4" />
           <span>WhatsApp Shop</span>
@@ -1177,23 +1137,10 @@ export default function App() {
 
 
       {/* Footer */}
-      <div 
-        className="w-full"
-        style={{
-          height: 'auto',
-          minHeight: 'fit-content',
-          marginTop: '0px',
-          marginBottom: '0px',
-          marginLeft: '0px',
-          marginRight: '0px',
-          padding: '0px',
-        }}
-      >
-        <Footer
-          setActiveTab={setActiveTab}
-          onOpenSOS={handleOpenSOS}
-        />
-      </div>
+      <Footer
+        setActiveTab={setActiveTab}
+        onOpenSOS={handleOpenSOS}
+      />
 
     </div>
   );

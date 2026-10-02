@@ -20,32 +20,14 @@ interface FooterProps {
 export const Footer: React.FC<FooterProps> = ({ setActiveTab, onOpenSOS }) => {
   return (
     <footer 
-      style={{ 
-        backgroundColor: '#23706e',
-        marginTop: '25px',
-        marginBottom: '0px',
-        paddingTop: '0px',
-        paddingBottom: '0px',
-        height: 'auto',
-        minHeight: 'fit-content'
-      }} 
-      className="text-slate-100 border-t border-emerald-900/40 w-full"
+      className="bg-slate-950 text-slate-100 border-t border-slate-800 w-full"
     >
       <div 
-        style={{ 
-          backgroundColor: '#23706e',
-          height: 'auto',
-          minHeight: 'fit-content',
-          paddingTop: '32px',
-          marginTop: '20px',
-          marginBottom: '0px'
-        }}
-        className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 py-8 space-y-8"
+        className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 py-12 space-y-8"
       >
         
         {/* Main Footer Grid */}
         <div 
-          style={{ backgroundColor: '#23706e' }}
           className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-8"
         >
           
@@ -72,7 +54,7 @@ export const Footer: React.FC<FooterProps> = ({ setActiveTab, onOpenSOS }) => {
           </div>
 
           {/* Col 2: Quick Links */}
-          <div className="space-y-3" style={{ paddingLeft: '26px' }}>
+          <div className="space-y-3">
             <h4 className="text-xs font-bold uppercase tracking-wider text-white">
               Shop & Services
             </h4>
@@ -163,13 +145,13 @@ export const Footer: React.FC<FooterProps> = ({ setActiveTab, onOpenSOS }) => {
 
         {/* Bottom Bar */}
         <div 
-          className="border-t border-teal-800/60 pt-6 flex flex-col sm:flex-row items-center justify-between gap-4 text-xs text-teal-100/70"
+          className="border-t border-slate-800 pt-6 flex flex-col sm:flex-row items-center justify-between gap-4 text-xs text-slate-400"
         >
           <p>
             © {new Date().getFullYear()} Max Executive Tires. Maranatha Square, Pichelin, Commonwealth of Dominica. All rights reserved.
           </p>
           <div className="flex items-center gap-2">
-            <span style={{ color: '#2d66b8' }}>Prices displayed in EC$ (XCD)</span>
+            <span>Prices displayed in EC$ (XCD)</span>
           </div>
         </div>
 

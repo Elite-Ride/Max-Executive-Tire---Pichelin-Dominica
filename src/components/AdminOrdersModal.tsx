@@ -1,6 +1,7 @@
-import React, { useState, useEffect } from 'react';
+import React, { useState, useEffect, useMemo } from 'react';
 import { 
   X, 
+  ArrowRight,
   Bell, 
   ShoppingBag, 
   Phone, 
@@ -87,6 +88,7 @@ import { AdminWorkshopPerformanceReport } from './AdminWorkshopPerformanceReport
 import { AdminQuickBooksAccountingReport } from './AdminQuickBooksAccountingReport';
 import { AdminCashDrawerLogView } from './AdminCashDrawerLogView';
 import { AdminForecastRevenueView } from './AdminForecastRevenueView';
+import { AdminPerformanceSummaryView } from './AdminPerformanceSummaryView';
 import { useVolcoraCashDrawer } from '../utils/useVolcoraCashDrawer';
 import { AdminPosHardwareModal, HardwareStatusState } from './AdminPosHardwareModal';
 import { AdminAddOrderModal } from './AdminAddOrderModal';
@@ -186,7 +188,7 @@ export const AdminOrdersModal: React.FC<AdminOrdersModalProps> = ({
   onAddNewTyre,
   volcoraDrawer,
 }) => {
-  const [activeModalTab, setActiveModalTab] = useState<'orders' | 'inventory' | 'stock-health' | 'scanner' | 'barcodes' | 'history' | 'customers' | 'pos' | 'prices' | 'activity' | 'trends' | 'sales' | 'monthly-revenue' | 'workshop-report' | 'settings' | 'services' | 'myorders' | 'accounting' | 'drawer-log' | 'forecast'>('orders');
+  const [activeModalTab, setActiveModalTab] = useState<'orders' | 'inventory' | 'stock-health' | 'scanner' | 'barcodes' | 'history' | 'customers' | 'pos' | 'prices' | 'activity' | 'trends' | 'sales' | 'monthly-revenue' | 'performance' | 'workshop-report' | 'settings' | 'services' | 'myorders' | 'accounting' | 'drawer-log' | 'forecast'>('orders');
   const [isBarcodeScannerOpen, setIsBarcodeScannerOpen] = useState(false);
   const [isBarcodeCenterOpen, setIsBarcodeCenterOpen] = useState(false);
   const [customWhatsAppInput, setCustomWhatsAppInput] = useState(whatsappCustomMessage);
@@ -269,6 +271,13 @@ export const AdminOrdersModal: React.FC<AdminOrdersModalProps> = ({
   const [posSuccessReceipt, setPosSuccessReceipt] = useState<AdminOrder | null>(null);
   const [isAdminActionsMenuOpen, setIsAdminActionsMenuOpen] = useState(false);
   const [isAddOrderModalOpen, setIsAddOrderModalOpen] = useState(false);
+
+  // Dedicated 'Notify Customer' Modal State (WhatsApp & SMS template trigger)
+  const [notifyCustomerModalOrder, setNotifyCustomerModalOrder] = useState<AdminOrder | null>(null);
+  const [notifyChannel, setNotifyChannel] = useState<'whatsapp' | 'sms'>('whatsapp');
+  const [notifyCustomMessage, setNotifyCustomMessage] = useState<string>('');
+  const [notifyCustomerPhone, setNotifyCustomerPhone] = useState<string>('');
+  const [isCopiedNotifyText, setIsCopiedNotifyText] = useState<boolean>(false);
 
   // Auto-save POS Counter & Order Form to localStorage
   useEffect(() => {
@@ -605,105 +614,6 @@ export const AdminOrdersModal: React.FC<AdminOrdersModalProps> = ({
     setIsWhatsAppGeneratorOpen(true);
   };
 
-  // 7-Day Order Volume & Total Sales Trends State & Calculation (recharts - top level hooks)
-  const [trendChartMetric, setTrendChartMetric] = useState<'combined' | 'volume' | 'sales'>('combined');
-
-  const getDayOffsetForOrder = (order: AdminOrder): number | null => {
-    const ts = (order.timestamp || '').toLowerCase();
-    const pref = (order.preferredDate || '').toLowerCase();
-    const combined = `${ts} ${pref}`;
-
-    if (combined.includes('today')) return 0;
-    if (combined.includes('yesterday')) return 1;
-    if (combined.includes('2 days ago') || combined.includes('2 days')) return 2;
-    if (combined.includes('3 days ago') || combined.includes('3 days')) return 3;
-    if (combined.includes('4 days ago') || combined.includes('4 days')) return 4;
-    if (combined.includes('5 days ago') || combined.includes('5 days')) return 5;
-    if (combined.includes('6 days ago') || combined.includes('6 days')) return 6;
-
-    const dateCandidates = [order.timestamp, order.dispatchDate, order.preferredDate];
-    for (const candidate of dateCandidates) {
-      if (!candidate) continue;
-      const parsed = new Date(candidate);
-      if (!isNaN(parsed.getTime())) {
-        const today = new Date();
-        today.setHours(0, 0, 0, 0);
-        const target = new Date(parsed);
-        target.setHours(0, 0, 0, 0);
-        const diffDays = Math.round((today.getTime() - target.getTime()) / (1000 * 60 * 60 * 24));
-        if (diffDays >= 0 && diffDays < 7) {
-          return diffDays;
-        }
-      }
-    }
-    return null;
-  };
-
-  const sevenDayTrendData = React.useMemo(() => {
-    const today = new Date();
-    const days = [];
-
-    const baselineDailyStats: Record<number, { orders: number; sales: number }> = {
-      6: { orders: 3, sales: 1840 },
-      5: { orders: 4, sales: 2620 },
-      4: { orders: 2, sales: 1390 },
-      3: { orders: 5, sales: 3450 },
-      2: { orders: 4, sales: 2890 },
-      1: { orders: 3, sales: 2150 },
-      0: { orders: 2, sales: 1480 },
-    };
-
-    for (let i = 6; i >= 0; i--) {
-      const d = new Date(today);
-      d.setDate(today.getDate() - i);
-
-      const dayShort = i === 0 ? 'Today' : i === 1 ? 'Yest' : d.toLocaleDateString('en-US', { weekday: 'short' });
-      const monthDay = d.toLocaleDateString('en-US', { month: 'short', day: 'numeric' });
-      const fullDate = d.toLocaleDateString('en-US', { weekday: 'long', month: 'short', day: 'numeric', year: 'numeric' });
-
-      const dayOrders = (orders || []).filter(o => getDayOffsetForOrder(o) === i);
-      const actualCount = dayOrders.length;
-      const actualSales = dayOrders.reduce((sum, o) => sum + (o.totalXCD || 0), 0);
-
-      const base = baselineDailyStats[i] || { orders: 2, sales: 1200 };
-      const orderVolume = actualCount > 0 ? (base.orders + actualCount) : base.orders;
-      const totalSales = actualSales > 0 ? (base.sales + actualSales) : base.sales;
-      const avgOrderValue = orderVolume > 0 ? Math.round(totalSales / orderVolume) : 0;
-
-      days.push({
-        dayKey: `day-${i}`,
-        dayOffset: i,
-        dayShort,
-        monthDay,
-        displayLabel: i === 0 ? `Today (${monthDay})` : `${dayShort} ${d.getDate()}`,
-        fullDate,
-        orderVolume,
-        totalSales,
-        avgOrderValue,
-        actualCount
-      });
-    }
-
-    return days;
-  }, [orders]);
-
-  const sevenDaySummary = React.useMemo(() => {
-    const totalSales7D = sevenDayTrendData.reduce((acc, d) => acc + d.totalSales, 0);
-    const totalOrders7D = sevenDayTrendData.reduce((acc, d) => acc + d.orderVolume, 0);
-    const avgDailySales = Math.round(totalSales7D / 7);
-    const peakSalesDay = [...sevenDayTrendData].sort((a, b) => b.totalSales - a.totalSales)[0] || {
-      dayShort: 'Today',
-      totalSales: 0
-    };
-
-    return {
-      totalSales7D,
-      totalOrders7D,
-      avgDailySales,
-      peakSalesDay
-    };
-  }, [sevenDayTrendData]);
-
   const handlePrintReceipt = (order: AdminOrder) => {
     setSelectedReceiptOrder(order);
     setAutoPrintReceipt(true);
@@ -882,6 +792,69 @@ export const AdminOrdersModal: React.FC<AdminOrdersModalProps> = ({
         setSmsNotificationToast(null);
       }, 7000);
     }, 450);
+  };
+
+  // Open the unified Notify Customer Modal with pre-filled WhatsApp / SMS template
+  const handleOpenNotifyCustomerModal = (order: AdminOrder, defaultChannel: 'whatsapp' | 'sms' = 'whatsapp') => {
+    setNotifyCustomerModalOrder(order);
+    setNotifyChannel(defaultChannel);
+    const phone = (order.customerPhone || '').trim();
+    setNotifyCustomerPhone(phone || '+1 (767) ');
+
+    const itemsBrief = (order.items || [])
+      .map(i => `${i.quantity || 1}x ${i.tyre?.brand || 'Tyre'} ${i.tyre?.size || ''}`)
+      .join(', ');
+
+    const dispatchInfo = order.dispatchDate
+      ? `Fitting/Pickup scheduled for: ${order.dispatchDate} (${order.dispatchMethod || 'Workshop Fitting'})`
+      : `Ready for fitting at our workshop bay in Maranatha Square, Pichelin`;
+
+    const templateMsg = `Max Executive Tires: Hello ${order.customerName}! Your order #${order.reservationCode} (${itemsBrief}) is ${order.dispatchStatus || 'Ready for Fitting'} at our workshop. Total: EC$ ${order.totalXCD}. ${dispatchInfo}. Workshop: Maranatha Square, Pichelin, Dominica. Contact/WhatsApp: +1(767)616-0155.`;
+
+    setNotifyCustomMessage(templateMsg);
+    setIsCopiedNotifyText(false);
+  };
+
+  // Trigger Pre-filled WhatsApp or SMS intent directly to customer's phone
+  const handleSendNotification = (channel: 'whatsapp' | 'sms') => {
+    if (!notifyCustomerModalOrder) return;
+    const order = notifyCustomerModalOrder;
+    const phone = notifyCustomerPhone.trim();
+
+    if (!phone || phone.replace(/[^0-9]/g, '').length < 7) {
+      alert('Please provide a valid customer mobile number with Caribbean country code (+1 767 ...).');
+      return;
+    }
+
+    const cleanPhone = phone.replace(/[^0-9+]/g, '');
+    const timestamp = new Date().toLocaleString();
+    const isIOS = typeof navigator !== 'undefined' && /iPad|iPhone|iPod/.test(navigator.userAgent);
+
+    // Update order status so customer is marked notified
+    onUpdateOrder(order.id, {
+      customerPhone: phone,
+      customerNotified: true,
+      notifiedAt: timestamp
+    });
+
+    if (channel === 'whatsapp') {
+      const waNumber = cleanPhone.replace(/^\+/, '');
+      const waUrl = `https://wa.me/${waNumber}?text=${encodeURIComponent(notifyCustomMessage)}`;
+      window.open(waUrl, '_blank');
+    } else {
+      const smsUrl = `sms:${cleanPhone}${isIOS ? '&' : '?'}body=${encodeURIComponent(notifyCustomMessage)}`;
+      try {
+        window.location.href = smsUrl;
+      } catch {}
+    }
+
+    setSmsNotificationToast({
+      orderCode: order.reservationCode,
+      phone,
+      message: `Pre-filled ${channel.toUpperCase()} notification triggered for ${order.customerName} (${phone})!`
+    });
+    setTimeout(() => setSmsNotificationToast(null), 6000);
+    setNotifyCustomerModalOrder(null);
   };
 
   const handleSendAutomatedEmailReceipt = (order: AdminOrder, targetEmail: string) => {
@@ -1473,6 +1446,119 @@ Thank you for choosing Max Executive Tires!`;
     handleExportToCsv();
   };
 
+  // Export All Currently Listed Tyres and Prices to CSV
+  const handleExportInventoryToCsv = () => {
+    const listToExport = tyres && tyres.length > 0 ? tyres : TYRES_DATA;
+    if (!listToExport || listToExport.length === 0) {
+      alert('No tyres available in inventory to export.');
+      return;
+    }
+
+    const escapeCsv = (val: any): string => {
+      if (val === null || val === undefined) return '""';
+      const str = String(val);
+      return `"${str.replace(/"/g, '""')}"`;
+    };
+
+    const headers = [
+      'Tyre SKU / ID',
+      'Brand',
+      'Model Name',
+      'Tyre Size',
+      'Rim Diameter (in)',
+      'Section Width (mm)',
+      'Aspect Ratio (%)',
+      'Condition',
+      'Used Tread Grade',
+      'Tread Depth (mm)',
+      'Original Tread (mm)',
+      'Category',
+      'Unit Price (EC$ / XCD)',
+      'Unit Price (USD approx)',
+      'Current Stock Units',
+      'Total Inventory Value (EC$)',
+      'Speed Rating',
+      'Load Index',
+      'Ply Rating',
+      'Wet Grip Rating',
+      'Pothole Resistance',
+      'Dominica Mountain Rating (1-5)',
+      'Barcode / UPC Value',
+      'Inspection Status',
+      'Warranty',
+      'Key Features',
+      'Workshop Location'
+    ];
+
+    let totalInventoryValueXCD = 0;
+
+    const rows = listToExport.map(tyre => {
+      const price = Number(tyre.priceXCD || 0);
+      const stock = Number(tyre.stockCount !== undefined ? tyre.stockCount : 0);
+      const totalValue = price * stock;
+      totalInventoryValueXCD += totalValue;
+
+      const usdApprox = (price / 2.70).toFixed(2);
+      const featuresStr = Array.isArray(tyre.features) ? tyre.features.join('; ') : '';
+
+      return [
+        escapeCsv(tyre.id),
+        escapeCsv(tyre.brand),
+        escapeCsv(tyre.modelName),
+        escapeCsv(tyre.size),
+        escapeCsv(tyre.rimDiameter),
+        escapeCsv(tyre.width),
+        escapeCsv(tyre.aspectRatio),
+        escapeCsv(tyre.condition === 'new' ? 'Brand New' : 'Inspected Used'),
+        escapeCsv(tyre.usedGrade || 'N/A'),
+        escapeCsv(tyre.treadDepthMm),
+        escapeCsv(tyre.originalTreadMm),
+        escapeCsv(tyre.category),
+        escapeCsv(price.toFixed(2)),
+        escapeCsv(usdApprox),
+        escapeCsv(stock),
+        escapeCsv(totalValue.toFixed(2)),
+        escapeCsv(tyre.speedRating || 'Standard'),
+        escapeCsv(tyre.loadIndex || 'Standard'),
+        escapeCsv(tyre.plyRating || 'Standard'),
+        escapeCsv(tyre.wetGripRating || 'A'),
+        escapeCsv(tyre.potholeResistance || 'Standard Highway'),
+        escapeCsv(tyre.dominicaMountainRating || 4),
+        escapeCsv(tyre.barcode || tyre.id),
+        escapeCsv(tyre.inspectionPassed ? 'Passed 10-Point Safety Check' : 'Pending Inspection'),
+        escapeCsv(tyre.warranty || 'Shop Guarantee'),
+        escapeCsv(featuresStr),
+        escapeCsv('Maranatha Square, Pichelin, Dominica')
+      ].join(',');
+    });
+
+    const csvContent = [headers.map(h => `"${h}"`).join(','), ...rows].join('\r\n');
+    const blob = new Blob([csvContent], { type: 'text/csv;charset=utf-8;' });
+    const url = URL.createObjectURL(blob);
+    const link = document.createElement('a');
+    const dateStr = new Date().toISOString().split('T')[0];
+    const filename = `max_executive_tyres_inventory_${dateStr}.csv`;
+    link.setAttribute('href', url);
+    link.setAttribute('download', filename);
+    document.body.appendChild(link);
+    link.click();
+    document.body.removeChild(link);
+    URL.revokeObjectURL(url);
+
+    setCsvExportToast({
+      count: listToExport.length,
+      filename,
+      totalValueXCD: totalInventoryValueXCD
+    });
+    setTimeout(() => setCsvExportToast(null), 6000);
+  };
+
+  // Download Inventory CSV feature: iterates through the current tyre stock (including overrides)
+  // and generates a downloadable CSV file for external accounting
+  const handleDownloadInventoryCsv = () => {
+    handleExportInventoryToCsv();
+  };
+
   const handleDownloadActivityLogCsv = () => {
     const headers = ['Log ID', 'Timestamp', 'Admin Name', 'Action Type', 'Description'];
     const rows = adminActivityLog.map(log => [
@@ -1760,104 +1846,16 @@ Thank you for choosing Max Executive Tires!`;
     onUpdateOrder(order.id, { dispatchStatus: 'Dispatched' });
   };
 
-  // Current order list metrics for summary dashboard
-  const currentOrdersForSummary = activeModalTab === 'orders' ? filteredActiveOrders : getVisibleOrders();
-  const summaryTotalRevenue = currentOrdersForSummary.reduce((acc, o) => acc + (o.totalXCD || 0), 0);
-  const summaryPendingOrders = currentOrdersForSummary.filter(
-    o => o.paymentStatus !== 'Confirmed' || o.dispatchStatus !== 'Dispatched'
-  );
-  const summaryPendingCount = summaryPendingOrders.length;
-  const summaryPendingPaymentCount = currentOrdersForSummary.filter(o => o.paymentStatus !== 'Confirmed').length;
-  const summaryPendingDispatchCount = currentOrdersForSummary.filter(o => o.dispatchStatus !== 'Dispatched').length;
-
-  const summaryBrandMap: Record<string, { count: number; totalRevenue: number }> = {};
-  currentOrdersForSummary.forEach(order => {
-    (order.items || []).forEach(item => {
-      const brand = (item.tyre?.brand || 'Tyre').trim();
-      if (!summaryBrandMap[brand]) {
-        summaryBrandMap[brand] = { count: 0, totalRevenue: 0 };
-      }
-      const qty = item.quantity || 1;
-      summaryBrandMap[brand].count += qty;
-      summaryBrandMap[brand].totalRevenue += ((item.tyre?.priceXCD || 0) * qty);
-    });
-  });
-
-  const summaryTopBrands = Object.entries(summaryBrandMap)
-    .map(([brand, data]) => ({ brand, ...data }))
-    .sort((a, b) => b.count - a.count);
-
-  const totalTyresRequestedInList = summaryTopBrands.reduce((acc, b) => acc + b.count, 0);
-
-  const Custom7DayTrendTooltip = ({ active, payload }: any) => {
-    if (active && payload && payload.length) {
-      const data = payload[0].payload;
-      return (
-        <div className="bg-slate-950/95 border border-slate-700 text-white p-3 rounded-xl shadow-2xl text-xs space-y-1.5 backdrop-blur-sm min-w-[200px]">
-          <div className="font-extrabold text-slate-200 border-b border-slate-800 pb-1 flex items-center justify-between gap-3">
-            <span>{data.fullDate}</span>
-            <span className="text-[10px] bg-slate-800 text-slate-300 px-2 py-0.5 rounded font-mono">
-              {data.dayShort}
-            </span>
-          </div>
-          <div className="flex items-center justify-between gap-4 text-sky-400 font-bold">
-            <span className="flex items-center gap-1.5">
-              <span className="w-2 h-2 rounded-full bg-sky-400"></span>
-              Daily Order Volume:
-            </span>
-            <span className="font-mono">{data.orderVolume} {data.orderVolume === 1 ? 'order' : 'orders'}</span>
-          </div>
-          <div className="flex items-center justify-between gap-4 text-emerald-400 font-bold">
-            <span className="flex items-center gap-1.5">
-              <span className="w-2 h-2 rounded-full bg-emerald-400"></span>
-              Total Sales:
-            </span>
-            <span className="font-mono">EC$ {data.totalSales.toLocaleString()}</span>
-          </div>
-          <div className="flex items-center justify-between gap-4 text-slate-400 text-[11px] pt-1 border-t border-slate-800/80">
-            <span>Average per order:</span>
-            <span className="font-mono text-slate-300">EC$ {data.avgOrderValue.toLocaleString()}</span>
-          </div>
-        </div>
-      );
-    }
-    return null;
-  };
-
   return (
     <div className="fixed inset-0 z-50 flex flex-col bg-white animate-fade-in overflow-hidden">
       <div 
-        style={{
-          width: '100%',
-          height: '100%',
-          paddingLeft: '24px',
-          paddingRight: '10px',
-          paddingTop: '16px',
-          paddingBottom: '24px',
-          marginTop: '0px',
-          marginBottom: '0px',
-          marginLeft: '0px',
-          marginRight: '35px',
-          maxWidth: 'none',
-          maxHeight: 'none'
-        }}
-        className="bg-white shadow-none border-0 space-y-4 relative flex flex-col overflow-hidden h-full w-full rounded-none"
+        className="bg-white shadow-none border-0 space-y-4 relative flex flex-col overflow-hidden h-full w-full rounded-none p-4 sm:p-6"
       >
         {/* Header */}
         <div 
-          style={{ 
-            marginTop: '-1px', 
-            marginBottom: '30px',
-            paddingTop: '0px', 
-            paddingBottom: '0px',
-            paddingLeft: '0px',
-            paddingRight: '16px',
-            height: '86px',
-            fontSize: '12px'
-          }} 
-          className="flex-shrink-0 flex items-center justify-between border-b border-slate-200 bg-white z-20 sticky top-0"
+          className="flex-shrink-0 flex items-center justify-between border-b border-slate-200 bg-white z-20 sticky top-0 pb-4"
         >
-          <div style={{ marginBottom: '16px' }} className="flex items-center gap-3">
+          <div className="flex items-center gap-3">
             <div className="w-10 h-10 rounded-xl bg-amber-50 text-amber-600 flex items-center justify-center border border-amber-200/60 font-bold relative shadow-inner">
               <Bell className="w-5 h-5 animate-bounce" />
               {orders.length > 0 && (
@@ -1877,7 +1875,7 @@ Thank you for choosing Max Executive Tires!`;
             </div>
           </div>
 
-          <div style={{ marginBottom: '14px', height: '64px' }} className="flex items-center gap-2">
+          <div className="flex items-center gap-2">
             {/* Create Order Button */}
             <button
               id="admin-header-add-order-btn"
@@ -1912,6 +1910,19 @@ Thank you for choosing Max Executive Tires!`;
             >
               <Download className="w-4 h-4 text-emerald-600" />
               <span>Export CSV (Accounting)</span>
+            </button>
+
+            {/* Direct Download Inventory CSV Feature */}
+            <button
+              id="admin-download-inventory-csv-btn"
+              data-testid="admin-download-inventory-csv-btn"
+              type="button"
+              onClick={handleDownloadInventoryCsv}
+              className="inline-flex items-center gap-1.5 text-xs font-bold text-blue-900 bg-blue-50 hover:bg-blue-100 border border-blue-300 px-3.5 py-2 rounded-xl shadow-xs transition cursor-pointer active:scale-95"
+              title="Download current tyre inventory stock with live overrides for external accounting"
+            >
+              <FileSpreadsheet className="w-4 h-4 text-[#0984E3]" />
+              <span>Download Inventory CSV</span>
             </button>
 
             {/* QuickBooks Tax & Accounting Center Button */}
@@ -1960,6 +1971,15 @@ Thank you for choosing Max Executive Tires!`;
                   <div className="px-3 py-1.5 text-[10px] font-bold text-slate-400 uppercase tracking-wider border-b border-slate-100 mt-2">
                     Export & System
                   </div>
+                  <button
+                    id="menu-download-inventory-csv-btn"
+                    data-testid="menu-download-inventory-csv-btn"
+                    onClick={() => { handleDownloadInventoryCsv(); setIsAdminActionsMenuOpen(false); }}
+                    className="w-full text-left px-3 py-2 rounded-lg hover:bg-blue-50 text-blue-900 font-bold flex items-center gap-2 transition"
+                  >
+                    <FileSpreadsheet className="w-4 h-4 text-[#0984E3]" />
+                    <span>Download Inventory CSV (Accounting)</span>
+                  </button>
                   <button
                     id="menu-export-to-csv-btn"
                     onClick={() => { handleExportToCsv(); setIsAdminActionsMenuOpen(false); }}
@@ -2030,26 +2050,10 @@ Thank you for choosing Max Executive Tires!`;
 
         {/* Modal Navigation Tabs (Horizontally scrollable for full visibility across all resolutions) */}
         <div 
-          style={{
-            marginTop: '-15px',
-            paddingTop: '0px',
-            paddingBottom: '0px',
-            paddingRight: '0px',
-            width: '100%',
-            height: '64px'
-          }}
-          className="flex items-center border-b border-slate-200 overflow-x-auto whitespace-nowrap scrollbar-thin w-full"
+          className="flex items-center border-b border-slate-200 overflow-x-auto whitespace-nowrap scrollbar-thin w-full pb-2"
         >
           <div
-            style={{
-              marginTop: '0px',
-              marginBottom: '0px',
-              paddingTop: '5px',
-              paddingBottom: '4px',
-              paddingLeft: '15px',
-              height: '65px'
-            }}
-            className="flex items-center gap-2 w-full"
+            className="flex items-center gap-2 w-full px-1"
           >
           {/* Customer Orders Tab */}
           <button
@@ -2063,6 +2067,21 @@ Thank you for choosing Max Executive Tires!`;
           >
             <Bell className="w-4 h-4" />
             <span>Customer Orders ({orders.length})</span>
+          </button>
+
+          {/* Performance Summary Tab */}
+          <button
+            id="admin-tab-performance"
+            data-testid="admin-tab-performance"
+            onClick={() => setActiveModalTab('performance')}
+            className={`inline-flex items-center gap-2 px-4 py-2 rounded-xl text-xs sm:text-sm font-bold transition cursor-pointer ${
+              activeModalTab === 'performance'
+                ? 'bg-[#0984E3] text-white shadow-sm'
+                : 'bg-slate-100 text-slate-700 hover:bg-slate-200'
+            }`}
+          >
+            <TrendingUp className="w-4 h-4 text-emerald-400" />
+            <span>Performance Summary</span>
           </button>
 
           {/* Order History Tab */}
@@ -2510,6 +2529,15 @@ Thank you for choosing Max Executive Tires!`;
           <div className="flex-1 overflow-y-auto py-2">
             <AdminSalesSummaryChart orders={orders} tyres={tyres} servicePrices={servicePrices} />
           </div>
+        ) : activeModalTab === 'performance' ? (
+          <div className="flex-1 overflow-y-auto py-2">
+            <AdminPerformanceSummaryView 
+              orders={orders} 
+              tyres={tyres}
+              onOpenOrder={(order) => setActiveModalTab('orders')}
+              onNotifyOrder={(order) => handleOpenNotifyCustomerModal(order)}
+            />
+          </div>
         ) : activeModalTab === 'monthly-revenue' ? (
           <div className="flex-1 overflow-y-auto py-2">
             <AdminMonthlyRevenueChart orders={orders} servicePrices={servicePrices} />
@@ -2813,7 +2841,7 @@ Thank you for choosing Max Executive Tires!`;
                                   <input type="checkbox" checked={item.includeNewValves} onChange={() => handleTogglePosService(item.id, 'includeNewValves')} className="rounded text-[#0984E3]" />
                                   <span>Valves (+EC$15)</span>
                                 </label>
-                                <label style={{ color: '#270be5' }} className="flex items-center gap-1 cursor-pointer bg-white p-1 rounded border border-slate-200">
+                                <label className="flex items-center gap-1 cursor-pointer bg-white p-1 rounded border border-slate-200">
                                   <input type="checkbox" checked={item.includeShredding} onChange={() => handleTogglePosService(item.id, 'includeShredding')} className="rounded text-[#0984E3]" />
                                   <span>Shred (+EC$1)</span>
                                 </label>
@@ -3700,240 +3728,6 @@ Thank you for choosing Max Executive Tires!`;
               </div>
             )}
 
-            {/* Summary Dashboard at the Top of Current Order List */}
-            <div id="admin-orders-summary-dashboard" className="bg-gradient-to-r from-slate-900 via-slate-800 to-slate-900 text-white rounded-2xl p-4 sm:p-5 shadow-sm border border-slate-700/80 space-y-4">
-              <div className="flex flex-wrap items-center justify-between gap-3 border-b border-slate-700/80 pb-3">
-                <div className="flex items-center gap-2.5">
-                  <div className="w-9 h-9 rounded-xl bg-[#0984E3] text-white flex items-center justify-center font-bold shadow-xs">
-                    <BarChart3 className="w-5 h-5" />
-                  </div>
-                  <div>
-                    <h3 className="text-sm font-bold text-white flex items-center gap-2">
-                      <span>Order Summary Dashboard</span>
-                      <span className="text-[10px] bg-slate-700 text-slate-200 px-2 py-0.5 rounded-full font-mono">
-                        {currentOrdersForSummary.length} {currentOrdersForSummary.length === 1 ? 'Record' : 'Records'} Active
-                      </span>
-                    </h3>
-                    <p className="text-[11px] text-slate-400">
-                      Live key figures for the current order list at Maranatha Square
-                    </p>
-                  </div>
-                </div>
-
-                <div className="flex items-center gap-2">
-                  <span className="text-[11px] font-medium text-slate-300 bg-slate-800 px-2.5 py-1 rounded-lg border border-slate-700">
-                    Filter: <strong>{activeOrdersSearch ? `"${activeOrdersSearch}"` : 'All Visible'}</strong>
-                  </span>
-                </div>
-              </div>
-
-              {/* Metric Cards Grid */}
-              <div className="grid grid-cols-1 sm:grid-cols-3 gap-3.5">
-                {/* Metric 1: Total Revenue */}
-                <div className="bg-slate-800/90 border border-slate-700 rounded-xl p-3.5 space-y-1 shadow-xs">
-                  <div className="flex items-center justify-between text-slate-400 text-xs font-semibold">
-                    <span>Total Revenue</span>
-                    <DollarSign className="w-4 h-4 text-emerald-400" />
-                  </div>
-                  <div className="text-xl sm:text-2xl font-black text-emerald-400 font-mono tracking-tight">
-                    EC$ {summaryTotalRevenue.toLocaleString()}
-                  </div>
-                  <div className="text-[11px] text-slate-400 flex items-center justify-between pt-1 border-t border-slate-700/60 mt-1">
-                    <span>Current list total</span>
-                    <span className="text-slate-300 font-medium">
-                      Avg: EC$ {currentOrdersForSummary.length > 0 ? Math.round(summaryTotalRevenue / currentOrdersForSummary.length) : 0}
-                    </span>
-                  </div>
-                </div>
-
-                {/* Metric 2: Count of Pending Orders */}
-                <div className="bg-slate-800/90 border border-slate-700 rounded-xl p-3.5 space-y-1 shadow-xs">
-                  <div className="flex items-center justify-between text-slate-400 text-xs font-semibold">
-                    <span>Pending Orders</span>
-                    <Clock className="w-4 h-4 text-amber-400" />
-                  </div>
-                  <div className="text-xl sm:text-2xl font-black text-amber-400 font-mono tracking-tight flex items-baseline gap-2">
-                    <span>{summaryPendingCount}</span>
-                    <span className="text-xs font-normal text-slate-400">
-                      of {currentOrdersForSummary.length} orders
-                    </span>
-                  </div>
-                  <div className="text-[10px] text-slate-300 flex items-center gap-1.5 pt-1 border-t border-slate-700/60 mt-1 flex-wrap">
-                    <span className="inline-flex items-center gap-1 text-amber-300 bg-amber-950/70 px-1.5 py-0.5 rounded border border-amber-800/60 font-medium">
-                      {summaryPendingPaymentCount} Unpaid
-                    </span>
-                    <span className="inline-flex items-center gap-1 text-sky-300 bg-sky-950/70 px-1.5 py-0.5 rounded border border-sky-800/60 font-medium">
-                      {summaryPendingDispatchCount} Awaiting Dispatch
-                    </span>
-                  </div>
-                </div>
-
-                {/* Metric 3: Most Requested Tyre Brands */}
-                <div className="bg-slate-800/90 border border-slate-700 rounded-xl p-3.5 space-y-1 shadow-xs">
-                  <div className="flex items-center justify-between text-slate-400 text-xs font-semibold">
-                    <span>Most Requested Brands</span>
-                    <Award className="w-4 h-4 text-sky-400" />
-                  </div>
-                  {summaryTopBrands.length === 0 ? (
-                    <div className="text-xs text-slate-400 py-2">No tyre items in current list</div>
-                  ) : (
-                    <div className="space-y-1.5 pt-0.5">
-                      <div className="flex items-center gap-1.5 flex-wrap">
-                        {summaryTopBrands.slice(0, 3).map((item, idx) => (
-                          <span
-                            key={item.brand}
-                            className={`text-[11px] font-bold px-2 py-0.5 rounded-lg border flex items-center gap-1 ${
-                              idx === 0
-                                ? 'bg-blue-600/30 text-blue-200 border-blue-500/50'
-                                : 'bg-slate-700/60 text-slate-300 border-slate-600'
-                            }`}
-                          >
-                            <span>{item.brand}</span>
-                            <span className="font-mono text-[10px] text-blue-300">({item.count})</span>
-                          </span>
-                        ))}
-                      </div>
-                      <div className="text-[10px] text-slate-400 flex items-center justify-between pt-1 border-t border-slate-700/60 mt-1">
-                        <span>{totalTyresRequestedInList} tyres ordered</span>
-                        {summaryTopBrands[0] && (
-                          <span className="text-blue-300 font-semibold">
-                            Top: {summaryTopBrands[0].brand} ({Math.round((summaryTopBrands[0].count / (totalTyresRequestedInList || 1)) * 100)}%)
-                          </span>
-                        )}
-                      </div>
-                    </div>
-                  )}
-                </div>
-              </div>
-
-              {/* 7-Day Order Volume & Sales Trend Visualization Dashboard (recharts) */}
-              <div id="admin-7day-trends-dashboard" className="bg-slate-900/90 border border-slate-700/80 rounded-xl p-3.5 sm:p-4 space-y-3.5 shadow-inner">
-                <div className="flex flex-wrap items-center justify-between gap-3 border-b border-slate-700/70 pb-2.5">
-                  <div className="flex items-center gap-2">
-                    <div className="w-7 h-7 rounded-lg bg-emerald-500/20 text-emerald-400 flex items-center justify-center font-bold">
-                      <TrendingUp className="w-4 h-4" />
-                    </div>
-                    <div>
-                      <h4 className="text-xs font-bold text-white flex items-center gap-2">
-                        <span>Past 7 Days Orders & Sales Trends</span>
-                        <span className="text-[10px] bg-emerald-950 text-emerald-300 border border-emerald-800/80 px-2 py-0.5 rounded-full font-mono font-normal">
-                          7-Day Recharts Window
-                        </span>
-                      </h4>
-                      <p className="text-[10px] text-slate-400">
-                        Visualizing daily order volume (orders) alongside total revenue trends (EC$)
-                      </p>
-                    </div>
-                  </div>
-
-                  {/* Trend Mode Switcher Buttons */}
-                  <div className="inline-flex items-center bg-slate-950/80 p-1 rounded-lg border border-slate-700/90 text-[11px] font-bold">
-                    <button
-                      type="button"
-                      onClick={() => setTrendChartMetric('combined')}
-                      className={`px-2.5 py-1 rounded-md transition ${
-                        trendChartMetric === 'combined'
-                          ? 'bg-[#0984E3] text-white shadow-xs'
-                          : 'text-slate-400 hover:text-white'
-                      }`}
-                    >
-                      Combined View
-                    </button>
-                    <button
-                      type="button"
-                      onClick={() => setTrendChartMetric('volume')}
-                      className={`px-2.5 py-1 rounded-md transition ${
-                        trendChartMetric === 'volume'
-                          ? 'bg-[#0984E3] text-white shadow-xs'
-                          : 'text-slate-400 hover:text-white'
-                      }`}
-                    >
-                      Daily Volume
-                    </button>
-                    <button
-                      type="button"
-                      onClick={() => setTrendChartMetric('sales')}
-                      className={`px-2.5 py-1 rounded-md transition ${
-                        trendChartMetric === 'sales'
-                          ? 'bg-emerald-600 text-white shadow-xs'
-                          : 'text-slate-400 hover:text-white'
-                      }`}
-                    >
-                      Total Sales
-                    </button>
-                  </div>
-                </div>
-
-                {/* 7-Day Quick Stat Badges */}
-                <div className="grid grid-cols-2 sm:grid-cols-4 gap-2.5">
-                  <div className="bg-slate-950/60 border border-slate-800 rounded-lg px-3 py-2">
-                    <span className="text-[10px] font-medium text-slate-400 block">7-Day Sales Volume</span>
-                    <span className="text-sm font-extrabold text-emerald-400 font-mono">EC$ {sevenDaySummary.totalSales7D.toLocaleString()}</span>
-                  </div>
-                  <div className="bg-slate-950/60 border border-slate-800 rounded-lg px-3 py-2">
-                    <span className="text-[10px] font-medium text-slate-400 block">7-Day Order Volume</span>
-                    <span className="text-sm font-extrabold text-sky-400 font-mono">{sevenDaySummary.totalOrders7D} Orders</span>
-                  </div>
-                  <div className="bg-slate-950/60 border border-slate-800 rounded-lg px-3 py-2">
-                    <span className="text-[10px] font-medium text-slate-400 block">Daily Average Sales</span>
-                    <span className="text-sm font-extrabold text-slate-200 font-mono">EC$ {sevenDaySummary.avgDailySales.toLocaleString()} / day</span>
-                  </div>
-                  <div className="bg-slate-950/60 border border-slate-800 rounded-lg px-3 py-2">
-                    <span className="text-[10px] font-medium text-slate-400 block">Peak Sales Day</span>
-                    <span className="text-sm font-extrabold text-amber-300 font-mono">
-                      {sevenDaySummary.peakSalesDay.dayShort} (EC$ {sevenDaySummary.peakSalesDay.totalSales.toLocaleString()})
-                    </span>
-                  </div>
-                </div>
-
-                {/* Recharts Canvas */}
-                <div className="h-56 w-full pt-1">
-                  <ResponsiveContainer width="100%" height="100%">
-                    {trendChartMetric === 'volume' ? (
-                      <BarChart data={sevenDayTrendData} margin={{ top: 10, right: 15, left: -10, bottom: 0 }}>
-                        <CartesianGrid strokeDasharray="3 3" vertical={false} stroke="#334155" />
-                        <XAxis dataKey="displayLabel" stroke="#94A3B8" fontSize={11} tickLine={false} />
-                        <YAxis stroke="#94A3B8" fontSize={11} tickLine={false} allowDecimals={false} />
-                        <Tooltip content={<Custom7DayTrendTooltip />} />
-                        <Bar dataKey="orderVolume" name="Daily Orders" fill="#0984E3" radius={[6, 6, 0, 0]} maxBarSize={42} />
-                      </BarChart>
-                    ) : trendChartMetric === 'sales' ? (
-                      <ComposedChart data={sevenDayTrendData} margin={{ top: 10, right: 15, left: 10, bottom: 0 }}>
-                        <defs>
-                          <linearGradient id="salesTrendGrad" x1="0" y1="0" x2="0" y2="1">
-                            <stop offset="5%" stopColor="#10B981" stopOpacity={0.4}/>
-                            <stop offset="95%" stopColor="#10B981" stopOpacity={0.0}/>
-                          </linearGradient>
-                        </defs>
-                        <CartesianGrid strokeDasharray="3 3" vertical={false} stroke="#334155" />
-                        <XAxis dataKey="displayLabel" stroke="#94A3B8" fontSize={11} tickLine={false} />
-                        <YAxis stroke="#10B981" fontSize={11} tickLine={false} tickFormatter={(v) => `EC$${v}`} />
-                        <Tooltip content={<Custom7DayTrendTooltip />} />
-                        <Area type="monotone" dataKey="totalSales" name="Total Sales (EC$)" stroke="#10B981" strokeWidth={2.5} fill="url(#salesTrendGrad)" dot={{ r: 3, fill: '#10B981' }} activeDot={{ r: 5 }} />
-                      </ComposedChart>
-                    ) : (
-                      <ComposedChart data={sevenDayTrendData} margin={{ top: 10, right: 20, left: 10, bottom: 0 }}>
-                        <defs>
-                          <linearGradient id="salesTrendGradCombined" x1="0" y1="0" x2="0" y2="1">
-                            <stop offset="5%" stopColor="#10B981" stopOpacity={0.3}/>
-                            <stop offset="95%" stopColor="#10B981" stopOpacity={0.0}/>
-                          </linearGradient>
-                        </defs>
-                        <CartesianGrid strokeDasharray="3 3" vertical={false} stroke="#334155" />
-                        <XAxis dataKey="displayLabel" stroke="#94A3B8" fontSize={11} tickLine={false} />
-                        <YAxis yAxisId="sales" orientation="left" stroke="#10B981" fontSize={10} tickLine={false} tickFormatter={(v) => `EC$${v}`} />
-                        <YAxis yAxisId="volume" orientation="right" stroke="#38BDF8" fontSize={10} tickLine={false} allowDecimals={false} tickFormatter={(v) => `${v} ord`} />
-                        <Tooltip content={<Custom7DayTrendTooltip />} />
-                        <Legend wrapperStyle={{ fontSize: '11px', paddingTop: '6px' }} />
-                        <Bar yAxisId="volume" dataKey="orderVolume" name="Daily Orders (Volume)" fill="#0984E3" radius={[5, 5, 0, 0]} maxBarSize={34} />
-                        <Area yAxisId="sales" type="monotone" dataKey="totalSales" name="Total Sales (EC$)" stroke="#10B981" strokeWidth={2.5} fill="url(#salesTrendGradCombined)" dot={{ r: 3, fill: '#10B981' }} activeDot={{ r: 5 }} />
-                      </ComposedChart>
-                    )}
-                  </ResponsiveContainer>
-                </div>
-              </div>
-            </div>
-
             {/* Search, Filter & Sort Header Controls */}
             <div className="bg-white border border-slate-200 rounded-2xl p-4 space-y-3 shadow-xs">
               <div className="flex flex-wrap items-center justify-between gap-3">
@@ -4062,6 +3856,18 @@ Thank you for choosing Max Executive Tires!`;
                   >
                     <Download className="w-4 h-4" />
                     <span>Export CSV ({filteredActiveOrders.length})</span>
+                  </button>
+
+                  <button
+                    id="active-orders-download-inventory-csv-btn"
+                    data-testid="active-orders-download-inventory-csv-btn"
+                    type="button"
+                    onClick={handleDownloadInventoryCsv}
+                    className="inline-flex items-center gap-1.5 px-3.5 py-2 rounded-xl bg-blue-700 hover:bg-blue-800 text-white text-xs font-bold transition shadow-xs cursor-pointer active:scale-95"
+                    title="Download current tyre stock with overrides to CSV for external accounting"
+                  >
+                    <FileSpreadsheet className="w-4 h-4 text-blue-200" />
+                    <span>Download Inventory CSV</span>
                   </button>
                 </div>
               </div>
@@ -4703,18 +4509,18 @@ Thank you for choosing Max Executive Tires!`;
                           </button>
                         )}
 
-                        {/* Pre-filled SMS intent button to Notify Customer */}
+                        {/* Dedicated Notify Customer Button (triggers pre-filled WhatsApp message or SMS template) */}
                         <button
-                          id={`notify-customer-sms-btn-${order.id}`}
+                          id={`notify-customer-btn-${order.id}`}
+                          data-testid="notify-customer-btn"
                           type="button"
-                          onClick={() => handleNotifyCustomerSMSIntent(order)}
-                          disabled={sendingSmsOrderId === order.id}
-                          className="inline-flex items-center gap-1.5 text-xs font-black text-emerald-950 bg-emerald-100 hover:bg-emerald-200 px-3.5 py-2 rounded-xl border-2 border-emerald-400 transition shadow-xs disabled:opacity-50 active:scale-95 cursor-pointer"
-                          title={`Trigger pre-filled SMS intent to ${order.customerPhone} confirming Ready for Fitting`}
+                          onClick={() => handleOpenNotifyCustomerModal(order)}
+                          className="inline-flex items-center gap-1.5 text-xs font-black text-white bg-gradient-to-r from-emerald-600 to-teal-600 hover:from-emerald-500 hover:to-teal-500 px-3.5 py-2 rounded-xl shadow-xs transition active:scale-95 cursor-pointer"
+                          title={`Notify customer ${order.customerName} via pre-filled WhatsApp message or SMS template`}
                         >
-                          <MessageSquare className={`w-3.5 h-3.5 text-emerald-700 ${sendingSmsOrderId === order.id ? 'animate-bounce' : ''}`} />
+                          <MessageSquare className="w-3.5 h-3.5 text-white" />
                           <span>Notify Customer</span>
-                          <span className="text-[10px] bg-emerald-700 text-white font-black px-1.5 py-0.5 rounded-sm">SMS Intent</span>
+                          <span className="text-[10px] bg-emerald-800 text-emerald-100 font-extrabold px-1.5 py-0.5 rounded-sm">WhatsApp / SMS</span>
                         </button>
 
                         <button
@@ -5015,6 +4821,143 @@ Thank you for choosing Max Executive Tires!`;
               >
                 Close Summary
               </button>
+            </div>
+          </div>
+        </div>
+      )}
+
+      {/* Notify Customer Modal (Pre-filled WhatsApp & SMS Template) */}
+      {notifyCustomerModalOrder && (
+        <div className="fixed inset-0 z-70 flex items-center justify-center p-4 bg-slate-950/80 backdrop-blur-xs animate-fade-in">
+          <div className="bg-white rounded-2xl max-w-lg w-full p-6 space-y-4 shadow-2xl border border-slate-200 text-slate-900">
+            <div className="flex items-center justify-between border-b border-slate-200 pb-3">
+              <div className="flex items-center gap-2.5">
+                <div className="w-9 h-9 rounded-xl bg-gradient-to-br from-emerald-600 to-teal-600 text-white flex items-center justify-center shadow-xs">
+                  <MessageSquare className="w-5 h-5" />
+                </div>
+                <div>
+                  <h3 className="font-extrabold text-sm text-slate-900">
+                    Notify Customer — #{notifyCustomerModalOrder.reservationCode}
+                  </h3>
+                  <p className="text-[11px] text-slate-500">
+                    Pre-filled notification for {notifyCustomerModalOrder.customerName}
+                  </p>
+                </div>
+              </div>
+              <button
+                type="button"
+                onClick={() => setNotifyCustomerModalOrder(null)}
+                className="text-slate-400 hover:text-slate-700 font-bold p-1 rounded-lg cursor-pointer"
+              >
+                ✕
+              </button>
+            </div>
+
+            {/* Recipient Phone */}
+            <div className="space-y-1">
+              <label className="text-[11px] font-bold text-slate-600 uppercase tracking-wider block">
+                Customer Phone Number (Dominica / Caribbean)
+              </label>
+              <input
+                type="text"
+                value={notifyCustomerPhone}
+                onChange={(e) => setNotifyCustomerPhone(e.target.value)}
+                placeholder="+1 (767) 616-0155"
+                className="w-full px-3 py-2 rounded-xl border border-slate-300 text-xs font-bold text-slate-900 focus:outline-none focus:ring-2 focus:ring-[#0984E3]"
+              />
+            </div>
+
+            {/* Channel Tabs */}
+            <div className="flex items-center gap-2 pt-1">
+              <button
+                type="button"
+                onClick={() => setNotifyChannel('whatsapp')}
+                className={`flex-1 flex items-center justify-center gap-1.5 py-2 px-3 rounded-xl font-bold text-xs transition border cursor-pointer ${
+                  notifyChannel === 'whatsapp'
+                    ? 'bg-[#25D366] text-slate-950 border-[#25D366] shadow-xs'
+                    : 'bg-slate-100 text-slate-600 border-slate-200 hover:bg-slate-200'
+                }`}
+              >
+                <span>💬 WhatsApp Template</span>
+              </button>
+
+              <button
+                type="button"
+                onClick={() => setNotifyChannel('sms')}
+                className={`flex-1 flex items-center justify-center gap-1.5 py-2 px-3 rounded-xl font-bold text-xs transition border cursor-pointer ${
+                  notifyChannel === 'sms'
+                    ? 'bg-[#0984E3] text-white border-[#0984E3] shadow-xs'
+                    : 'bg-slate-100 text-slate-600 border-slate-200 hover:bg-slate-200'
+                }`}
+              >
+                <span>📱 Cellular SMS Template</span>
+              </button>
+            </div>
+
+            {/* Message Preview Textarea */}
+            <div className="space-y-1">
+              <div className="flex items-center justify-between text-[11px] font-bold text-slate-600 uppercase tracking-wider">
+                <span>Pre-filled Message Body</span>
+                <span className="text-slate-400 font-normal">{notifyCustomMessage.length} chars</span>
+              </div>
+              <textarea
+                rows={4}
+                value={notifyCustomMessage}
+                onChange={(e) => setNotifyCustomMessage(e.target.value)}
+                className="w-full p-3 rounded-xl border border-slate-300 text-xs font-medium text-slate-800 focus:outline-none focus:ring-2 focus:ring-[#0984E3] bg-slate-50"
+              />
+            </div>
+
+            {/* Order Brief Summary */}
+            <div className="bg-slate-100 p-2.5 rounded-xl text-[11px] text-slate-600 flex justify-between items-center">
+              <span>Order: <strong>#{notifyCustomerModalOrder.reservationCode}</strong></span>
+              <span>Status: <strong className="text-emerald-700">{notifyCustomerModalOrder.dispatchStatus || 'Ready for Fitting'}</strong></span>
+              <span>Total: <strong className="text-slate-900">EC$ {notifyCustomerModalOrder.totalXCD}</strong></span>
+            </div>
+
+            {/* Action Buttons */}
+            <div className="flex flex-wrap items-center justify-between gap-2 pt-2 border-t border-slate-200">
+              <button
+                type="button"
+                onClick={() => {
+                  navigator.clipboard.writeText(notifyCustomMessage);
+                  setIsCopiedNotifyText(true);
+                  setTimeout(() => setIsCopiedNotifyText(false), 2000);
+                }}
+                className="px-3 py-2 rounded-xl bg-slate-100 hover:bg-slate-200 text-slate-700 font-bold text-xs transition cursor-pointer"
+              >
+                {isCopiedNotifyText ? '✓ Copied!' : '📋 Copy Text'}
+              </button>
+
+              <div className="flex items-center gap-2">
+                <button
+                  type="button"
+                  onClick={() => setNotifyCustomerModalOrder(null)}
+                  className="px-3.5 py-2 rounded-xl text-slate-600 hover:bg-slate-100 font-semibold text-xs transition cursor-pointer"
+                >
+                  Cancel
+                </button>
+
+                {notifyChannel === 'whatsapp' ? (
+                  <button
+                    type="button"
+                    onClick={() => handleSendNotification('whatsapp')}
+                    className="px-5 py-2.5 rounded-xl bg-[#25D366] hover:bg-[#20ba59] text-slate-950 font-black text-xs transition shadow-md flex items-center gap-1.5 cursor-pointer active:scale-95"
+                  >
+                    <span>Send Pre-Filled WhatsApp</span>
+                    <ArrowRight className="w-3.5 h-3.5" />
+                  </button>
+                ) : (
+                  <button
+                    type="button"
+                    onClick={() => handleSendNotification('sms')}
+                    className="px-5 py-2.5 rounded-xl bg-[#0984E3] hover:bg-[#0873c4] text-white font-black text-xs transition shadow-md flex items-center gap-1.5 cursor-pointer active:scale-95"
+                  >
+                    <span>Trigger SMS Template</span>
+                    <ArrowRight className="w-3.5 h-3.5" />
+                  </button>
+                )}
+              </div>
             </div>
           </div>
         </div>
