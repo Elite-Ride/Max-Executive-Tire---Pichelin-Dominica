@@ -709,7 +709,7 @@ export const AdminPosHardwareModal: React.FC<AdminPosHardwareModalProps> = ({
                       </span>
                     </div>
                     <p className="text-xs text-slate-400">
-                      APG Vasario Heavy Duty &bull; Port: RJ11/12 24V Kick Pulse via Printer
+                      Volcora 13" Electronic Cash Register Drawer (4 Bill 5 Coin Cash Tray, Removable Coin Compartment, 12-24V, RJ11/RJ12 Key-Lock, Black)
                     </p>
                   </div>
                 </div>

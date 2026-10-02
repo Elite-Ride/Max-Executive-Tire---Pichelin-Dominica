@@ -85,6 +85,9 @@ import { AdminSalesSummaryChart } from './AdminSalesSummaryChart';
 import { AdminMonthlyRevenueChart } from './AdminMonthlyRevenueChart';
 import { AdminWorkshopPerformanceReport } from './AdminWorkshopPerformanceReport';
 import { AdminQuickBooksAccountingReport } from './AdminQuickBooksAccountingReport';
+import { AdminCashDrawerLogView } from './AdminCashDrawerLogView';
+import { AdminForecastRevenueView } from './AdminForecastRevenueView';
+import { useVolcoraCashDrawer } from '../utils/useVolcoraCashDrawer';
 import { AdminPosHardwareModal, HardwareStatusState } from './AdminPosHardwareModal';
 import { AdminAddOrderModal } from './AdminAddOrderModal';
 import {
@@ -155,6 +158,7 @@ interface AdminOrdersModalProps {
   onUpdateTyrePrice?: (tyreId: string, newPriceXCD: number) => void;
   onUpdateTyreStock?: (tyreId: string, newStock: number) => void;
   onAddNewTyre?: (newTyre: Tyre) => void;
+  volcoraDrawer?: ReturnType<typeof useVolcoraCashDrawer>;
 }
 
 export const AdminOrdersModal: React.FC<AdminOrdersModalProps> = ({
@@ -180,8 +184,9 @@ export const AdminOrdersModal: React.FC<AdminOrdersModalProps> = ({
   onUpdateTyrePrice,
   onUpdateTyreStock,
   onAddNewTyre,
+  volcoraDrawer,
 }) => {
-  const [activeModalTab, setActiveModalTab] = useState<'orders' | 'inventory' | 'stock-health' | 'scanner' | 'barcodes' | 'history' | 'customers' | 'pos' | 'prices' | 'activity' | 'trends' | 'sales' | 'monthly-revenue' | 'workshop-report' | 'settings' | 'services' | 'myorders' | 'accounting'>('orders');
+  const [activeModalTab, setActiveModalTab] = useState<'orders' | 'inventory' | 'stock-health' | 'scanner' | 'barcodes' | 'history' | 'customers' | 'pos' | 'prices' | 'activity' | 'trends' | 'sales' | 'monthly-revenue' | 'workshop-report' | 'settings' | 'services' | 'myorders' | 'accounting' | 'drawer-log' | 'forecast'>('orders');
   const [isBarcodeScannerOpen, setIsBarcodeScannerOpen] = useState(false);
   const [isBarcodeCenterOpen, setIsBarcodeCenterOpen] = useState(false);
   const [customWhatsAppInput, setCustomWhatsAppInput] = useState(whatsappCustomMessage);
@@ -289,6 +294,9 @@ export const AdminOrdersModal: React.FC<AdminOrdersModalProps> = ({
 
   // Hardware Solenoid Drawer Kick
   const handleKickDrawer = (reason: string = 'Manual POS Drawer Kick') => {
+    if (volcoraDrawer) {
+      volcoraDrawer.triggerOpenDrawer('Executive Admin', reason);
+    }
     if (hardwareState.soundEnabled) playCashDrawerKick();
     setHardwareState(prev => ({
       ...prev,
@@ -2248,6 +2256,34 @@ Thank you for choosing Max Executive Tires!`;
             <span>QuickBooks Tax & Accounting</span>
           </button>
 
+          {/* Volcora Cash Drawer Log Tab */}
+          <button
+            id="admin-tab-drawer-log"
+            onClick={() => setActiveModalTab('drawer-log')}
+            className={`inline-flex items-center gap-2 px-4 py-2 rounded-xl text-xs sm:text-sm font-bold transition cursor-pointer ${
+              activeModalTab === 'drawer-log'
+                ? 'bg-amber-600 text-white shadow-sm'
+                : 'bg-amber-50 text-amber-900 hover:bg-amber-100 border border-amber-200'
+            }`}
+          >
+            <Banknote className="w-4 h-4 text-amber-500" />
+            <span>Volcora Cash Drawer Log</span>
+          </button>
+
+          {/* Recharts Revenue Forecast Tab */}
+          <button
+            id="admin-tab-forecast"
+            onClick={() => setActiveModalTab('forecast')}
+            className={`inline-flex items-center gap-2 px-4 py-2 rounded-xl text-xs sm:text-sm font-bold transition cursor-pointer ${
+              activeModalTab === 'forecast'
+                ? 'bg-[#0984E3] text-white shadow-sm'
+                : 'bg-blue-50 text-blue-900 hover:bg-blue-100 border border-blue-200'
+            }`}
+          >
+            <TrendingUp className="w-4 h-4 text-[#0984E3]" />
+            <span>Revenue Forecast</span>
+          </button>
+
           <button
             onClick={() => setActiveModalTab('settings')}
             className={`inline-flex items-center gap-2 px-4 py-2 rounded-xl text-xs sm:text-sm font-bold transition ${
@@ -2486,6 +2522,40 @@ Thank you for choosing Max Executive Tires!`;
           <div className="flex-1 overflow-y-auto py-2">
             <AdminQuickBooksAccountingReport orders={orders} tyres={tyres} servicePrices={servicePrices} />
           </div>
+        ) : activeModalTab === 'drawer-log' ? (
+          <div className="flex-1 overflow-y-auto py-2">
+            <AdminCashDrawerLogView
+              drawerStatus={volcoraDrawer ? volcoraDrawer.drawerStatus : hardwareState.drawerStatus}
+              isPulsing={volcoraDrawer ? volcoraDrawer.isPulsing : false}
+              lastTriggeredAt={volcoraDrawer ? volcoraDrawer.lastTriggeredAt : null}
+              lastTriggeredBy={volcoraDrawer ? volcoraDrawer.lastTriggeredBy : null}
+              drawerLogs={volcoraDrawer ? volcoraDrawer.drawerLogs : []}
+              adminActivityLog={adminActivityLog}
+              onTriggerOpenDrawer={(adminName, reason) => {
+                if (volcoraDrawer) {
+                  volcoraDrawer.triggerOpenDrawer(adminName, reason);
+                } else {
+                  handleKickDrawer(reason || 'Manual Open');
+                }
+              }}
+              onCloseDrawer={() => {
+                if (volcoraDrawer) {
+                  volcoraDrawer.closeDrawer();
+                } else {
+                  setHardwareState(prev => ({ ...prev, drawerStatus: 'closed' }));
+                }
+              }}
+              onClearDrawerLogs={() => {
+                if (volcoraDrawer) {
+                  volcoraDrawer.clearDrawerLogs();
+                }
+              }}
+            />
+          </div>
+        ) : activeModalTab === 'forecast' ? (
+          <div className="flex-1 overflow-y-auto py-2">
+            <AdminForecastRevenueView orders={orders} tyres={tyres} />
+          </div>
         ) : activeModalTab === 'pos' ? (
           <div className="flex-1 overflow-y-auto space-y-6 py-4 animate-fade-in">
             {/* Live Workshop Hardware Peripherals Ribbon */}
@@ -2517,9 +2587,9 @@ Thank you for choosing Max Executive Tires!`;
                 <div className="flex items-center gap-2 bg-slate-800/90 px-3 py-1.5 rounded-xl border border-slate-700/80 text-xs shrink-0">
                   <Banknote className="w-3.5 h-3.5 text-amber-400" />
                   <div>
-                    <span className="font-bold text-white block text-[11px] leading-tight">Cash Drawer: Heavy Duty</span>
+                    <span className="font-bold text-white block text-[11px] leading-tight">Cash Drawer: Volcora 13" RJ11/12</span>
                     <span className={`text-[10px] font-bold ${hardwareState.drawerStatus === 'open' ? 'text-rose-400 animate-pulse' : 'text-amber-300'}`}>
-                      {hardwareState.drawerStatus === 'open' ? '⚠️ DRAWER OPEN' : `Closed (Float: EC$ ${(hardwareState.drawerOpeningFloat + hardwareState.cashSalesTotal - hardwareState.cashDropsTotal).toFixed(0)})`}
+                      {hardwareState.drawerStatus === 'open' ? '⚠️ DRAWER OPEN' : `Closed (4 Bill/5 Coin Tray • 24V)`}
                     </span>
                   </div>
                 </div>

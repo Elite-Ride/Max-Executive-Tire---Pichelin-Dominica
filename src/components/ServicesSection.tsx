@@ -22,6 +22,7 @@ import { Tyre } from '../types';
 import { TYRE_SERVICES, SHOP_LOCATION_INFO } from '../data/servicesData';
 import { PrintServiceMenuModal } from './PrintServiceMenuModal';
 import { EcoTyreDisposalSection } from './EcoTyreDisposalSection';
+import { RoadsideRepairCostEstimator } from './RoadsideRepairCostEstimator';
 
 interface ServicesSectionProps {
   onOpenSOS: () => void;
@@ -409,6 +410,12 @@ export const ServicesSection: React.FC<ServicesSectionProps> = ({
           </div>
         )}
       </div>
+
+      {/* Interactive Roadside Repair & Puncture Cost Estimator Tool */}
+      <RoadsideRepairCostEstimator
+        detectedGpsDistanceKm={distanceKm}
+        onOpenSOS={onOpenSOS}
+      />
 
       {/* Shop Location Callout */}
       <div className="bg-slate-50 rounded-2xl p-6 sm:p-8 border border-slate-200 flex flex-col md:flex-row items-center justify-between gap-6">

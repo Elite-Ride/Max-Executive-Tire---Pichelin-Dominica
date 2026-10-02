@@ -15,6 +15,7 @@ import { AdminLoginModal } from './components/AdminLoginModal';
 import { DeviceSimulatorModal, DevicePlatform } from './components/DeviceSimulatorModal';
 import { ErrorBoundary } from './components/ErrorBoundary';
 import { Footer } from './components/Footer';
+import { useVolcoraCashDrawer } from './utils/useVolcoraCashDrawer';
 import { TYRES_DATA, getRepresentativeVehicleForTyre } from './data/tyresData';
 import { Tyre, CartItem, DominicaVehiclePreset, TyreCondition, BackgroundTheme } from './types';
 import { 
@@ -518,16 +519,21 @@ export default function App() {
     } catch {}
   }, [adminActivityLog]);
 
-  const logActivity = (actionType: 'STATUS_CHANGE' | 'ORDER_DELETION' | 'BULK_ACTION' | 'PRICE_UPDATE' | 'OTHER', description: string) => {
+  const logActivity = (actionType: 'STATUS_CHANGE' | 'ORDER_DELETION' | 'BULK_ACTION' | 'PRICE_UPDATE' | 'OTHER', description: string, adminName: string = 'Executive Admin') => {
     const newItem = {
       id: 'log-' + Date.now() + '-' + Math.random().toString(36).substr(2, 4),
       timestamp: new Date().toLocaleString(),
       actionType,
       description,
-      adminName: 'Executive Admin'
+      adminName
     };
     setAdminActivityLog(prev => [newItem, ...prev]);
   };
+
+  // State-based hook simulating the Volcora 13" Cash Drawer RJ11/RJ12 trigger signal
+  const volcoraDrawer = useVolcoraCashDrawer((actionType, description, adminName) => {
+    logActivity(actionType, description, adminName || 'Executive Admin');
+  });
 
   const handleUpdateServicePrice = (serviceId: string, newPriceXCD: number) => {
     setServicePrices(prev => ({ ...prev, [serviceId]: newPriceXCD }));
@@ -1157,6 +1163,7 @@ export default function App() {
           onUpdateTyrePrice={handleUpdateSingleTyrePrice}
           onUpdateTyreStock={handleUpdateSingleTyreStock}
           onAddNewTyre={handleAddNewTyreToInventory}
+          volcoraDrawer={volcoraDrawer}
         />
       </ErrorBoundary>
 
