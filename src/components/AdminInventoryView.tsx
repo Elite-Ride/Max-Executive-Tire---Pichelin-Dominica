@@ -52,7 +52,6 @@ import { BarcodeScannerModal } from './BarcodeScannerModal';
 import { PrinterGuide } from './PrinterGuide';
 import { AdminQuickAdjustModal } from './AdminQuickAdjustModal';
 import { AdminInventoryImportModal } from './AdminInventoryImportModal';
-import { D3StockHealthChart } from './D3StockHealthChart';
 import { AdminStockPrediction } from './AdminStockPrediction';
 import { AdminOrder } from './AdminOrdersModal';
 import { playBarcodeBeep, playPrinterFeedSound } from '../utils/hardwareAudio';
@@ -141,7 +140,6 @@ export const AdminInventoryView: React.FC<AdminInventoryViewProps> = ({
   const [selectedCategory, setSelectedCategory] = useState<string>('ALL');
   const [stockFilter, setStockFilter] = useState<'ALL' | 'LOW' | 'OUT'>('ALL');
   const [showPriceTrendView, setShowPriceTrendView] = useState(false);
-  const [showD3Chart, setShowD3Chart] = useState(false);
   const [showStockPredictions, setShowStockPredictions] = useState(false);
   const [priceHistorySearch, setPriceHistorySearch] = useState('');
   const [isBarcodeCenterOpen, setIsBarcodeCenterOpen] = useState(false);
@@ -159,12 +157,6 @@ export const AdminInventoryView: React.FC<AdminInventoryViewProps> = ({
   // Quick Adjust Modal State
   const [quickAdjustTyre, setQuickAdjustTyre] = useState<Tyre | null>(null);
   const [inventoryNotification, setInventoryNotification] = useState<string | null>(null);
-
-  // Quick Restock Reorder Request Modal State
-  const [isRestockModalOpen, setIsRestockModalOpen] = useState(false);
-  const [restockSupplierEmail, setRestockSupplierEmail] = useState('orders@tyresupplierscaribbean.com');
-  const [restockEmailNotes, setRestockEmailNotes] = useState('Urgent maritime container or express courier delivery to Roseau port for Maranatha Square workshop.');
-  const [restockTargetTyres, setRestockTargetTyres] = useState<Tyre[]>([]);
 
   // Price history state with localStorage fallback
   const [priceHistory, setPriceHistory] = useState<PriceUpdateRecord[]>(() => {
@@ -642,67 +634,6 @@ export const AdminInventoryView: React.FC<AdminInventoryViewProps> = ({
     return tyres.filter(t => (t.stockCount || 0) < 5);
   }, [tyres]);
 
-  // Open restock request modal for all low stock tyres (< 5 units) or specific items
-  const handleOpenRestockModal = (itemsToReorder?: Tyre[]) => {
-    const list = itemsToReorder && itemsToReorder.length > 0 ? itemsToReorder : lowStockTyresList;
-    setRestockTargetTyres(list);
-    setIsRestockModalOpen(true);
-  };
-
-  // Generate and launch draft 'Restock Request' mailto intent to suppliers
-  const handleSendRestockEmailDraft = () => {
-    const items = restockTargetTyres.length > 0 ? restockTargetTyres : lowStockTyresList;
-    if (items.length === 0) {
-      alert('No low stock items currently require reordering.');
-      return;
-    }
-
-    const supplierEmail = restockSupplierEmail.trim() || 'orders@tyresupplierscaribbean.com';
-    const timestamp = new Date().toLocaleDateString('en-US', { month: 'short', day: 'numeric', year: 'numeric' });
-    const subject = `Restock Request: Max Executive Tires (${items.length} low-stock SKUs) - ${timestamp}`;
-
-    let emailBody = `Dear Supplier / Fulfillment Team,\n\n`;
-    emailBody += `Please prepare a quotation and dispatch order for the following priority tyre inventory for Max Executive Tires in Pichelin, Dominica (Maranatha Square, Main Highway).\n\n`;
-    emailBody += `Workshop Stock Alert: The following items have fallen below our minimum threshold of 5 units:\n\n`;
-    emailBody += `------------------------------------------------------------\n`;
-    emailBody += `LOW STOCK ITEMS FOR REORDER:\n`;
-    emailBody += `------------------------------------------------------------\n`;
-
-    items.forEach((tyre, idx) => {
-      const suggestedReorderQty = Math.max(8, 12 - (tyre.stockCount || 0));
-      emailBody += `${idx + 1}. ${tyre.brand} ${tyre.modelName}\n`;
-      emailBody += `   - Size: ${tyre.size} (Rim: ${tyre.rimDiameter || '17'}")\n`;
-      emailBody += `   - Condition: ${tyre.condition.toUpperCase()}\n`;
-      emailBody += `   - Current Workshop Stock: ${tyre.stockCount || 0} units left\n`;
-      emailBody += `   - Recommended Restock Order: ${suggestedReorderQty} units\n`;
-      if (tyre.category) {
-        emailBody += `   - Category: ${tyre.category}\n`;
-      }
-      emailBody += `\n`;
-    });
-
-    emailBody += `------------------------------------------------------------\n`;
-    emailBody += `Total Low-Stock SKUs: ${items.length}\n`;
-    emailBody += `Delivery Destination: Max Executive Tires Workshop, Maranatha Square, Pichelin, Dominica\n`;
-    emailBody += `Contact: Max Blanc (+1 767 616 0155 / maxblanc4577@gmail.com)\n`;
-    if (restockEmailNotes.trim()) {
-      emailBody += `Special Instructions: ${restockEmailNotes.trim()}\n`;
-    }
-    emailBody += `------------------------------------------------------------\n\n`;
-    emailBody += `Kindly confirm availability, freight timeline, and proforma invoice in EC$ (XCD) or US$ (USD).\n\n`;
-    emailBody += `Best regards,\n`;
-    emailBody += `Inventory Management Team\n`;
-    emailBody += `Max Executive Tires & Fitment Services\n`;
-    emailBody += `Maranatha Square, Main Highway, Pichelin, Dominica\n`;
-
-    const mailtoUrl = `mailto:${encodeURIComponent(supplierEmail)}?subject=${encodeURIComponent(subject)}&body=${encodeURIComponent(emailBody)}`;
-    window.location.href = mailtoUrl;
-
-    setInventoryNotification(`Restock email draft created for ${items.length} low-stock tyres!`);
-    setTimeout(() => setInventoryNotification(null), 4000);
-    setIsRestockModalOpen(false);
-  };
-
   const handleCreateTyreSubmit = (e: React.FormEvent) => {
     e.preventDefault();
     if (!newBrand.trim() || !newModel.trim() || !newSize.trim()) {
@@ -883,21 +814,6 @@ export const AdminInventoryView: React.FC<AdminInventoryViewProps> = ({
           </button>
 
           <button
-            onClick={() => setShowD3Chart(!showD3Chart)}
-            id="admin-inventory-d3-chart-btn"
-            data-testid="admin-inventory-d3-chart-btn"
-            className={`inline-flex items-center gap-1.5 font-bold text-xs px-3.5 py-2 rounded-xl shadow-xs transition cursor-pointer ${
-              showD3Chart
-                ? 'bg-sky-500 text-slate-950 font-black ring-2 ring-sky-300'
-                : 'bg-slate-800 hover:bg-slate-700 text-sky-300 border border-sky-500/40'
-            }`}
-            title="Toggle Interactive D3.js Stock Health Distribution Chart"
-          >
-            <BarChart2 className="w-4 h-4 text-sky-400" />
-            <span>{showD3Chart ? 'Hide Stock Chart' : 'Stock Health Chart (D3)'}</span>
-          </button>
-
-          <button
             onClick={() => setShowStockPredictions(!showStockPredictions)}
             id="admin-inventory-stock-predictions-btn"
             data-testid="admin-inventory-stock-predictions-btn"
@@ -913,28 +829,6 @@ export const AdminInventoryView: React.FC<AdminInventoryViewProps> = ({
           </button>
         </div>
       </div>
-
-      {/* ============================================================ */}
-      {/* D3.JS STOCK HEALTH DISTRIBUTION CHART VIEW                   */}
-      {/* ============================================================ */}
-      {showD3Chart && (
-        <div className="animate-in fade-in slide-in-from-top-2 duration-200">
-          <D3StockHealthChart
-            tyres={tyres}
-            onSelectTyre={(tyre) => {
-              setQuickAdjustTyre(tyre);
-            }}
-            onQuickAdjust={(tyre, delta) => {
-              const updatedStock = Math.max(0, tyre.stockCount + delta);
-              if (onUpdateTyreStock) {
-                onUpdateTyreStock(tyre.id, updatedStock);
-                setInventoryNotification(`Stock for ${tyre.brand} ${tyre.modelName} updated to ${updatedStock} units.`);
-                setTimeout(() => setInventoryNotification(null), 4000);
-              }
-            }}
-          />
-        </div>
-      )}
 
       {/* ============================================================ */}
       {/* PREDICTIVE DEMAND FORECASTING AI VIEW                        */}
@@ -1253,18 +1147,6 @@ export const AdminInventoryView: React.FC<AdminInventoryViewProps> = ({
             </div>
           </div>
           <div className="flex items-center gap-2.5 flex-wrap shrink-0">
-            <button
-              id="admin-inventory-quick-reorder-banner-btn"
-              data-testid="admin-inventory-quick-reorder-btn"
-              type="button"
-              onClick={() => handleOpenRestockModal()}
-              className="inline-flex items-center gap-2 bg-gradient-to-r from-blue-600 to-indigo-600 hover:from-blue-700 hover:to-indigo-700 text-white font-black text-xs px-4 py-2 rounded-xl shadow-md transition active:scale-95 cursor-pointer"
-              title="Draft restock request email to suppliers for all tyres below 5 units"
-            >
-              <Mail className="w-3.5 h-3.5" />
-              <span>Quick Reorder ({lowStockTyresList.length})</span>
-            </button>
-
             <button
               type="button"
               onClick={() => setStockFilter(stockFilter === 'LOW' ? 'ALL' : 'LOW')}
@@ -1887,20 +1769,6 @@ export const AdminInventoryView: React.FC<AdminInventoryViewProps> = ({
                             <span>Quick Adjust</span>
                           </button>
 
-                          {/* Quick Reorder Button if stock < 5 */}
-                          {(tyre.stockCount || 0) < 5 && (
-                            <button
-                              id={`quick-reorder-btn-${tyre.id}`}
-                              type="button"
-                              onClick={() => handleOpenRestockModal([tyre])}
-                              className="inline-flex items-center gap-1 bg-blue-50 hover:bg-blue-100 text-blue-800 border border-blue-300 font-bold text-[11px] px-2 py-1.5 rounded-lg transition cursor-pointer active:scale-95 shadow-2xs"
-                              title={`Draft Restock Request email to suppliers for ${tyre.brand} ${tyre.modelName}`}
-                            >
-                              <Mail className="w-3 h-3 text-blue-600" />
-                              <span>Reorder</span>
-                            </button>
-                          )}
-
                           <button
                             type="button"
                             onClick={() => setSingleTyreToPrint(tyre)}
@@ -2447,127 +2315,6 @@ export const AdminInventoryView: React.FC<AdminInventoryViewProps> = ({
         existingTyres={tyres}
         onImportCompleted={handleImportCompleted}
       />
-
-      {/* Quick Reorder Restock Request Email Modal */}
-      {isRestockModalOpen && (
-        <div className="fixed inset-0 z-60 bg-slate-950/70 backdrop-blur-xs flex items-center justify-center p-4 animate-fade-in">
-          <div className="bg-white rounded-3xl max-w-2xl w-full p-6 shadow-2xl border border-slate-200 space-y-5 max-h-[90vh] flex flex-col">
-            <div className="flex items-center justify-between border-b border-slate-200 pb-3 shrink-0">
-              <div className="flex items-center gap-2.5">
-                <div className="w-10 h-10 rounded-xl bg-blue-600 text-white flex items-center justify-center font-bold shadow-xs">
-                  <Mail className="w-5 h-5" />
-                </div>
-                <div>
-                  <h4 className="text-base font-extrabold text-slate-900">
-                    Draft Restock Request Email
-                  </h4>
-                  <p className="text-xs text-slate-500">
-                    Pre-formatted supplier purchase order email for tyres below reorder threshold (&lt; 5 units)
-                  </p>
-                </div>
-              </div>
-              <button
-                type="button"
-                onClick={() => setIsRestockModalOpen(false)}
-                className="p-1.5 text-slate-400 hover:text-slate-700 rounded-lg hover:bg-slate-100 transition cursor-pointer"
-              >
-                <X className="w-5 h-5" />
-              </button>
-            </div>
-
-            <div className="flex-1 overflow-y-auto space-y-4 pr-1">
-              <div className="bg-blue-50 border border-blue-200 rounded-2xl p-4 text-xs text-blue-900 space-y-1">
-                <p className="font-bold flex items-center gap-1.5">
-                  <AlertTriangle className="w-4 h-4 text-blue-600" />
-                  <span>{restockTargetTyres.length} tyre SKU(s) flagged for supplier replenishment</span>
-                </p>
-                <p className="text-blue-700">
-                  Clicking <strong>&ldquo;Open Draft Email&rdquo;</strong> will open your email app with recipient, subject line, and an itemized breakdown of tyre dimensions, current stock counts, and recommended restock orders.
-                </p>
-              </div>
-
-              <div>
-                <label className="block text-xs font-bold text-slate-700 mb-1">
-                  Supplier / Distributor Email Address
-                </label>
-                <input
-                  type="email"
-                  value={restockSupplierEmail}
-                  onChange={(e) => setRestockSupplierEmail(e.target.value)}
-                  placeholder="orders@supplier.com"
-                  className="w-full px-3.5 py-2.5 rounded-xl border border-slate-300 text-xs font-medium focus:ring-2 focus:ring-blue-500 focus:outline-none"
-                />
-              </div>
-
-              <div>
-                <label className="block text-xs font-bold text-slate-700 mb-1">
-                  Special Order Instructions / Delivery Notes
-                </label>
-                <textarea
-                  rows={2}
-                  value={restockEmailNotes}
-                  onChange={(e) => setRestockEmailNotes(e.target.value)}
-                  placeholder="Shipping notes, urgency, container port..."
-                  className="w-full px-3.5 py-2 rounded-xl border border-slate-300 text-xs font-medium focus:ring-2 focus:ring-blue-500 focus:outline-none"
-                />
-              </div>
-
-              <div>
-                <label className="block text-xs font-bold text-slate-700 mb-2">
-                  Items to Include in Reorder List:
-                </label>
-                <div className="border border-slate-200 rounded-2xl divide-y divide-slate-100 max-h-56 overflow-y-auto bg-slate-50/50">
-                  {restockTargetTyres.map((tyre) => {
-                    const suggestedQty = Math.max(8, 12 - (tyre.stockCount || 0));
-                    return (
-                      <div key={tyre.id} className="p-3 flex items-center justify-between gap-3 text-xs">
-                        <div>
-                          <div className="font-bold text-slate-900 flex items-center gap-2">
-                            <span>{tyre.brand} {tyre.modelName}</span>
-                            <span className="text-[10px] bg-slate-200 text-slate-700 font-semibold px-1.5 py-0.2 rounded">
-                              {tyre.condition.toUpperCase()}
-                            </span>
-                          </div>
-                          <div className="text-slate-500 text-[11px] mt-0.5">
-                            Size: <span className="font-semibold text-slate-700">{tyre.size}</span> • Category: {tyre.category}
-                          </div>
-                        </div>
-                        <div className="text-right shrink-0">
-                          <div className="font-bold text-rose-600">
-                            Current: {tyre.stockCount || 0} left
-                          </div>
-                          <div className="text-[11px] text-blue-700 font-semibold">
-                            Order: +{suggestedQty} units
-                          </div>
-                        </div>
-                      </div>
-                    );
-                  })}
-                </div>
-              </div>
-            </div>
-
-            <div className="pt-3 border-t border-slate-200 flex items-center justify-between gap-3 shrink-0">
-              <button
-                type="button"
-                onClick={() => setIsRestockModalOpen(false)}
-                className="px-4 py-2.5 text-xs font-bold text-slate-600 hover:text-slate-800 hover:bg-slate-100 rounded-xl transition cursor-pointer"
-              >
-                Cancel
-              </button>
-              <button
-                id="admin-confirm-restock-email-btn"
-                type="button"
-                onClick={handleSendRestockEmailDraft}
-                className="inline-flex items-center gap-2 px-5 py-2.5 rounded-xl bg-blue-600 hover:bg-blue-700 text-white font-extrabold text-xs shadow-md transition active:scale-95 cursor-pointer"
-              >
-                <Send className="w-4 h-4" />
-                <span>Open Draft Email ({restockTargetTyres.length} Items)</span>
-              </button>
-            </div>
-          </div>
-        </div>
-      )}
 
       {/* Notification Toast */}
       {inventoryNotification && (

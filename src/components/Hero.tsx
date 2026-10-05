@@ -83,7 +83,7 @@ export const Hero: React.FC<HeroProps> = ({
             <button
               id="hero-find-tyres-btn"
               onClick={onSearchClick}
-              className="inline-flex items-center justify-center gap-2 bg-[#0984E3] hover:bg-[#0873c4] text-white font-bold text-sm sm:text-base px-7 py-4 rounded-xl shadow-lg shadow-blue-500/20 transition transform active:scale-95"
+              className="inline-flex items-center justify-center gap-2 bg-[#0984E3] hover:bg-[#0873c4] text-white font-bold text-sm sm:text-base px-7 py-4 rounded-xl shadow-lg shadow-blue-500/20 transition transform active:scale-95 cursor-pointer"
             >
               <Search className="w-5 h-5" />
               <span>Search Tyre Inventory</span>
@@ -93,7 +93,7 @@ export const Hero: React.FC<HeroProps> = ({
             <button
               id="hero-book-service-btn"
               onClick={onBookServiceClick}
-              className="inline-flex items-center justify-center gap-2 bg-slate-900 hover:bg-slate-800 text-white font-bold text-sm sm:text-base px-6 py-4 rounded-xl border border-slate-700 transition"
+              className="inline-flex items-center justify-center gap-2 bg-slate-900 hover:bg-slate-800 text-white font-bold text-sm sm:text-base px-6 py-4 rounded-xl border border-slate-700 transition cursor-pointer"
             >
               <Wrench className="w-5 h-5 text-[#0984E3]" />
               <span>Workshop Services</span>
@@ -105,11 +105,70 @@ export const Hero: React.FC<HeroProps> = ({
                 triggerSOSHaptic();
                 onSOSClick();
               }}
-              className="inline-flex items-center justify-center gap-2 bg-red-600 hover:bg-red-500 text-white font-bold text-sm sm:text-base px-6 py-4 rounded-xl shadow-lg shadow-red-600/20 transition transform active:scale-95"
+              className="inline-flex items-center justify-center gap-2 bg-red-600 hover:bg-red-500 text-white font-bold text-sm sm:text-base px-6 py-4 rounded-xl shadow-lg shadow-red-600/20 transition transform active:scale-95 cursor-pointer"
             >
               <AlertTriangle className="w-5 h-5 text-amber-300 animate-pulse" />
               <span>Roadside SOS Rescue</span>
             </button>
+          </div>
+
+          {/* High-Quality Professional Photographs Showcase: Pichelin Scenery & Tyre Workshop Bay */}
+          <div className="pt-6">
+            <div className="grid grid-cols-1 md:grid-cols-2 gap-4 text-left">
+              {/* Pichelin Scenery Banner */}
+              <div className="group relative rounded-2xl overflow-hidden border border-slate-800 bg-slate-900 shadow-xl transition-all duration-300 hover:border-slate-700">
+                <div className="aspect-video w-full overflow-hidden bg-slate-950">
+                  <img
+                    src="/src/assets/images/pichelin_scenery_hero_1791186990903.jpg"
+                    alt="Scenic Pichelin Dominica mountain peaks and rainforest road to Maranatha Square"
+                    referrerPolicy="no-referrer"
+                    className="w-full h-full object-cover transition-transform duration-700 group-hover:scale-105"
+                  />
+                </div>
+                <div className="absolute inset-0 bg-gradient-to-t from-slate-950/90 via-slate-950/30 to-transparent pointer-events-none" />
+                <div className="absolute bottom-3 left-3 right-3 flex items-end justify-between gap-2">
+                  <div>
+                    <span className="inline-flex items-center gap-1.5 px-2.5 py-0.5 rounded-full bg-blue-500/20 text-blue-300 text-[10px] font-bold tracking-wider uppercase border border-blue-500/30 mb-1">
+                      <MapPin className="w-3 h-3 text-[#0984E3]" />
+                      <span>Pichelin Valley Route</span>
+                    </span>
+                    <h3 className="text-white font-extrabold text-sm sm:text-base drop-shadow-md">
+                      Built for Dominica&apos;s Mountain Slopes
+                    </h3>
+                    <p className="text-slate-300 text-[11px] font-medium leading-tight">
+                      Maranatha Square gateway between Roseau and Grand Bay
+                    </p>
+                  </div>
+                </div>
+              </div>
+
+              {/* Tyre Workshop Environment Banner */}
+              <div className="group relative rounded-2xl overflow-hidden border border-slate-800 bg-slate-900 shadow-xl transition-all duration-300 hover:border-slate-700">
+                <div className="aspect-video w-full overflow-hidden bg-slate-950">
+                  <img
+                    src="/src/assets/images/workshop_bay_hero_1791187000502.jpg"
+                    alt="Max Executive Tires workshop bay with computer balancing and pneumatic mounting tools in Pichelin"
+                    referrerPolicy="no-referrer"
+                    className="w-full h-full object-cover transition-transform duration-700 group-hover:scale-105"
+                  />
+                </div>
+                <div className="absolute inset-0 bg-gradient-to-t from-slate-950/90 via-slate-950/30 to-transparent pointer-events-none" />
+                <div className="absolute bottom-3 left-3 right-3 flex items-end justify-between gap-2">
+                  <div>
+                    <span className="inline-flex items-center gap-1.5 px-2.5 py-0.5 rounded-full bg-emerald-500/20 text-emerald-300 text-[10px] font-bold tracking-wider uppercase border border-emerald-500/30 mb-1">
+                      <Wrench className="w-3 h-3 text-emerald-400" />
+                      <span>Professional Fitting Bay</span>
+                    </span>
+                    <h3 className="text-white font-extrabold text-sm sm:text-base drop-shadow-md">
+                      Full-Service Tyre Workshop
+                    </h3>
+                    <p className="text-slate-300 text-[11px] font-medium leading-tight">
+                      Computerized wheel balancing, pneumatic mounting & pressure testing
+                    </p>
+                  </div>
+                </div>
+              </div>
+            </div>
           </div>
 
         </div>

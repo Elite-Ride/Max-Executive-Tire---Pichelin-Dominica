@@ -20,9 +20,27 @@ import {
   Check,
   RotateCcw,
   FileText,
-  Receipt
+  Receipt,
+  Bell,
+  Mail,
+  MessageSquare,
+  Send,
+  X,
+  Trash2
 } from 'lucide-react';
 import { AdminOrder } from './AdminOrdersModal';
+
+export interface TyreMaintenanceReminder {
+  orderId: string;
+  reservationCode: string;
+  purchaseDate: string;
+  intervalMonths: number;
+  targetDate: string;
+  serviceType: string;
+  channel: 'email' | 'sms' | 'both';
+  contact: string;
+  status: 'Scheduled' | 'Sent';
+}
 import { jsPDF } from 'jspdf';
 import { SHOP_LOCATION_INFO } from '../data/servicesData';
 import { ReceiptPrintModal } from './ReceiptPrintModal';
@@ -153,6 +171,100 @@ export const MyOrdersView: React.FC<MyOrdersViewProps> = ({
   const [autoPrintOrder, setAutoPrintOrder] = useState<boolean>(false);
   const [selectedInvoiceOrder, setSelectedInvoiceOrder] = useState<AdminOrder | null>(null);
   const [selectedThermalOrder, setSelectedThermalOrder] = useState<AdminOrder | null>(null);
+
+  // Scheduled Tyre Maintenance Reminder state with localStorage persistence
+  const [maintenanceReminders, setMaintenanceReminders] = useState<Record<string, TyreMaintenanceReminder>>(() => {
+    try {
+      const saved = localStorage.getItem('max_executive_maintenance_reminders');
+      if (saved) return JSON.parse(saved);
+    } catch (e) {
+      console.error(e);
+    }
+    return {};
+  });
+
+  const [activeReminderOrder, setActiveReminderOrder] = useState<AdminOrder | null>(null);
+  const [reminderInterval, setReminderInterval] = useState<number>(3); // 3, 6, 12 months
+  const [reminderChannel, setReminderChannel] = useState<'email' | 'sms' | 'both'>('email');
+  const [reminderContact, setReminderContact] = useState<string>('');
+  const [reminderNotification, setReminderNotification] = useState<string | null>(null);
+
+  const handleOpenReminderModal = (order: AdminOrder) => {
+    setActiveReminderOrder(order);
+    const existing = maintenanceReminders[order.id];
+    if (existing) {
+      setReminderInterval(existing.intervalMonths);
+      setReminderChannel(existing.channel);
+      setReminderContact(existing.contact);
+    } else {
+      setReminderInterval(3);
+      setReminderChannel('email');
+      setReminderContact(order.customerPhone || '');
+    }
+  };
+
+  const handleSaveReminder = (e: React.FormEvent) => {
+    e.preventDefault();
+    if (!activeReminderOrder) return;
+
+    if (!reminderContact.trim()) {
+      alert('Please enter an email address or mobile phone number for your reminder notification.');
+      return;
+    }
+
+    const purchaseBaseDate = activeReminderOrder.timestamp ? new Date(activeReminderOrder.timestamp) : new Date();
+    const target = new Date(purchaseBaseDate);
+    target.setMonth(target.getMonth() + reminderInterval);
+
+    const formattedTarget = target.toLocaleDateString('en-US', {
+      month: 'long',
+      day: 'numeric',
+      year: 'numeric'
+    });
+
+    const serviceTypes: Record<number, string> = {
+      3: '3-Month Tyre Rotation & Pressure Balancing Inspection',
+      6: '6-Month Computerized Dynamic Wheel Balancing & Alignment',
+      12: '12-Month Comprehensive Tread Depth Analysis & Re-Mounting'
+    };
+
+    const newReminder: TyreMaintenanceReminder = {
+      orderId: activeReminderOrder.id,
+      reservationCode: activeReminderOrder.reservationCode,
+      purchaseDate: purchaseBaseDate.toLocaleDateString('en-US', { month: 'short', day: 'numeric', year: 'numeric' }),
+      intervalMonths: reminderInterval,
+      targetDate: formattedTarget,
+      serviceType: serviceTypes[reminderInterval] || 'Scheduled Tyre Checkup',
+      channel: reminderChannel,
+      contact: reminderContact.trim(),
+      status: 'Scheduled'
+    };
+
+    const updated = { ...maintenanceReminders, [activeReminderOrder.id]: newReminder };
+    setMaintenanceReminders(updated);
+    try {
+      localStorage.setItem('max_executive_maintenance_reminders', JSON.stringify(updated));
+    } catch (err) {
+      console.error(err);
+    }
+
+    setReminderNotification(`Maintenance reminder set for ${formattedTarget} via ${reminderChannel.toUpperCase()}!`);
+    setTimeout(() => setReminderNotification(null), 5000);
+    setActiveReminderOrder(null);
+  };
+
+  const handleDeleteReminder = (orderId: string) => {
+    const updated = { ...maintenanceReminders };
+    delete updated[orderId];
+    setMaintenanceReminders(updated);
+    try {
+      localStorage.setItem('max_executive_maintenance_reminders', JSON.stringify(updated));
+    } catch (err) {
+      console.error(err);
+    }
+    setReminderNotification('Maintenance reminder cancelled.');
+    setTimeout(() => setReminderNotification(null), 4000);
+  };
 
   // Local status overrides for immediate responsive testing in UI
   const [localStatusOverrides, setLocalStatusOverrides] = useState<Record<string, 'Pending' | 'Ready for Fitting' | 'Completed'>>({});
@@ -551,6 +663,21 @@ export const MyOrdersView: React.FC<MyOrdersViewProps> = ({
                       >
                         <Download className="w-3.5 h-3.5 text-blue-400" />
                         <span>PDF</span>
+                      </button>
+
+                      <button
+                        type="button"
+                        id={`btn-maintenance-reminder-${order.reservationCode}`}
+                        onClick={() => handleOpenReminderModal(order)}
+                        className={`flex items-center gap-1.5 text-xs font-bold px-3 py-2 rounded-xl shadow-xs transition active:scale-95 cursor-pointer ${
+                          maintenanceReminders[order.id]
+                            ? 'bg-amber-500 hover:bg-amber-600 text-slate-950 font-black ring-2 ring-amber-300'
+                            : 'bg-blue-50 hover:bg-blue-100 text-blue-700 border border-blue-200'
+                        }`}
+                        title="Set scheduled tyre maintenance reminder based on purchase date"
+                      >
+                        <Bell className={`w-3.5 h-3.5 ${maintenanceReminders[order.id] ? 'fill-slate-950 text-slate-950' : 'text-blue-600'}`} />
+                        <span>{maintenanceReminders[order.id] ? 'Reminder Set' : 'Set Reminder'}</span>
                       </button>
                     </div>
                   </div>

@@ -184,7 +184,102 @@ export const ServicesSection: React.FC<ServicesSectionProps> = ({
 
       {/* TAB CONTENT 1: WORKSHOP SERVICES GRID */}
       {activeServicesTab === 'services' && (
-        <div className="space-y-12">
+        <div className="space-y-10">
+          {/* Professional Promotional Banners: Fast-Lane Fitting & Roadside Puncture Repairs */}
+          <div className="grid grid-cols-1 lg:grid-cols-2 gap-6">
+            {/* Promotional Banner 1: Fast-Lane Fitting */}
+            <div className="group relative rounded-3xl overflow-hidden bg-slate-900 border border-slate-200/80 shadow-lg flex flex-col justify-between">
+              <div className="relative aspect-[16/9] w-full overflow-hidden bg-slate-950">
+                <img
+                  src="/src/assets/images/fast_lane_fitting_1791187010040.jpg"
+                  alt="Technician performing fast-lane tyre fitting and wheel balancing at Max Executive Tires"
+                  referrerPolicy="no-referrer"
+                  className="w-full h-full object-cover transition-transform duration-700 group-hover:scale-105"
+                />
+                <div className="absolute inset-0 bg-gradient-to-t from-slate-950/95 via-slate-950/40 to-transparent" />
+                <div className="absolute top-4 left-4">
+                  <span className="inline-flex items-center gap-1.5 px-3 py-1 rounded-full bg-blue-600 text-white text-xs font-black uppercase tracking-wider shadow-md">
+                    <Sparkles className="w-3.5 h-3.5 text-amber-300" />
+                    <span>Fast-Lane Fitting</span>
+                  </span>
+                </div>
+              </div>
+              <div className="p-6 bg-slate-900 text-white space-y-3">
+                <div className="flex items-center justify-between gap-2">
+                  <h3 className="text-xl font-black text-white tracking-tight">
+                    15-Minute Express Tyre Mounting & Balancing
+                  </h3>
+                  <span className="text-xs font-mono font-bold text-blue-400 bg-blue-950/80 px-2.5 py-1 rounded-lg border border-blue-800 shrink-0">
+                    From EC$ 15/tyre
+                  </span>
+                </div>
+                <p className="text-xs sm:text-sm text-slate-300 leading-relaxed">
+                  Avoid long workshop delays. Our Pichelin service bay is primed for rapid pneumatic tyre replacement, high-speed computerized dynamic balancing, and bead seal leak testing.
+                </p>
+                <div className="flex flex-wrap items-center gap-2 pt-1 text-xs text-slate-400">
+                  <span className="inline-flex items-center gap-1 bg-slate-800 px-2.5 py-1 rounded-md">
+                    <CheckCircle2 className="w-3.5 h-3.5 text-emerald-400" />
+                    <span>Zero rim scratching</span>
+                  </span>
+                  <span className="inline-flex items-center gap-1 bg-slate-800 px-2.5 py-1 rounded-md">
+                    <CheckCircle2 className="w-3.5 h-3.5 text-emerald-400" />
+                    <span>Torque-calibrated lugs</span>
+                  </span>
+                  <span className="inline-flex items-center gap-1 bg-slate-800 px-2.5 py-1 rounded-md">
+                    <CheckCircle2 className="w-3.5 h-3.5 text-emerald-400" />
+                    <span>Walk-ins welcome</span>
+                  </span>
+                </div>
+              </div>
+            </div>
+
+            {/* Promotional Banner 2: Roadside Puncture Repairs */}
+            <div className="group relative rounded-3xl overflow-hidden bg-slate-900 border border-red-200/80 shadow-lg flex flex-col justify-between">
+              <div className="relative aspect-[16/9] w-full overflow-hidden bg-slate-950">
+                <img
+                  src="/src/assets/images/roadside_puncture_repair_1791187020040.jpg"
+                  alt="Roadside puncture repair rescue van on Dominica highway assisting vehicle"
+                  referrerPolicy="no-referrer"
+                  className="w-full h-full object-cover transition-transform duration-700 group-hover:scale-105"
+                />
+                <div className="absolute inset-0 bg-gradient-to-t from-slate-950/95 via-slate-950/40 to-transparent" />
+                <div className="absolute top-4 left-4">
+                  <span className="inline-flex items-center gap-1.5 px-3 py-1 rounded-full bg-red-600 text-white text-xs font-black uppercase tracking-wider shadow-md">
+                    <Truck className="w-3.5 h-3.5 text-white animate-pulse" />
+                    <span>Roadside Puncture Repairs</span>
+                  </span>
+                </div>
+              </div>
+              <div className="p-6 bg-slate-900 text-white space-y-3">
+                <div className="flex items-center justify-between gap-2">
+                  <h3 className="text-xl font-black text-white tracking-tight">
+                    SOS Mobile Rescue & On-Scene Tyre Dispatch
+                  </h3>
+                  <span className="text-xs font-mono font-bold text-red-400 bg-red-950/80 px-2.5 py-1 rounded-lg border border-red-800 shrink-0">
+                    Dominica South
+                  </span>
+                </div>
+                <p className="text-xs sm:text-sm text-slate-300 leading-relaxed">
+                  Stranded with a nail puncture or sudden blowout on Pichelin Hill, Grand Bay road, or Soufrière? Our mobile technician dispatches immediately with heavy-duty pneumatic jacks, vulcanized repair plugs, and emergency air compressors.
+                </p>
+                <div className="pt-2 flex items-center justify-between gap-3">
+                  <div className="flex items-center gap-2 text-xs text-red-300 font-bold">
+                    <Clock className="w-4 h-4 text-red-400" />
+                    <span>Avg. Response: 20-35 mins</span>
+                  </div>
+                  <button
+                    type="button"
+                    onClick={onOpenSOS}
+                    className="inline-flex items-center gap-2 px-4 py-2 bg-red-600 hover:bg-red-500 text-white font-black text-xs rounded-xl shadow-md transition active:scale-95 cursor-pointer"
+                  >
+                    <span>Request Roadside SOS</span>
+                    <ArrowRight className="w-3.5 h-3.5" />
+                  </button>
+                </div>
+              </div>
+            </div>
+          </div>
+
           <div className="grid grid-cols-1 md:grid-cols-2 gap-6 items-stretch">
         {TYRE_SERVICES.map((service, index) => {
           const isRoadside = service.id === 'srv-roadside';
