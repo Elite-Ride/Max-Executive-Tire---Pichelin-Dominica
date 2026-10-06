@@ -762,6 +762,50 @@ export const MyOrdersView: React.FC<MyOrdersViewProps> = ({
                     </div>
                   </div>
 
+                  {/* Scheduled Tyre Maintenance Reminder Banner */}
+                  {maintenanceReminders[order.id] && (
+                    <div className="p-3.5 bg-amber-500/10 rounded-xl border border-amber-300 text-xs text-amber-950 flex flex-col sm:flex-row items-start sm:items-center justify-between gap-3 shadow-xs">
+                      <div className="flex items-start gap-2.5">
+                        <div className="p-2 bg-amber-500 text-slate-950 rounded-xl shrink-0 mt-0.5">
+                          <Bell className="w-4 h-4 fill-slate-950 text-slate-950" />
+                        </div>
+                        <div className="space-y-0.5">
+                          <div className="flex items-center gap-2 flex-wrap">
+                            <span className="font-black text-slate-900 text-sm">
+                              Maintenance Due: {maintenanceReminders[order.id].targetDate}
+                            </span>
+                            <span className="text-[10px] font-bold px-2 py-0.5 rounded-full bg-amber-200 text-amber-950 border border-amber-300">
+                              {maintenanceReminders[order.id].intervalMonths} Mo Interval
+                            </span>
+                          </div>
+                          <p className="text-slate-700 font-medium">
+                            {maintenanceReminders[order.id].serviceType}
+                          </p>
+                          <p className="text-[11px] text-slate-500">
+                            Alert will be sent via <span className="font-bold uppercase text-slate-700">{maintenanceReminders[order.id].channel}</span> to <span className="font-semibold text-slate-800">{maintenanceReminders[order.id].contact}</span>
+                          </p>
+                        </div>
+                      </div>
+                      <div className="flex items-center gap-2 self-end sm:self-center shrink-0">
+                        <button
+                          type="button"
+                          onClick={() => handleOpenReminderModal(order)}
+                          className="px-2.5 py-1.5 bg-amber-100 hover:bg-amber-200 text-amber-900 text-xs font-bold rounded-lg border border-amber-300 transition cursor-pointer"
+                        >
+                          Modify
+                        </button>
+                        <button
+                          type="button"
+                          onClick={() => handleDeleteReminder(order.id)}
+                          className="p-1.5 text-slate-400 hover:text-red-600 hover:bg-red-50 rounded-lg transition cursor-pointer"
+                          title="Cancel scheduled reminder"
+                        >
+                          <Trash2 className="w-4 h-4" />
+                        </button>
+                      </div>
+                    </div>
+                  )}
+
                   {/* Visual 4-Step Progress Stepper */}
                   <div className="bg-slate-50 p-4 rounded-xl border border-slate-200 space-y-3">
                     <div className="flex items-center justify-between">
@@ -961,6 +1005,221 @@ export const MyOrdersView: React.FC<MyOrdersViewProps> = ({
         order={selectedThermalOrder}
         servicePrices={servicePrices}
       />
+
+      {/* Interactive Tyre Maintenance Reminder Setup Modal */}
+      {activeReminderOrder && (
+        <div 
+          className="fixed inset-0 z-50 bg-slate-950/70 backdrop-blur-xs flex items-center justify-center p-4 overflow-y-auto animate-fade-in"
+          role="dialog"
+          aria-modal="true"
+        >
+          <div className="bg-white rounded-3xl max-w-lg w-full overflow-hidden shadow-2xl border border-slate-200">
+            {/* Modal Header */}
+            <div className="bg-slate-900 text-white p-5 flex items-center justify-between border-b border-slate-800">
+              <div className="flex items-center gap-2.5">
+                <div className="p-2 bg-amber-500 text-slate-950 rounded-xl">
+                  <Bell className="w-5 h-5 fill-slate-950 text-slate-950" />
+                </div>
+                <div>
+                  <h3 className="font-black text-base">Schedule Tyre Maintenance Reminder</h3>
+                  <p className="text-xs text-slate-400">
+                    Order #{activeReminderOrder.reservationCode} • {activeReminderOrder.customerName}
+                  </p>
+                </div>
+              </div>
+              <button
+                type="button"
+                onClick={() => setActiveReminderOrder(null)}
+                className="p-1.5 text-slate-400 hover:text-white rounded-lg hover:bg-slate-800 transition cursor-pointer"
+              >
+                <X className="w-5 h-5" />
+              </button>
+            </div>
+
+            {/* Modal Form */}
+            <form onSubmit={handleSaveReminder} className="p-6 space-y-5">
+              <div className="bg-blue-50/70 rounded-2xl p-4 border border-blue-200/60 text-xs text-blue-950 space-y-1">
+                <div className="font-bold flex items-center gap-1.5 text-blue-900">
+                  <ShieldCheck className="w-4 h-4 text-[#0984E3]" />
+                  <span>Protect Your Tread Life on Dominica Mountain Roads</span>
+                </div>
+                <p className="text-slate-600 leading-relaxed text-[11px]">
+                  Dominica&apos;s sharp inclines and winding turns accelerate uneven tyre wear. Automated reminders prompt you when it&apos;s time for free pressure calibration, rotation, or wheel balancing at Maranatha Square, Pichelin.
+                </p>
+              </div>
+
+              {/* Maintenance Interval Selection */}
+              <div className="space-y-2">
+                <label className="block text-xs font-bold text-slate-700 uppercase tracking-wider">
+                  Recommended Interval:
+                </label>
+                <div className="grid grid-cols-3 gap-2.5">
+                  <button
+                    type="button"
+                    onClick={() => setReminderInterval(3)}
+                    className={`p-3 rounded-2xl border text-left flex flex-col justify-between transition cursor-pointer ${
+                      reminderInterval === 3
+                        ? 'bg-amber-500/10 border-amber-500 text-slate-950 ring-2 ring-amber-400'
+                        : 'bg-white border-slate-200 text-slate-700 hover:bg-slate-50'
+                    }`}
+                  >
+                    <span className="font-extrabold text-sm">3 Months</span>
+                    <span className="text-[10px] text-slate-500 mt-1">Tyre Rotation & Pressure</span>
+                  </button>
+
+                  <button
+                    type="button"
+                    onClick={() => setReminderInterval(6)}
+                    className={`p-3 rounded-2xl border text-left flex flex-col justify-between transition cursor-pointer ${
+                      reminderInterval === 6
+                        ? 'bg-amber-500/10 border-amber-500 text-slate-950 ring-2 ring-amber-400'
+                        : 'bg-white border-slate-200 text-slate-700 hover:bg-slate-50'
+                    }`}
+                  >
+                    <span className="font-extrabold text-sm">6 Months</span>
+                    <span className="text-[10px] text-slate-500 mt-1">Wheel Balancing & Alignment</span>
+                  </button>
+
+                  <button
+                    type="button"
+                    onClick={() => setReminderInterval(12)}
+                    className={`p-3 rounded-2xl border text-left flex flex-col justify-between transition cursor-pointer ${
+                      reminderInterval === 12
+                        ? 'bg-amber-500/10 border-amber-500 text-slate-950 ring-2 ring-amber-400'
+                        : 'bg-white border-slate-200 text-slate-700 hover:bg-slate-50'
+                    }`}
+                  >
+                    <span className="font-extrabold text-sm">12 Months</span>
+                    <span className="text-[10px] text-slate-500 mt-1">Tread Depth Inspection</span>
+                  </button>
+                </div>
+              </div>
+
+              {/* Target Service Preview */}
+              <div className="bg-slate-50 rounded-2xl p-3.5 border border-slate-200 text-xs space-y-1">
+                <span className="text-[10px] uppercase font-bold text-slate-400 block">Service Focus</span>
+                <p className="font-bold text-slate-800">
+                  {reminderInterval === 3 && '3-Month Tyre Rotation & Pressure Balancing Inspection'}
+                  {reminderInterval === 6 && '6-Month Computerized Dynamic Wheel Balancing & Alignment'}
+                  {reminderInterval === 12 && '12-Month Comprehensive Tread Depth Analysis & Re-Mounting'}
+                </p>
+                <p className="text-[11px] text-slate-500">
+                  Projected target date: <span className="font-semibold text-slate-800">
+                    {(() => {
+                      const base = activeReminderOrder.timestamp ? new Date(activeReminderOrder.timestamp) : new Date();
+                      const target = new Date(base);
+                      target.setMonth(target.getMonth() + reminderInterval);
+                      return target.toLocaleDateString('en-US', { month: 'long', day: 'numeric', year: 'numeric' });
+                    })()}
+                  </span>
+                </p>
+              </div>
+
+              {/* Notification Channel */}
+              <div className="space-y-2">
+                <label className="block text-xs font-bold text-slate-700 uppercase tracking-wider">
+                  Notification Channel:
+                </label>
+                <div className="grid grid-cols-3 gap-2">
+                  <button
+                    type="button"
+                    onClick={() => setReminderChannel('email')}
+                    className={`p-2.5 rounded-xl border flex items-center justify-center gap-1.5 text-xs font-bold transition cursor-pointer ${
+                      reminderChannel === 'email'
+                        ? 'bg-blue-600 text-white border-blue-700'
+                        : 'bg-white border-slate-200 text-slate-700 hover:bg-slate-50'
+                    }`}
+                  >
+                    <Mail className="w-3.5 h-3.5" />
+                    <span>Email</span>
+                  </button>
+
+                  <button
+                    type="button"
+                    onClick={() => setReminderChannel('sms')}
+                    className={`p-2.5 rounded-xl border flex items-center justify-center gap-1.5 text-xs font-bold transition cursor-pointer ${
+                      reminderChannel === 'sms'
+                        ? 'bg-blue-600 text-white border-blue-700'
+                        : 'bg-white border-slate-200 text-slate-700 hover:bg-slate-50'
+                    }`}
+                  >
+                    <MessageSquare className="w-3.5 h-3.5" />
+                    <span>SMS</span>
+                  </button>
+
+                  <button
+                    type="button"
+                    onClick={() => setReminderChannel('both')}
+                    className={`p-2.5 rounded-xl border flex items-center justify-center gap-1.5 text-xs font-bold transition cursor-pointer ${
+                      reminderChannel === 'both'
+                        ? 'bg-blue-600 text-white border-blue-700'
+                        : 'bg-white border-slate-200 text-slate-700 hover:bg-slate-50'
+                    }`}
+                  >
+                    <Send className="w-3.5 h-3.5" />
+                    <span>Both</span>
+                  </button>
+                </div>
+              </div>
+
+              {/* Contact Field */}
+              <div className="space-y-1.5">
+                <label className="block text-xs font-bold text-slate-700 uppercase tracking-wider">
+                  Destination Phone or Email:
+                </label>
+                <input
+                  type="text"
+                  required
+                  value={reminderContact}
+                  onChange={(e) => setReminderContact(e.target.value)}
+                  placeholder="e.g. +1 (767) 616-0155 or customer@example.dm"
+                  className="w-full px-4 py-2.5 bg-slate-50 border border-slate-300 rounded-xl text-sm focus:outline-hidden focus:ring-2 focus:ring-blue-500 font-medium"
+                />
+              </div>
+
+              {/* Action Buttons */}
+              <div className="flex items-center justify-between pt-2 border-t border-slate-100">
+                {maintenanceReminders[activeReminderOrder.id] ? (
+                  <button
+                    type="button"
+                    onClick={() => handleDeleteReminder(activeReminderOrder.id)}
+                    className="inline-flex items-center gap-1.5 text-xs font-bold text-red-600 hover:text-red-700 hover:bg-red-50 px-3 py-2 rounded-xl transition cursor-pointer"
+                  >
+                    <Trash2 className="w-4 h-4" />
+                    <span>Cancel Reminder</span>
+                  </button>
+                ) : (
+                  <button
+                    type="button"
+                    onClick={() => setActiveReminderOrder(null)}
+                    className="text-xs font-bold text-slate-500 hover:text-slate-700 px-3 py-2 rounded-xl transition cursor-pointer"
+                  >
+                    Cancel
+                  </button>
+                )}
+
+                <div className="flex items-center gap-2">
+                  <button
+                    type="submit"
+                    className="inline-flex items-center gap-1.5 bg-amber-500 hover:bg-amber-600 text-slate-950 font-black text-xs px-5 py-2.5 rounded-xl shadow-md transition active:scale-95 cursor-pointer"
+                  >
+                    <Check className="w-4 h-4" />
+                    <span>Save Maintenance Alert</span>
+                  </button>
+                </div>
+              </div>
+            </form>
+          </div>
+        </div>
+      )}
+
+      {/* Floating Toast Notification */}
+      {reminderNotification && (
+        <div className="fixed bottom-6 right-6 z-50 bg-slate-900 text-white px-4 py-3 rounded-2xl shadow-2xl border border-slate-700 flex items-center gap-3 animate-fade-in text-xs font-semibold">
+          <CheckCircle2 className="w-4 h-4 text-emerald-400 shrink-0" />
+          <span>{reminderNotification}</span>
+        </div>
+      )}
     </div>
   );
 };

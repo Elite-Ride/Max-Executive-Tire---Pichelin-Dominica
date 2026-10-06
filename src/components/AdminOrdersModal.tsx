@@ -50,7 +50,8 @@ import {
   CheckSquare,
   Square,
   Calculator,
-  BarChart2
+  BarChart2,
+  Server
 } from 'lucide-react';
 import { 
   BarChart, 
@@ -72,6 +73,7 @@ import { ServicesSection } from './ServicesSection';
 import { MyOrdersView } from './MyOrdersView';
 import { AdminInventoryView } from './AdminInventoryView';
 import { AdminSalesTrendsView } from './AdminSalesTrendsView';
+import { AdminPayrollView } from './AdminPayrollView';
 import { AdminStockPrediction } from './AdminStockPrediction';
 import { ReceiptPrintModal, PrintableOrderData } from './ReceiptPrintModal';
 import { AdminCustomerDirectoryView } from './AdminCustomerDirectoryView';
@@ -92,6 +94,7 @@ import { AdminPerformanceSummaryView } from './AdminPerformanceSummaryView';
 import { useVolcoraCashDrawer } from '../utils/useVolcoraCashDrawer';
 import { AdminPosHardwareModal, HardwareStatusState } from './AdminPosHardwareModal';
 import { AdminAddOrderModal } from './AdminAddOrderModal';
+import { AdminBackendStatusModal } from './AdminBackendStatusModal';
 import {
   playBarcodeBeep,
   playCashDrawerKick,
@@ -188,11 +191,12 @@ export const AdminOrdersModal: React.FC<AdminOrdersModalProps> = ({
   onAddNewTyre,
   volcoraDrawer,
 }) => {
-  const [activeModalTab, setActiveModalTab] = useState<'orders' | 'inventory' | 'stock-health' | 'scanner' | 'barcodes' | 'history' | 'customers' | 'pos' | 'prices' | 'activity' | 'trends' | 'sales' | 'monthly-revenue' | 'performance' | 'workshop-report' | 'settings' | 'services' | 'myorders' | 'accounting' | 'drawer-log' | 'forecast'>('orders');
+  const [activeModalTab, setActiveModalTab] = useState<'orders' | 'inventory' | 'payroll' | 'staff' | 'analytics' | 'scanner' | 'barcodes' | 'history' | 'customers' | 'pos' | 'prices' | 'activity' | 'trends' | 'sales' | 'monthly-revenue' | 'performance' | 'workshop-report' | 'settings' | 'services' | 'myorders' | 'accounting' | 'drawer-log' | 'forecast'>('orders');
   const [isBarcodeScannerOpen, setIsBarcodeScannerOpen] = useState(false);
   const [isBarcodeCenterOpen, setIsBarcodeCenterOpen] = useState(false);
   const [customWhatsAppInput, setCustomWhatsAppInput] = useState(whatsappCustomMessage);
   const [savedWhatsAppNotice, setSavedWhatsAppNotice] = useState(false);
+  const [isBackendConsoleOpen, setIsBackendConsoleOpen] = useState(false);
 
   // Workshop POS Hardware Peripherals State (Printer, Scanner, Cash Drawer, Card Terminal)
   const [isHardwareModalOpen, setIsHardwareModalOpen] = useState(false);
@@ -264,6 +268,20 @@ export const AdminOrdersModal: React.FC<AdminOrdersModalProps> = ({
     } catch {}
     return '';
   });
+
+  // Customer Phone Order History Filter State
+  const [customerHistoryFilterPhone, setCustomerHistoryFilterPhone] = useState<string | null>(null);
+  const [customerHistoryFilterName, setCustomerHistoryFilterName] = useState<string | null>(null);
+
+  const handleViewCustomerHistory = (phone: string, customerName?: string) => {
+    const clean = (phone || '').trim();
+    if (!clean) return;
+    setCustomerHistoryFilterPhone(clean);
+    setCustomerHistoryFilterName(customerName || '');
+    setActiveOrdersSearch(clean);
+    setActiveOrdersStatusFilter('all');
+    setActiveModalTab('orders');
+  };
   const [posPaymentMethod, setPosPaymentMethod] = useState<'Stripe Merchant Portal' | 'Cash at Counter' | 'Bank Transfer' | 'SmartPOS Card Terminal (Tap, Insert & Swipe)'>('SmartPOS Card Terminal (Tap, Insert & Swipe)');
   const [posSearch, setPosSearch] = useState('');
   const [posCategory, setPosCategory] = useState('ALL');
@@ -2032,6 +2050,19 @@ Thank you for choosing Max Executive Tires!`;
               )}
             </div>
 
+            {/* Backend Admin Portal Server Console Button */}
+            <button
+              id="btn-admin-backend-console"
+              type="button"
+              onClick={() => setIsBackendConsoleOpen(true)}
+              className="inline-flex items-center gap-1.5 px-3 py-2 bg-slate-900 hover:bg-slate-800 text-emerald-400 font-extrabold text-xs rounded-xl border border-slate-700 transition cursor-pointer shadow-xs active:scale-95"
+              title="Inspect Express Backend Server Status, REST Endpoints, & Database Sync"
+            >
+              <Server className="w-3.5 h-3.5 text-emerald-400" />
+              <span className="hidden sm:inline">Backend API</span>
+              <span className="w-2 h-2 rounded-full bg-emerald-400 animate-pulse"></span>
+            </button>
+
             {/* Close Admin Portal Button */}
             <button
               id="admin-portal-close-btn"
@@ -2128,17 +2159,47 @@ Thank you for choosing Max Executive Tires!`;
 
           {/* Sales Trends & Customer Size Demand Analytics Tab */}
           <button
-            id="admin-tab-trends"
-            data-testid="admin-tab-trends"
-            onClick={() => setActiveModalTab('trends')}
+            id="admin-tab-analytics"
+            data-testid="admin-tab-analytics"
+            onClick={() => setActiveModalTab('analytics')}
             className={`inline-flex items-center gap-2 px-4 py-2 rounded-xl text-xs sm:text-sm font-bold transition cursor-pointer ${
-              activeModalTab === 'trends'
+              activeModalTab === 'analytics'
                 ? 'bg-[#0984E3] text-white shadow-sm'
                 : 'bg-slate-100 text-slate-700 hover:bg-slate-200'
             }`}
           >
             <TrendingUp className="w-4 h-4 text-sky-400" />
             <span>Sales & Tyre Size Trends</span>
+          </button>
+
+          {/* Employee Payroll & Work Time Management Tab */}
+          <button
+            id="admin-tab-payroll"
+            data-testid="admin-tab-payroll"
+            onClick={() => setActiveModalTab('payroll')}
+            className={`inline-flex items-center gap-2 px-4 py-2 rounded-xl text-xs sm:text-sm font-bold transition cursor-pointer ${
+              activeModalTab === 'payroll'
+                ? 'bg-purple-600 text-white shadow-sm ring-1 ring-purple-400'
+                : 'bg-slate-100 text-slate-700 hover:bg-slate-200'
+            }`}
+          >
+            <Users className="w-4 h-4 text-purple-500" />
+            <span>Staff Payroll & Time Clock</span>
+          </button>
+
+          {/* Staff Directory Tab */}
+          <button
+            id="admin-tab-staff"
+            data-testid="admin-tab-staff"
+            onClick={() => setActiveModalTab('staff')}
+            className={`inline-flex items-center gap-2 px-4 py-2 rounded-xl text-xs sm:text-sm font-bold transition cursor-pointer ${
+              activeModalTab === 'staff'
+                ? 'bg-purple-600 text-white shadow-sm ring-1 ring-purple-400'
+                : 'bg-slate-100 text-slate-700 hover:bg-slate-200'
+            }`}
+          >
+            <Users className="w-4 h-4 text-purple-400" />
+            <span>Staff Directory</span>
           </button>
 
           {/* Barcode Scanner Tab */}
@@ -2421,8 +2482,12 @@ Thank you for choosing Max Executive Tires!`;
               onOpenHardwareModal={() => setIsHardwareModalOpen(true)}
             />
           </div>
-        ) : activeModalTab === 'trends' ? (
+        ) : activeModalTab === 'analytics' ? (
           <AdminSalesTrendsView orders={orders} tyres={tyres} />
+        ) : activeModalTab === 'payroll' ? (
+          <AdminPayrollView />
+        ) : activeModalTab === 'staff' ? (
+          <AdminPayrollView initialSubTab="employees" />
         ) : activeModalTab === 'scanner' ? (
           <div className="flex-1 overflow-y-auto py-2">
             <BarcodeScannerModal

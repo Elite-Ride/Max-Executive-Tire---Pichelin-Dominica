@@ -29,10 +29,11 @@ import {
   Filter,
   CheckCircle2
 } from 'lucide-react';
-import { Order, Tyre } from '../types';
+import { Tyre } from '../types';
+import { AdminOrder } from './AdminOrdersModal';
 
 interface AdminSalesTrendsViewProps {
-  orders: Order[];
+  orders: AdminOrder[];
   tyres: Tyre[];
 }
 

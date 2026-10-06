@@ -5,6 +5,7 @@ import dotenv from "dotenv";
 import { GoogleGenAI } from "@google/genai";
 import Stripe from "stripe";
 import { TYRES_DATA } from "./src/data/tyresData";
+import { createAdminRouter } from "./server/adminRoutes";
 
 dotenv.config();
 
@@ -37,6 +38,9 @@ async function startServer() {
       currency: "XCD",
     });
   });
+
+  // Admin Portal Backend: Employees, Work Time Clock & Payroll
+  app.use("/api/admin", createAdminRouter());
 
   // API Route: Tyre Catalog (for offline caching & quick lookup)
   app.get("/api/tyres", (_req, res) => {
