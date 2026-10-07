@@ -3748,6 +3748,115 @@ Thank you for choosing Max Executive Tires!`;
           </div>
         ) : (
           <div className="flex-1 overflow-y-auto space-y-4 pr-1">
+            {/* Low Stock Alert & Dashboard Summary (Tyres below 3 units with quick-reorder action) */}
+            {(() => {
+              const lowStockTyres = (tyres || []).filter(t => (t.stockCount ?? 0) < 3);
+              return (
+                <div id="admin-low-stock-summary-banner" className="bg-amber-50/90 border border-amber-300 rounded-2xl p-4 shadow-xs space-y-3">
+                  <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-2 border-b border-amber-200/80 pb-2.5">
+                    <div className="flex items-center gap-2">
+                      <span className="p-1.5 bg-amber-500 text-white rounded-lg shadow-xs">
+                        <AlertCircle className="w-4 h-4" />
+                      </span>
+                      <div>
+                        <h4 className="text-sm font-black text-amber-950 flex items-center gap-2">
+                          <span>Low Stock Dashboard Alert</span>
+                          <span className="bg-amber-500 text-white text-[10px] font-black uppercase px-2 py-0.5 rounded-full">
+                            {lowStockTyres.length} {lowStockTyres.length === 1 ? 'Item' : 'Items'} &lt; 3 Units
+                          </span>
+                        </h4>
+                        <p className="text-[11px] text-amber-800">
+                          Maranatha Square shop inventory items below safety threshold (3 units). Use quick-reorder buttons to replenish stock.
+                        </p>
+                      </div>
+                    </div>
+
+                    <div className="flex items-center gap-2 flex-wrap">
+                      <button
+                        type="button"
+                        id="btn-switch-tab-inventory-from-low-stock"
+                        onClick={() => setActiveModalTab('inventory')}
+                        className="inline-flex items-center gap-1 px-3 py-1.5 bg-slate-100 hover:bg-slate-200 text-slate-800 font-bold text-xs rounded-xl border border-slate-300 transition cursor-pointer"
+                      >
+                        <span>Open Inventory</span>
+                      </button>
+
+                      {lowStockTyres.length > 0 && onUpdateTyreStock && (
+                        <button
+                          type="button"
+                          id="btn-reorder-all-low-stock"
+                          onClick={() => {
+                            lowStockTyres.forEach(t => onUpdateTyreStock(t.id, t.stockCount + 4));
+                          }}
+                          className="inline-flex items-center gap-1.5 px-3 py-1.5 bg-amber-600 hover:bg-amber-700 active:bg-amber-800 text-white font-extrabold text-xs rounded-xl shadow-xs transition cursor-pointer shrink-0"
+                          title="Replenish +4 units to all currently low stock items"
+                        >
+                          <Plus className="w-3.5 h-3.5" />
+                          <span>Reorder +4 All ({lowStockTyres.length})</span>
+                        </button>
+                      )}
+                    </div>
+                  </div>
+
+                  {lowStockTyres.length === 0 ? (
+                    <div className="text-xs font-bold text-emerald-800 flex items-center gap-2 py-1">
+                      <CheckCircle2 className="w-4 h-4 text-emerald-600" />
+                      <span>All tyre inventory adequately stocked (&ge; 3 units available in Pichelin workshop).</span>
+                    </div>
+                  ) : (
+                    <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-2.5">
+                      {lowStockTyres.map(tyre => (
+                        <div 
+                          key={tyre.id}
+                          className="bg-white border border-amber-200 rounded-xl p-3 flex items-center justify-between gap-3 shadow-2xs hover:border-amber-300 transition"
+                        >
+                          <div className="min-w-0 flex-1">
+                            <div className="flex items-center gap-1.5">
+                              <span className="font-black text-slate-900 text-xs truncate">{tyre.brand} {tyre.modelName}</span>
+                            </div>
+                            <div className="text-[11px] font-semibold text-slate-600 flex items-center gap-2 mt-0.5">
+                              <span className="font-mono bg-slate-100 px-1.5 py-0.2 rounded text-[10px]">{tyre.size}</span>
+                              <span className={`font-black text-[10px] uppercase px-1.5 py-0.2 rounded ${
+                                tyre.stockCount <= 0 
+                                  ? 'bg-rose-100 text-rose-800' 
+                                  : 'bg-amber-100 text-amber-800'
+                              }`}>
+                                {tyre.stockCount <= 0 ? 'Out of Stock' : `${tyre.stockCount} left`}
+                              </span>
+                            </div>
+                          </div>
+
+                          {onUpdateTyreStock && (
+                            <div className="flex items-center gap-1 shrink-0">
+                              <button
+                                type="button"
+                                id={`btn-quick-reorder-${tyre.id}`}
+                                onClick={() => onUpdateTyreStock(tyre.id, tyre.stockCount + 4)}
+                                className="inline-flex items-center gap-1 px-2.5 py-1.5 bg-amber-500 hover:bg-amber-600 text-white text-[11px] font-black rounded-lg shadow-2xs transition cursor-pointer active:scale-95"
+                                title={`Quick reorder +4 units of ${tyre.brand} ${tyre.size}`}
+                              >
+                                <Plus className="w-3 h-3" />
+                                <span>+4</span>
+                              </button>
+                              <button
+                                type="button"
+                                id={`btn-quick-reorder-8-${tyre.id}`}
+                                onClick={() => onUpdateTyreStock(tyre.id, tyre.stockCount + 8)}
+                                className="inline-flex items-center gap-1 px-2 py-1.5 bg-slate-800 hover:bg-slate-700 text-amber-300 text-[11px] font-black rounded-lg transition cursor-pointer active:scale-95"
+                                title={`Quick reorder +8 units`}
+                              >
+                                <span>+8</span>
+                              </button>
+                            </div>
+                          )}
+                        </div>
+                      ))}
+                    </div>
+                  )}
+                </div>
+              );
+            })()}
+
             {/* Resend Confirmation Notification Alert */}
             {resendNotificationBanner && (
               <div className="bg-sky-50 border border-sky-300 text-sky-950 px-4 py-3 rounded-2xl flex items-center justify-between gap-3 shadow-xs animate-fade-in">

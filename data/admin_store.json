@@ -17,13 +17,13 @@
     },
     {
       "id": "emp-03",
-      "name": "Phebe Israel",
-      "role": "Customer Service & Inventory Clerk",
+      "name": "Marcus Shillingford",
+      "role": "Wheel Alignment & ADAS Calibration Specialist",
       "phone": "+1 (767) 612-4409",
       "email": "alana.orders@maxexecutive.dm",
       "dssNumber": "DSS-910283",
-      "hourlyRateXCD": 18.5,
-      "overtimeRateXCD": 27.75,
+      "hourlyRateXCD": 23.5,
+      "overtimeRateXCD": 35.25,
       "status": "active",
       "hireDate": "2024-01-10",
       "pinCode": "1003",
@@ -3996,5 +3996,51 @@
       "balancing": 25,
       "roadsidePlug": 60
     }
-  }
+  },
+  "payrollAuditLogs": [
+    {
+      "id": "audit-muxtx0k8-i4u",
+      "timestamp": "2026-10-07T08:11:53.240Z",
+      "actionType": "HOURLY_RATE_CHANGE",
+      "employeeId": "emp-03",
+      "employeeName": "Phebe Israel",
+      "previousValue": "EC$ 18.50/h",
+      "newValue": "EC$ 23.50/h",
+      "details": "Hourly rate adjusted from EC$ 18.50/h to EC$ 23.50/h (+EC$ 5.00/h). Overtime rate automatically recalibrated to EC$ 35.25/h.",
+      "changedBy": "Admin Manager"
+    },
+    {
+      "id": "audit-seed-01",
+      "timestamp": "2026-10-05T07:59:33.945Z",
+      "actionType": "HOURLY_RATE_CHANGE",
+      "employeeId": "emp-01",
+      "employeeName": "Kervin Baptiste",
+      "previousValue": "EC$ 22.00/h",
+      "newValue": "EC$ 24.00/h",
+      "details": "Base hourly rate adjusted from EC$ 22.00/h to EC$ 24.00/h (+EC$ 2.00/h). Overtime rate automatically calibrated to EC$ 36.00/h for Lead Foreman qualification.",
+      "changedBy": "Admin Manager"
+    },
+    {
+      "id": "audit-seed-02",
+      "timestamp": "2026-10-03T07:59:33.945Z",
+      "actionType": "SHIFT_MANUAL_ENTRY",
+      "employeeId": "emp-02",
+      "employeeName": "Daryl Peltier",
+      "previousValue": "None",
+      "newValue": "9.0 hrs",
+      "details": "Manual shift approved: 8.0h regular + 1.0h overtime for weekend emergency tyre fitment at Maranatha Square bay.",
+      "changedBy": "Admin Manager"
+    },
+    {
+      "id": "audit-seed-03",
+      "timestamp": "2026-09-30T07:59:33.946Z",
+      "actionType": "HOURLY_RATE_CHANGE",
+      "employeeId": "emp-04",
+      "employeeName": "Julian Henderson",
+      "previousValue": "EC$ 20.00/h",
+      "newValue": "EC$ 22.00/h",
+      "details": "Base hourly rate adjusted from EC$ 20.00/h to EC$ 22.00/h (+EC$ 2.00/h) for Roadside SOS Emergency Rescue driver duties and mountain route navigation.",
+      "changedBy": "Admin Manager"
+    }
+  ]
 }

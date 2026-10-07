@@ -1140,6 +1140,8 @@ export default function App() {
       <Footer
         setActiveTab={setActiveTab}
         onOpenSOS={handleOpenSOS}
+        onOpenAdminPortal={handleOpenAdmin}
+        isAdminLoggedIn={isAdminLoggedIn}
       />
 
     </div>

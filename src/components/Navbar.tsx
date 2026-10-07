@@ -85,29 +85,6 @@ export const Navbar: React.FC<NavbarProps> = ({
               <Phone className="w-3.5 h-3.5 text-[#0984E3]" />
               +1 767 616 0155
             </a>
-
-            {/* Admin Portal Button - Prominent, high-contrast gold badge right next to Direct Number */}
-            <button
-              id="header-admin-portal-btn"
-              onClick={() => {
-                if (openAdminOrders) {
-                  openAdminOrders();
-                } else {
-                  window.dispatchEvent(new CustomEvent('open-admin-portal'));
-                }
-              }}
-              className="inline-flex items-center gap-1.5 justify-center font-black px-3 py-1 bg-amber-400 hover:bg-amber-300 active:bg-amber-500 text-slate-950 rounded-md border border-amber-300 shadow-md transition cursor-pointer text-xs shrink-0 whitespace-nowrap active:scale-95 z-10 min-h-[32px]"
-              title="Admin Portal (Staff Management & Orders)"
-              aria-label="Open Admin Portal"
-            >
-              <Shield className="w-3.5 h-3.5 text-slate-950 fill-slate-950" />
-              <span className="font-extrabold uppercase tracking-wide text-[11px]">Admin Portal</span>
-              {isAdminLoggedIn ? (
-                <span className="w-2 h-2 rounded-full bg-emerald-600 inline-block animate-pulse ml-0.5" title="Admin Active" />
-              ) : (
-                <span className="bg-slate-950 text-amber-300 text-[9px] font-black px-1 py-0.2 rounded uppercase">Staff</span>
-              )}
-            </button>
           </div>
         </div>
       </div>

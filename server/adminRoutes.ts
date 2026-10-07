@@ -72,6 +72,18 @@ export interface PayrollRun {
   stubs: PayrollPayStub[];
 }
 
+export interface PayrollAuditEntry {
+  id: string;
+  timestamp: string;
+  actionType: 'HOURLY_RATE_CHANGE' | 'SHIFT_MANUAL_ENTRY' | 'SHIFT_DELETION' | 'SHIFT_ADJUSTMENT' | 'STAFF_ADDED' | 'STAFF_REMOVED';
+  employeeId: string;
+  employeeName: string;
+  previousValue?: string | number;
+  newValue?: string | number;
+  details: string;
+  changedBy: string;
+}
+
 export interface AdminOrderItem {
   id: string;
   tyre: any;
@@ -359,6 +371,45 @@ interface StoredData {
   priceHistory: PriceUpdateRecord[];
   cashDrawerLogs: CashDrawerLog[];
   settings: WorkshopSettings;
+  payrollAuditLogs?: PayrollAuditEntry[];
+}
+
+function generateSeedAuditLogs(): PayrollAuditEntry[] {
+  return [
+    {
+      id: 'audit-seed-01',
+      timestamp: new Date(Date.now() - 2 * 86400000).toISOString(),
+      actionType: 'HOURLY_RATE_CHANGE',
+      employeeId: 'emp-01',
+      employeeName: 'Kervin Baptiste',
+      previousValue: 'EC$ 22.00/h',
+      newValue: 'EC$ 24.00/h',
+      details: 'Base hourly rate adjusted from EC$ 22.00/h to EC$ 24.00/h (+EC$ 2.00/h). Overtime rate automatically calibrated to EC$ 36.00/h for Lead Foreman qualification.',
+      changedBy: 'Admin Manager',
+    },
+    {
+      id: 'audit-seed-02',
+      timestamp: new Date(Date.now() - 4 * 86400000).toISOString(),
+      actionType: 'SHIFT_MANUAL_ENTRY',
+      employeeId: 'emp-02',
+      employeeName: 'Daryl Peltier',
+      previousValue: 'None',
+      newValue: '9.0 hrs',
+      details: 'Manual shift approved: 8.0h regular + 1.0h overtime for weekend emergency tyre fitment at Maranatha Square bay.',
+      changedBy: 'Admin Manager',
+    },
+    {
+      id: 'audit-seed-03',
+      timestamp: new Date(Date.now() - 7 * 86400000).toISOString(),
+      actionType: 'HOURLY_RATE_CHANGE',
+      employeeId: 'emp-04',
+      employeeName: 'Julian Henderson',
+      previousValue: 'EC$ 20.00/h',
+      newValue: 'EC$ 22.00/h',
+      details: 'Base hourly rate adjusted from EC$ 20.00/h to EC$ 22.00/h (+EC$ 2.00/h) for Roadside SOS Emergency Rescue driver duties and mountain route navigation.',
+      changedBy: 'Admin Manager',
+    },
+  ];
 }
 
 function loadData(): StoredData {
@@ -366,7 +417,12 @@ function loadData(): StoredData {
   try {
     if (fs.existsSync(DATA_FILE)) {
       const raw = fs.readFileSync(DATA_FILE, 'utf-8');
-      return JSON.parse(raw);
+      const parsed: StoredData = JSON.parse(raw);
+      if (!parsed.payrollAuditLogs || parsed.payrollAuditLogs.length === 0) {
+        parsed.payrollAuditLogs = generateSeedAuditLogs();
+        saveData(parsed);
+      }
+      return parsed;
     }
   } catch (err) {
     console.warn('Error reading admin store file:', err);
@@ -416,6 +472,7 @@ function loadData(): StoredData {
         cashierName: 'Alana Charles',
       },
     ],
+    payrollAuditLogs: generateSeedAuditLogs(),
     settings: {
       shopName: 'Max Executive Tires',
       address: 'Maranatha Square, Main Highway, Pichelin, Dominica',
@@ -829,6 +886,20 @@ export function createAdminRouter(): Router {
     };
 
     data.employees.push(newEmp);
+
+    if (!data.payrollAuditLogs) data.payrollAuditLogs = [];
+    data.payrollAuditLogs.unshift({
+      id: 'audit-' + Date.now().toString(36) + '-' + Math.random().toString(36).slice(2, 5),
+      timestamp: new Date().toISOString(),
+      actionType: 'STAFF_ADDED',
+      employeeId: newEmp.id,
+      employeeName: newEmp.name,
+      previousValue: 'None',
+      newValue: `EC$ ${newEmp.hourlyRateXCD.toFixed(2)}/h`,
+      details: `New staff profile registered: ${newEmp.name} (${newEmp.role}) starting at EC$ ${newEmp.hourlyRateXCD.toFixed(2)}/h, DSS #${newEmp.dssNumber}.`,
+      changedBy: 'Admin Manager',
+    });
+
     saveData(data);
     res.status(201).json({ success: true, employee: newEmp });
   });
@@ -843,6 +914,35 @@ export function createAdminRouter(): Router {
 
     const existing = data.employees[idx];
     const rate = req.body.hourlyRateXCD !== undefined ? Number(req.body.hourlyRateXCD) : existing.hourlyRateXCD;
+
+    if (!data.payrollAuditLogs) data.payrollAuditLogs = [];
+    if (rate !== existing.hourlyRateXCD) {
+      const diff = rate - existing.hourlyRateXCD;
+      const diffStr = diff > 0 ? `+EC$ ${diff.toFixed(2)}` : `-EC$ ${Math.abs(diff).toFixed(2)}`;
+      data.payrollAuditLogs.unshift({
+        id: 'audit-' + Date.now().toString(36) + '-' + Math.random().toString(36).slice(2, 5),
+        timestamp: new Date().toISOString(),
+        actionType: 'HOURLY_RATE_CHANGE',
+        employeeId: existing.id,
+        employeeName: existing.name,
+        previousValue: `EC$ ${existing.hourlyRateXCD.toFixed(2)}/h`,
+        newValue: `EC$ ${rate.toFixed(2)}/h`,
+        details: `Hourly rate adjusted from EC$ ${existing.hourlyRateXCD.toFixed(2)}/h to EC$ ${rate.toFixed(2)}/h (${diffStr}/h). Overtime rate automatically recalibrated to EC$ ${(rate * 1.5).toFixed(2)}/h.`,
+        changedBy: req.body.changedBy || 'Admin Manager',
+      });
+    } else if (req.body.role && req.body.role !== existing.role) {
+      data.payrollAuditLogs.unshift({
+        id: 'audit-' + Date.now().toString(36) + '-' + Math.random().toString(36).slice(2, 5),
+        timestamp: new Date().toISOString(),
+        actionType: 'SHIFT_ADJUSTMENT',
+        employeeId: existing.id,
+        employeeName: existing.name,
+        previousValue: existing.role,
+        newValue: req.body.role,
+        details: `Designation / Role updated from "${existing.role}" to "${req.body.role}".`,
+        changedBy: req.body.changedBy || 'Admin Manager',
+      });
+    }
 
     data.employees[idx] = {
       ...existing,
@@ -866,11 +966,25 @@ export function createAdminRouter(): Router {
   router.delete('/employees/:id', (req: Request, res: Response) => {
     const { id } = req.params;
     const data = loadData();
-    const before = data.employees.length;
-    data.employees = data.employees.filter((e) => e.id !== id);
-    if (data.employees.length === before) {
+    const empToDelete = data.employees.find((e) => e.id === id);
+    if (!empToDelete) {
       return res.status(404).json({ error: 'Employee not found' });
     }
+
+    data.employees = data.employees.filter((e) => e.id !== id);
+
+    if (!data.payrollAuditLogs) data.payrollAuditLogs = [];
+    data.payrollAuditLogs.unshift({
+      id: 'audit-' + Date.now().toString(36) + '-' + Math.random().toString(36).slice(2, 5),
+      timestamp: new Date().toISOString(),
+      actionType: 'STAFF_REMOVED',
+      employeeId: empToDelete.id,
+      employeeName: empToDelete.name,
+      previousValue: `EC$ ${empToDelete.hourlyRateXCD.toFixed(2)}/h`,
+      newValue: 'Deactivated / Removed',
+      details: `Staff member ${empToDelete.name} (${empToDelete.role}) removed from active directory.`,
+      changedBy: 'Admin Manager',
+    });
 
     saveData(data);
     res.json({ success: true, message: 'Employee deleted' });
@@ -987,6 +1101,20 @@ export function createAdminRouter(): Router {
     };
 
     data.timeEntries.push(newEntry);
+
+    if (!data.payrollAuditLogs) data.payrollAuditLogs = [];
+    data.payrollAuditLogs.unshift({
+      id: 'audit-' + Date.now().toString(36) + '-' + Math.random().toString(36).slice(2, 5),
+      timestamp: new Date().toISOString(),
+      actionType: 'SHIFT_MANUAL_ENTRY',
+      employeeId: emp.id,
+      employeeName: emp.name,
+      previousValue: 'None',
+      newValue: `${total} hrs`,
+      details: `Manual shift adjustment added for ${emp.name} on ${entryDate}: ${reg.toFixed(1)}h regular + ${ot.toFixed(1)}h overtime. Task note: "${taskNotes || 'Manual shift entry'}".`,
+      changedBy: 'Admin Manager',
+    });
+
     saveData(data);
     res.status(201).json({ success: true, entry: newEntry });
   });
@@ -994,9 +1122,102 @@ export function createAdminRouter(): Router {
   router.delete('/time-clock/:id', (req: Request, res: Response) => {
     const { id } = req.params;
     const data = loadData();
+    const targetEntry = data.timeEntries.find((t) => t.id === id);
+
+    if (targetEntry) {
+      if (!data.payrollAuditLogs) data.payrollAuditLogs = [];
+      data.payrollAuditLogs.unshift({
+        id: 'audit-' + Date.now().toString(36) + '-' + Math.random().toString(36).slice(2, 5),
+        timestamp: new Date().toISOString(),
+        actionType: 'SHIFT_DELETION',
+        employeeId: targetEntry.employeeId,
+        employeeName: targetEntry.employeeName,
+        previousValue: `${targetEntry.totalHours} hrs`,
+        newValue: 'Deleted',
+        details: `Shift adjustment: Deleted time entry #${id} (${targetEntry.date}, ${targetEntry.totalHours} hrs) for ${targetEntry.employeeName}.`,
+        changedBy: 'Admin Manager',
+      });
+    }
+
     data.timeEntries = data.timeEntries.filter((t) => t.id !== id);
     saveData(data);
     res.json({ success: true, message: 'Time entry removed' });
+  });
+
+  router.put('/time-clock/:id', (req: Request, res: Response) => {
+    const { id } = req.params;
+    const data = loadData();
+    const idx = data.timeEntries.findIndex((t) => t.id === id);
+    if (idx === -1) {
+      return res.status(404).json({ error: 'Time entry not found' });
+    }
+
+    const existing = data.timeEntries[idx];
+    const newReg = req.body.regularHours !== undefined ? Number(req.body.regularHours) : existing.regularHours;
+    const newOt = req.body.overtimeHours !== undefined ? Number(req.body.overtimeHours) : existing.overtimeHours;
+    const newDate = req.body.date || existing.date;
+    const newNotes = req.body.taskNotes !== undefined ? req.body.taskNotes : existing.taskNotes;
+    const newTotal = Math.round((newReg + newOt) * 10) / 10;
+    const reason = req.body.reason || 'Timesheet record adjusted by manager';
+
+    if (!data.payrollAuditLogs) data.payrollAuditLogs = [];
+    const prevDesc = `${existing.regularHours}h reg + ${existing.overtimeHours}h OT (${existing.totalHours}h total)`;
+    const newDesc = `${newReg}h reg + ${newOt}h OT (${newTotal}h total)`;
+
+    data.payrollAuditLogs.unshift({
+      id: 'audit-' + Date.now().toString(36) + '-' + Math.random().toString(36).slice(2, 5),
+      timestamp: new Date().toISOString(),
+      actionType: 'SHIFT_ADJUSTMENT',
+      employeeId: existing.employeeId,
+      employeeName: existing.employeeName,
+      previousValue: prevDesc,
+      newValue: newDesc,
+      details: `Shift adjusted for ${existing.employeeName} on ${newDate}: Changed from [${prevDesc}] to [${newDesc}]. Reason: "${reason}".`,
+      changedBy: req.body.changedBy || 'Admin Manager',
+    });
+
+    data.timeEntries[idx] = {
+      ...existing,
+      date: newDate,
+      regularHours: newReg,
+      overtimeHours: newOt,
+      totalHours: newTotal,
+      taskNotes: newNotes,
+    };
+
+    saveData(data);
+    res.json({ success: true, entry: data.timeEntries[idx] });
+  });
+
+  // ==========================================
+  // PAYROLL AUDIT LOG ENDPOINTS
+  // ==========================================
+  router.get('/payroll/audit-logs', (_req: Request, res: Response) => {
+    const data = loadData();
+    res.json({
+      success: true,
+      count: (data.payrollAuditLogs || []).length,
+      logs: data.payrollAuditLogs || [],
+    });
+  });
+
+  router.post('/payroll/audit-logs', (req: Request, res: Response) => {
+    const data = loadData();
+    if (!data.payrollAuditLogs) data.payrollAuditLogs = [];
+    const newLog: PayrollAuditEntry = {
+      id: 'audit-' + Date.now().toString(36) + '-' + Math.random().toString(36).slice(2, 5),
+      timestamp: new Date().toISOString(),
+      actionType: req.body.actionType || 'SHIFT_ADJUSTMENT',
+      employeeId: req.body.employeeId || 'sys',
+      employeeName: req.body.employeeName || 'Staff Member',
+      previousValue: req.body.previousValue,
+      newValue: req.body.newValue,
+      details: req.body.details || 'Audit entry recorded',
+      changedBy: req.body.changedBy || 'Admin Manager',
+    };
+    data.payrollAuditLogs.unshift(newLog);
+    saveData(data);
+    res.status(201).json({ success: true, log: newLog });
   });
 
   // ==========================================

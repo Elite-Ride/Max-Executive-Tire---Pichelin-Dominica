@@ -30,6 +30,7 @@ export interface Tyre {
   priceXCD: number; // Eastern Caribbean Dollars (EC$)
   stockCount: number;
   barcode?: string; // Standard barcode value encoding tyre size & SKU
+  upcCode?: string; // Optional UPC-A numeric representation
   image: string;
   features: string[];
   warranty: string;

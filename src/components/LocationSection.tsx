@@ -12,7 +12,8 @@ import {
   Printer,
   Wrench,
   ShieldCheck,
-  Leaf
+  Leaf,
+  ExternalLink
 } from 'lucide-react';
 import { SHOP_LOCATION_INFO, WORKSHOP_HOURS } from '../data/servicesData';
 import { GoogleMapsStoreLocator } from './GoogleMapsStoreLocator';
@@ -96,23 +97,37 @@ export const LocationSection: React.FC<LocationSectionProps> = ({ onNavigateToSe
             </div>
 
             {/* Direct Contact & Quick Actions */}
-            <div className="pt-4 border-t border-slate-100 flex flex-wrap gap-3">
+            <div className="pt-4 border-t border-slate-100 flex flex-wrap items-center gap-3">
+              <a
+                href="https://www.google.com/maps/dir/?api=1&destination=15.2472,-61.3289"
+                target="_blank"
+                rel="noopener noreferrer"
+                id="btn-location-get-directions"
+                data-testid="btn-location-get-directions"
+                className="inline-flex items-center gap-2 bg-gradient-to-r from-blue-600 to-indigo-600 hover:from-blue-700 hover:to-indigo-700 text-white font-black text-xs sm:text-sm px-5 py-2.5 rounded-xl shadow-md transition active:scale-95 cursor-pointer"
+                title="Open turn-by-turn navigation in Google Maps or default map app"
+              >
+                <Navigation className="w-4 h-4 text-amber-300" />
+                <span>Get Directions</span>
+                <ExternalLink className="w-3.5 h-3.5 opacity-80" />
+              </a>
+
               <a
                 href={`tel:${SHOP_LOCATION_INFO.phonePrimary.replace(/[^0-9+]/g, '')}`}
-                className="inline-flex items-center gap-2 bg-[#0984E3] hover:bg-[#0873c4] text-white font-bold text-xs sm:text-sm px-5 py-2.5 rounded-lg transition shadow-xs"
+                className="inline-flex items-center gap-2 bg-slate-100 hover:bg-slate-200 text-slate-800 font-bold text-xs sm:text-sm px-4 py-2.5 rounded-xl transition shadow-2xs"
               >
-                <Phone className="w-4 h-4" />
-                Call {SHOP_LOCATION_INFO.phonePrimary}
+                <Phone className="w-4 h-4 text-blue-600" />
+                <span>Call Shop</span>
               </a>
 
               <a
                 href={`https://wa.me/${SHOP_LOCATION_INFO.whatsapp.replace(/[^0-9]/g, '')}?text=Hello%20Maranatha%20Tyre%20Centre,%20I%20am%20heading%20to%20your%20shop%20in%20Pichelin`}
                 target="_blank"
                 rel="noopener noreferrer"
-                className="inline-flex items-center gap-2 bg-emerald-600 hover:bg-emerald-500 text-white font-bold text-xs sm:text-sm px-5 py-2.5 rounded-lg transition shadow-xs"
+                className="inline-flex items-center gap-2 bg-emerald-600 hover:bg-emerald-500 text-white font-bold text-xs sm:text-sm px-4 py-2.5 rounded-xl transition shadow-2xs"
               >
                 <MessageSquare className="w-4 h-4" />
-                WhatsApp Directions
+                <span>WhatsApp Directions</span>
               </a>
             </div>
           </div>

@@ -55,6 +55,7 @@ import { AdminInventoryImportModal } from './AdminInventoryImportModal';
 import { AdminStockPrediction } from './AdminStockPrediction';
 import { AdminOrder } from './AdminOrdersModal';
 import { playBarcodeBeep, playPrinterFeedSound } from '../utils/hardwareAudio';
+import { AdminInventoryLabelPrintModal } from './AdminInventoryLabelPrintModal';
 
 export interface PriceUpdateRecord {
   id: string;
@@ -143,6 +144,9 @@ export const AdminInventoryView: React.FC<AdminInventoryViewProps> = ({
   const [showStockPredictions, setShowStockPredictions] = useState(false);
   const [priceHistorySearch, setPriceHistorySearch] = useState('');
   const [isBarcodeCenterOpen, setIsBarcodeCenterOpen] = useState(false);
+  const [isLabelPrintModalOpen, setIsLabelPrintModalOpen] = useState(false);
+  const [labelModalSelectedTyre, setLabelModalSelectedTyre] = useState<Tyre | null>(null);
+  const [labelModalSelectedIds, setLabelModalSelectedIds] = useState<string[]>([]);
   const [singleSymbology, setSingleSymbology] = useState<'upc_a' | 'code128'>('upc_a');
   const [copiedBarcode, setCopiedBarcode] = useState(false);
   const [scannedFeedback, setScannedFeedback] = useState<string | null>(null);
@@ -719,15 +723,35 @@ export const AdminInventoryView: React.FC<AdminInventoryViewProps> = ({
           {/* Print Selected Barcodes Button (Batch Action) */}
           {selectedTyreIds.length > 0 && (
             <button
-              onClick={handlePrintSelectedBarcodes}
-              id="admin-inventory-print-selected-barcodes-btn"
-              className="inline-flex items-center gap-1.5 bg-amber-500 hover:bg-amber-400 text-slate-950 font-black text-xs px-3.5 py-2 rounded-xl shadow-md transition active:scale-95 cursor-pointer ring-2 ring-amber-300 animate-pulse"
-              title={`Print barcodes for ${selectedTyreIds.length} selected tyres`}
+              onClick={() => {
+                setLabelModalSelectedTyre(null);
+                setLabelModalSelectedIds(selectedTyreIds);
+                setIsLabelPrintModalOpen(true);
+              }}
+              id="admin-inventory-bulk-print-2x4-btn"
+              data-testid="admin-inventory-bulk-print-2x4-btn"
+              className="inline-flex items-center gap-1.5 bg-amber-400 hover:bg-amber-300 text-slate-950 font-black text-xs px-3.5 py-2 rounded-xl shadow-md transition active:scale-95 cursor-pointer ring-2 ring-amber-300 animate-pulse"
+              title={`Generate 2x4 barcode & pricing labels for ${selectedTyreIds.length} selected tyres`}
             >
-              <Printer className="w-4 h-4 text-slate-950" />
-              <span>Print Selected Barcodes ({selectedTyreIds.length})</span>
+              <Grid className="w-4 h-4 text-slate-950" />
+              <span>Print 2×4 Labels ({selectedTyreIds.length})</span>
             </button>
           )}
+
+          <button
+            onClick={() => {
+              setLabelModalSelectedTyre(null);
+              setLabelModalSelectedIds(selectedTyreIds.length > 0 ? selectedTyreIds : []);
+              setIsLabelPrintModalOpen(true);
+            }}
+            id="admin-inventory-print-2x4-labels-btn"
+            data-testid="admin-inventory-print-2x4-labels-btn"
+            className="inline-flex items-center gap-1.5 bg-gradient-to-r from-blue-600 to-indigo-600 hover:from-blue-500 hover:to-indigo-500 text-white font-black text-xs px-3.5 py-2 rounded-xl shadow-xs transition active:scale-95 cursor-pointer"
+            title="Generate & print 2x4 inventory barcode and pricing labels (10 per 8.5x11 sheet)"
+          >
+            <Grid className="w-4 h-4 text-amber-300" />
+            <span>2×4 Label Sheet Modal</span>
+          </button>
 
           <button
             onClick={() => {
@@ -736,10 +760,10 @@ export const AdminInventoryView: React.FC<AdminInventoryViewProps> = ({
               else setIsBarcodeCenterOpen(true);
             }}
             id="admin-inventory-barcodes-btn"
-            className="inline-flex items-center gap-1.5 bg-blue-600 hover:bg-blue-500 text-white font-black text-xs px-3.5 py-2 rounded-xl shadow-xs transition active:scale-95 cursor-pointer"
+            className="inline-flex items-center gap-1.5 bg-slate-800 hover:bg-slate-700 text-slate-200 border border-slate-700 font-bold text-xs px-3.5 py-2 rounded-xl shadow-xs transition active:scale-95 cursor-pointer"
             title="Generate & print standard UPC-A barcodes for all tyre inventory (HP LaserJet 10-Up sheets or Thermal)"
           >
-            <Barcode className="w-4 h-4 text-blue-200" />
+            <Barcode className="w-4 h-4 text-blue-400" />
             <span>UPC-A Barcode Center</span>
           </button>
 
@@ -1771,12 +1795,28 @@ export const AdminInventoryView: React.FC<AdminInventoryViewProps> = ({
 
                           <button
                             type="button"
+                            id={`btn-print-2x4-label-${tyre.id}`}
+                            data-testid={`btn-print-2x4-label-${tyre.id}`}
+                            onClick={() => {
+                              setLabelModalSelectedTyre(tyre);
+                              setLabelModalSelectedIds([tyre.id]);
+                              setIsLabelPrintModalOpen(true);
+                            }}
+                            className="inline-flex items-center gap-1 bg-blue-50 hover:bg-blue-100 text-blue-700 border border-blue-200 font-extrabold text-[11px] px-2 py-1.5 rounded-lg transition cursor-pointer active:scale-95 shadow-2xs"
+                            title="Generate 2x4 Barcode & Pricing Label"
+                          >
+                            <Grid className="w-3 h-3 text-blue-600" />
+                            <span>2×4 Label</span>
+                          </button>
+
+                          <button
+                            type="button"
                             onClick={() => setSingleTyreToPrint(tyre)}
                             className="inline-flex items-center gap-1 bg-slate-100 hover:bg-slate-200 text-slate-700 border border-slate-300 font-bold text-[11px] px-2 py-1.5 rounded-lg transition cursor-pointer"
                             title="Print Barcode Tag (Tyre Size, Barcode, Price)"
                           >
                             <Barcode className="w-3 h-3 text-slate-600" />
-                            <span>Label</span>
+                            <span>Tag</span>
                           </button>
 
                           {onAddToPos && (
@@ -2314,6 +2354,19 @@ export const AdminInventoryView: React.FC<AdminInventoryViewProps> = ({
         onClose={() => setIsImportModalOpen(false)}
         existingTyres={tyres}
         onImportCompleted={handleImportCompleted}
+      />
+
+      {/* 2x4 Barcode & Pricing Label Grid Modal */}
+      <AdminInventoryLabelPrintModal
+        isOpen={isLabelPrintModalOpen}
+        onClose={() => {
+          setIsLabelPrintModalOpen(false);
+          setLabelModalSelectedTyre(null);
+          setLabelModalSelectedIds([]);
+        }}
+        tyres={tyres}
+        initialSelectedTyre={labelModalSelectedTyre}
+        initialSelectedIds={labelModalSelectedIds}
       />
 
       {/* Notification Toast */}

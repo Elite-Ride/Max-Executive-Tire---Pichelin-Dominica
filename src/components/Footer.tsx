@@ -7,7 +7,8 @@ import {
   Wrench, 
   Truck, 
   Clock, 
-  Heart
+  Heart,
+  Shield
 } from 'lucide-react';
 import { SHOP_LOCATION_INFO, WORKSHOP_HOURS } from '../data/servicesData';
 import { BrandLogo } from './BrandLogo';
@@ -15,9 +16,11 @@ import { BrandLogo } from './BrandLogo';
 interface FooterProps {
   setActiveTab: (tab: string) => void;
   onOpenSOS: () => void;
+  onOpenAdminPortal?: () => void;
+  isAdminLoggedIn?: boolean;
 }
 
-export const Footer: React.FC<FooterProps> = ({ setActiveTab, onOpenSOS }) => {
+export const Footer: React.FC<FooterProps> = ({ setActiveTab, onOpenSOS, onOpenAdminPortal, isAdminLoggedIn }) => {
   return (
     <footer 
       className="bg-slate-950 text-slate-100 border-t border-slate-800 w-full"
@@ -150,8 +153,30 @@ export const Footer: React.FC<FooterProps> = ({ setActiveTab, onOpenSOS }) => {
           <p>
             © {new Date().getFullYear()} Max Executive Tires. Maranatha Square, Pichelin, Commonwealth of Dominica. All rights reserved.
           </p>
-          <div className="flex items-center gap-2">
+          <div className="flex items-center gap-3">
             <span>Prices displayed in EC$ (XCD)</span>
+            {/* Admin Portal Button moved to bottom of footer */}
+            <button
+              id="header-admin-portal-btn"
+              onClick={() => {
+                if (onOpenAdminPortal) {
+                  onOpenAdminPortal();
+                } else {
+                  window.dispatchEvent(new CustomEvent('open-admin-portal'));
+                }
+              }}
+              className="inline-flex items-center gap-1.5 justify-center font-black px-3 py-1 bg-amber-400 hover:bg-amber-300 active:bg-amber-500 text-slate-950 rounded-md border border-amber-300 shadow-md transition cursor-pointer text-xs shrink-0 whitespace-nowrap active:scale-95"
+              title="Admin Portal (Staff Management & Orders)"
+              aria-label="Open Admin Portal"
+            >
+              <Shield className="w-3.5 h-3.5 text-slate-950 fill-slate-950" />
+              <span className="font-extrabold uppercase tracking-wide text-[11px]">Admin Portal</span>
+              {isAdminLoggedIn ? (
+                <span className="w-2 h-2 rounded-full bg-emerald-600 inline-block animate-pulse ml-0.5" title="Admin Active" />
+              ) : (
+                <span className="bg-slate-950 text-amber-300 text-[9px] font-black px-1 py-0.2 rounded uppercase">Staff</span>
+              )}
+            </button>
           </div>
         </div>
 

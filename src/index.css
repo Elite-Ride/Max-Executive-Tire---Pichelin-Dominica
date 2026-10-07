@@ -273,6 +273,63 @@
     overflow: visible !important;
   }
 
+  /* Official Workshop Payslip Print Media Rules */
+  #official-payslip-modal-backdrop,
+  .official-payslip-modal-backdrop {
+    position: static !important;
+    background: transparent !important;
+    padding: 0 !important;
+    margin: 0 !important;
+    display: block !important;
+    z-index: auto !important;
+  }
+
+  #official-payslip-modal-backdrop > div,
+  .official-payslip-modal-backdrop > div {
+    max-height: none !important;
+    box-shadow: none !important;
+    border: none !important;
+    background: transparent !important;
+    width: 100% !important;
+    max-width: 100% !important;
+    padding: 0 !important;
+  }
+
+  .official-payslip-print-sheet,
+  #official-payslip-print-sheet {
+    display: block !important;
+    width: 100% !important;
+    max-width: 100% !important;
+    margin: 0 !important;
+    padding: 0 !important;
+    background: #ffffff !important;
+    color: #0f172a !important;
+    box-shadow: none !important;
+    border: 1px solid #0f172a !important;
+    border-radius: 4px !important;
+    page-break-inside: avoid !important;
+    break-inside: avoid !important;
+  }
+
+  body.is-printing-payslip #root > *:not(#admin-orders-modal),
+  body.is-printing-payslip header,
+  body.is-printing-payslip footer,
+  body.is-printing-payslip nav,
+  body.is-printing-payslip aside,
+  body.is-printing-payslip .no-print {
+    display: none !important;
+  }
+
+  body.is-printing-payslip #admin-orders-modal {
+    position: static !important;
+    background: transparent !important;
+    border: none !important;
+    box-shadow: none !important;
+    padding: 0 !important;
+    margin: 0 !important;
+    overflow: visible !important;
+  }
+
   /* Daily Shop Floor Manifest A4 Print Layout */
   #daily-manifest-preview-modal {
     position: static !important;
