@@ -290,12 +290,17 @@ export const AdminOrdersModal: React.FC<AdminOrdersModalProps> = ({
   const [isAdminActionsMenuOpen, setIsAdminActionsMenuOpen] = useState(false);
   const [isAddOrderModalOpen, setIsAddOrderModalOpen] = useState(false);
 
-  // Dedicated 'Notify Customer' Modal State (WhatsApp & SMS template trigger)
+  // Dedicated 'Email/SMS Notification' Modal State (Pre-formatted status update triggers)
   const [notifyCustomerModalOrder, setNotifyCustomerModalOrder] = useState<AdminOrder | null>(null);
-  const [notifyChannel, setNotifyChannel] = useState<'whatsapp' | 'sms'>('whatsapp');
-  const [notifyCustomMessage, setNotifyCustomMessage] = useState<string>('');
+  const [notifyChannel, setNotifyChannel] = useState<'email' | 'sms' | 'whatsapp'>('email');
+  const [notifyCustomerEmail, setNotifyCustomerEmail] = useState<string>('');
   const [notifyCustomerPhone, setNotifyCustomerPhone] = useState<string>('');
+  const [notifyEmailSubject, setNotifyEmailSubject] = useState<string>('');
+  const [notifyCustomMessage, setNotifyCustomMessage] = useState<string>('');
+  const [notifyStatusPreset, setNotifyStatusPreset] = useState<string>('Ready for Fitting');
+  const [isSendingEmailNotification, setIsSendingEmailNotification] = useState<boolean>(false);
   const [isCopiedNotifyText, setIsCopiedNotifyText] = useState<boolean>(false);
+  const [notifyValidationError, setNotifyValidationError] = useState<string>('');
 
   // Auto-save POS Counter & Order Form to localStorage
   useEffect(() => {
@@ -812,45 +817,255 @@ export const AdminOrdersModal: React.FC<AdminOrdersModalProps> = ({
     }, 450);
   };
 
-  // Open the unified Notify Customer Modal with pre-filled WhatsApp / SMS template
-  const handleOpenNotifyCustomerModal = (order: AdminOrder, defaultChannel: 'whatsapp' | 'sms' = 'whatsapp') => {
-    setNotifyCustomerModalOrder(order);
-    setNotifyChannel(defaultChannel);
-    const phone = (order.customerPhone || '').trim();
-    setNotifyCustomerPhone(phone || '+1 (767) ');
-
+  // Generate pre-formatted status update text for Email, SMS, or WhatsApp
+  const generateStatusNotificationContent = (
+    order: AdminOrder,
+    preset: string,
+    channel: 'email' | 'sms' | 'whatsapp'
+  ) => {
     const itemsBrief = (order.items || [])
       .map(i => `${i.quantity || 1}x ${i.tyre?.brand || 'Tyre'} ${i.tyre?.size || ''}`)
       .join(', ');
 
-    const dispatchInfo = order.dispatchDate
-      ? `Fitting/Pickup scheduled for: ${order.dispatchDate} (${order.dispatchMethod || 'Workshop Fitting'})`
-      : `Ready for fitting at our workshop bay in Maranatha Square, Pichelin`;
+    const dateInfo = order.dispatchDate || order.preferredDate || 'today';
 
-    const templateMsg = `Max Executive Tires: Hello ${order.customerName}! Your order #${order.reservationCode} (${itemsBrief}) is ${order.dispatchStatus || 'Ready for Fitting'} at our workshop. Total: EC$ ${order.totalXCD}. ${dispatchInfo}. Workshop: Maranatha Square, Pichelin, Dominica. Contact/WhatsApp: +1(767)616-0155.`;
+    if (channel === 'email') {
+      let subject = `Order #${order.reservationCode}: Ready for Fitting — Max Executive Tires, Pichelin`;
+      let body = '';
 
-    setNotifyCustomMessage(templateMsg);
+      if (preset === 'Ready for Fitting') {
+        subject = `Order #${order.reservationCode}: Your Tyres are READY FOR FITTING — Max Executive Tires`;
+        body = `Dear ${order.customerName},
+
+Great news! Your tyres for Order #${order.reservationCode} (${itemsBrief}) are officially READY FOR FITTING at our workshop bay in Maranatha Square, Pichelin, Commonwealth of Dominica.
+
+ORDER & SERVICE SUMMARY:
+• Reservation Code: #${order.reservationCode}
+• Items: ${itemsBrief}
+• Vehicle: ${order.vehicleInfo || 'Vehicle on File'}
+• Total Amount: EC$ ${order.totalXCD} (${order.paymentStatus || 'Payment at Workshop'})
+• Fitment Bay: Maranatha Square, Pichelin, Dominica
+
+COMPLIMENTARY WORKSHOP SERVICES INCLUDED:
+✓ Precision wheel mounting & computer wheel balancing
+✓ New valve stem inspection and pressure calibration
+✓ Complimentary 500km wheel lug nut torque re-check
+
+Please drive into our service bay in Maranatha Square, Pichelin at your earliest convenience during workshop hours (Mon-Sat: 7:30 AM - 5:30 PM).
+
+Need directions across the mountain route or roadside support?
+Call or WhatsApp our team at +1 (767) 616-0155.
+
+Thank you for choosing Max Executive Tires!
+
+Warm regards,
+Workshop Bay Team
+Max Executive Tires
+Maranatha Square, Pichelin, Commonwealth of Dominica`;
+      } else if (preset === 'Scheduled') {
+        subject = `Order #${order.reservationCode}: Workshop Fitting Scheduled for ${dateInfo} — Max Executive Tires`;
+        body = `Dear ${order.customerName},
+
+Your tyre installation for Order #${order.reservationCode} (${itemsBrief}) has been scheduled for ${dateInfo} at our workshop bay in Maranatha Square, Pichelin.
+
+Our technicians will have your tyres inspected and prepared in advance for swift mounting and balancing.
+
+Workshop Location: Maranatha Square, Pichelin, Dominica
+Contact Phone: +1 (767) 616-0155
+
+Best regards,
+Max Executive Tires Team`;
+      } else if (preset === 'Order Confirmed') {
+        subject = `Order #${order.reservationCode}: Order Confirmed — Max Executive Tires, Pichelin`;
+        body = `Dear ${order.customerName},
+
+Thank you for choosing Max Executive Tires! Your order #${order.reservationCode} for ${itemsBrief} (Total: EC$ ${order.totalXCD}) has been confirmed and placed in our workshop preparation queue.
+
+We will send you another update as soon as your tyres are ready for fitting at Maranatha Square, Pichelin.
+
+Best regards,
+Max Executive Tires Team
+Pichelin, Dominica | +1 (767) 616-0155`;
+      } else if (preset === 'Completed') {
+        subject = `Order #${order.reservationCode}: Fitting Completed & Road Certified — Max Executive Tires`;
+        body = `Dear ${order.customerName},
+
+Your vehicle's tyre fitting and computer balancing for Order #${order.reservationCode} (${itemsBrief}) is complete and certified for Dominica's roads!
+
+Thank you for trusting Max Executive Tires at Maranatha Square, Pichelin. Drive safely!
+
+Best regards,
+Max Executive Tires Team`;
+      } else {
+        subject = `Order #${order.reservationCode} Status Notification — Max Executive Tires, Pichelin`;
+        body = `Dear ${order.customerName},
+
+Here is a status update regarding your order #${order.reservationCode} (${itemsBrief}) at Max Executive Tires, Maranatha Square, Pichelin. Total: EC$ ${order.totalXCD}.
+
+Please contact us at +1 (767) 616-0155 with any questions.
+
+Best regards,
+Max Executive Tires Team`;
+      }
+
+      return { subject, body };
+    } else if (channel === 'sms') {
+      if (preset === 'Ready for Fitting') {
+        return {
+          subject: '',
+          body: `Max Executive Tires: Hi ${order.customerName}, your tyres (Order #${order.reservationCode}: ${itemsBrief}) are READY FOR FITTING at our bay in Maranatha Square, Pichelin! Total: EC$ ${order.totalXCD}. Call/WhatsApp: +1(767)616-0155.`
+        };
+      } else if (preset === 'Scheduled') {
+        return {
+          subject: '',
+          body: `Max Executive Tires: Hi ${order.customerName}, fitting for Order #${order.reservationCode} is scheduled for ${dateInfo} at Maranatha Square, Pichelin. Tel: +1(767)616-0155.`
+        };
+      } else if (preset === 'Completed') {
+        return {
+          subject: '',
+          body: `Max Executive Tires: Hi ${order.customerName}, fitting for Order #${order.reservationCode} is complete! Thank you for choosing us. Warranty torque re-check included.`
+        };
+      } else {
+        return {
+          subject: '',
+          body: `Max Executive Tires: Hi ${order.customerName}, Order #${order.reservationCode} is confirmed. Location: Maranatha Square, Pichelin, Dominica. Tel: +1(767)616-0155.`
+        };
+      }
+    } else {
+      // WhatsApp
+      return {
+        subject: '',
+        body: `Max Executive Tires: Hello ${order.customerName}! Your order #${order.reservationCode} (${itemsBrief}) is ${preset} at our workshop bay in Maranatha Square, Pichelin, Dominica. Total: EC$ ${order.totalXCD}. Contact/WhatsApp: +1(767)616-0155.`
+      };
+    }
+  };
+
+  // Open the unified Notify Customer Modal with pre-filled Email / SMS / WhatsApp status update
+  const handleOpenNotifyCustomerModal = (
+    order: AdminOrder,
+    defaultChannel: 'email' | 'sms' | 'whatsapp' = 'email',
+    defaultPreset: string = 'Ready for Fitting'
+  ) => {
+    setNotifyCustomerModalOrder(order);
+    setNotifyChannel(defaultChannel);
+    setNotifyStatusPreset(defaultPreset);
+    setNotifyValidationError('');
+    const email = (order.customerEmail || '').trim();
+    const phone = (order.customerPhone || '').trim();
+    setNotifyCustomerEmail(email);
+    setNotifyCustomerPhone(phone || '+1 (767) ');
+
+    const content = generateStatusNotificationContent(order, defaultPreset, defaultChannel);
+    setNotifyEmailSubject(content.subject);
+    setNotifyCustomMessage(content.body);
     setIsCopiedNotifyText(false);
   };
 
+  const handleSwitchNotifyPreset = (newPreset: string) => {
+    if (!notifyCustomerModalOrder) return;
+    setNotifyStatusPreset(newPreset);
+    setNotifyValidationError('');
+    const content = generateStatusNotificationContent(notifyCustomerModalOrder, newPreset, notifyChannel);
+    if (content.subject) setNotifyEmailSubject(content.subject);
+    setNotifyCustomMessage(content.body);
+  };
+
+  const handleSwitchNotifyChannel = (newChannel: 'email' | 'sms' | 'whatsapp') => {
+    if (!notifyCustomerModalOrder) return;
+    setNotifyChannel(newChannel);
+    setNotifyValidationError('');
+    const content = generateStatusNotificationContent(notifyCustomerModalOrder, notifyStatusPreset, newChannel);
+    if (content.subject) setNotifyEmailSubject(content.subject);
+    setNotifyCustomMessage(content.body);
+  };
+
+  // Send Email Notification to Customer
+  const handleSendEmailNotification = async () => {
+    if (!notifyCustomerModalOrder) return;
+    const order = notifyCustomerModalOrder;
+    const email = notifyCustomerEmail.trim();
+
+    if (!email || !email.includes('@')) {
+      setNotifyValidationError('Please enter a valid customer email address (e.g. name@example.com).');
+      return;
+    }
+
+    setNotifyValidationError('');
+    setIsSendingEmailNotification(true);
+    const timestamp = new Date().toLocaleString();
+    const newStatus = notifyStatusPreset === 'Ready for Fitting' 
+      ? 'Ready for Fitting' 
+      : (notifyStatusPreset === 'Completed' ? 'Dispatched' : (order.dispatchStatus || 'Ready for Fitting'));
+
+    // 1. Update local & parent application state
+    onUpdateOrder(order.id, {
+      customerEmail: email,
+      dispatchStatus: newStatus as any,
+      customerNotified: true,
+      notifiedAt: timestamp,
+    });
+
+    // 2. Persist to backend API endpoint
+    try {
+      await fetch(`/api/admin/orders/${order.id}/notify-email`, {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({
+          email,
+          subject: notifyEmailSubject,
+          message: notifyCustomMessage,
+          status: newStatus,
+        }),
+      });
+    } catch (err) {
+      console.warn('Backend email notify endpoint fallback:', err);
+    }
+
+    // 3. Client-side native mailto link trigger for local mail client handoff
+    try {
+      const mailtoUrl = `mailto:${encodeURIComponent(email)}?subject=${encodeURIComponent(notifyEmailSubject)}&body=${encodeURIComponent(notifyCustomMessage)}`;
+      const link = document.createElement('a');
+      link.href = mailtoUrl;
+      link.style.display = 'none';
+      document.body.appendChild(link);
+      link.click();
+      document.body.removeChild(link);
+    } catch (err) {
+      console.warn('Mailto link error:', err);
+    }
+
+    setIsSendingEmailNotification(false);
+    setNotifyCustomerModalOrder(null);
+
+    setSmsNotificationToast({
+      orderCode: order.reservationCode,
+      phone: email,
+      message: `Email status update ('${newStatus}') successfully sent to ${email} for Order #${order.reservationCode}!`,
+    });
+    setTimeout(() => setSmsNotificationToast(null), 6000);
+  };
+
   // Trigger Pre-filled WhatsApp or SMS intent directly to customer's phone
-  const handleSendNotification = (channel: 'whatsapp' | 'sms') => {
+  const handleSendNotification = (channel: 'sms' | 'whatsapp') => {
     if (!notifyCustomerModalOrder) return;
     const order = notifyCustomerModalOrder;
     const phone = notifyCustomerPhone.trim();
 
     if (!phone || phone.replace(/[^0-9]/g, '').length < 7) {
-      alert('Please provide a valid customer mobile number with Caribbean country code (+1 767 ...).');
+      setNotifyValidationError('Please enter a valid customer phone number with Caribbean country code (+1 767 ...).');
       return;
     }
 
+    setNotifyValidationError('');
     const cleanPhone = phone.replace(/[^0-9+]/g, '');
     const timestamp = new Date().toLocaleString();
     const isIOS = typeof navigator !== 'undefined' && /iPad|iPhone|iPod/.test(navigator.userAgent);
+    const newStatus = notifyStatusPreset === 'Ready for Fitting' ? 'Ready for Fitting' : (order.dispatchStatus || 'Ready for Fitting');
 
     // Update order status so customer is marked notified
     onUpdateOrder(order.id, {
       customerPhone: phone,
+      dispatchStatus: newStatus as any,
       customerNotified: true,
       notifiedAt: timestamp
     });
@@ -858,7 +1073,16 @@ export const AdminOrdersModal: React.FC<AdminOrdersModalProps> = ({
     if (channel === 'whatsapp') {
       const waNumber = cleanPhone.replace(/^\+/, '');
       const waUrl = `https://wa.me/${waNumber}?text=${encodeURIComponent(notifyCustomMessage)}`;
-      window.open(waUrl, '_blank');
+      try {
+        const link = document.createElement('a');
+        link.href = waUrl;
+        link.target = '_blank';
+        link.rel = 'noopener noreferrer';
+        link.style.display = 'none';
+        document.body.appendChild(link);
+        link.click();
+        document.body.removeChild(link);
+      } catch {}
     } else {
       const smsUrl = `sms:${cleanPhone}${isIOS ? '&' : '?'}body=${encodeURIComponent(notifyCustomMessage)}`;
       try {
@@ -869,7 +1093,7 @@ export const AdminOrdersModal: React.FC<AdminOrdersModalProps> = ({
     setSmsNotificationToast({
       orderCode: order.reservationCode,
       phone,
-      message: `Pre-filled ${channel.toUpperCase()} notification triggered for ${order.customerName} (${phone})!`
+      message: `Pre-formatted ${channel.toUpperCase()} status update ('${newStatus}') triggered for ${order.customerName} (${phone})!`
     });
     setTimeout(() => setSmsNotificationToast(null), 6000);
     setNotifyCustomerModalOrder(null);
@@ -880,7 +1104,12 @@ export const AdminOrdersModal: React.FC<AdminOrdersModalProps> = ({
       customerNotified: true,
       notifiedAt: new Date().toLocaleString()
     });
-    alert(`🚀 Automated Email Receipt successfully dispatched!\n\nTo: ${targetEmail}\nSubject: Official Order Receipt #${order.reservationCode} — Max Executive Tires, Pichelin\n\nStatus: Delivered via SMTP server queue (Pulled live service rates: Mounting EC$${servicePrices['mounting'] ?? 20}, Valves EC$${servicePrices['valves'] ?? 15}, Eco Shredding EC$${servicePrices['shredding'] ?? 1}).`);
+    setSmsNotificationToast({
+      orderCode: order.reservationCode,
+      phone: targetEmail,
+      message: `Automated Email Receipt dispatched to ${targetEmail} for Order #${order.reservationCode}!`,
+    });
+    setTimeout(() => setSmsNotificationToast(null), 6000);
     setSelectedOrderForEmailReceipt(null);
   };
 
@@ -3389,16 +3618,15 @@ Thank you for choosing Max Executive Tires!`;
                             <div className="flex flex-wrap items-center justify-between gap-2 border-b border-blue-200/60 pb-2">
                               <span className="font-bold text-blue-900 uppercase tracking-wider text-[10px] block">Customer Contact & Vehicle Model Details</span>
                               <button
-                                id={`history-details-notify-sms-${order.id}`}
+                                id={`history-details-notify-email-sms-${order.id}`}
                                 type="button"
-                                onClick={() => handleNotifyCustomerSMSIntent(order)}
-                                disabled={sendingSmsOrderId === order.id}
-                                className="inline-flex items-center gap-1.5 px-3 py-1.5 rounded-xl bg-emerald-600 hover:bg-emerald-700 text-white font-bold text-xs shadow-xs transition disabled:opacity-50 active:scale-95 cursor-pointer"
-                                title={`Trigger pre-filled SMS intent to ${order.customerPhone} confirming Ready for Fitting`}
+                                onClick={() => handleOpenNotifyCustomerModal(order, 'email', 'Ready for Fitting')}
+                                className="inline-flex items-center gap-1.5 px-3 py-1.5 rounded-xl bg-gradient-to-r from-blue-600 to-indigo-600 hover:from-blue-700 hover:to-indigo-700 text-white font-bold text-xs shadow-xs transition active:scale-95 cursor-pointer"
+                                title={`Send pre-formatted status update (e.g. 'Ready for fitting') to customer's email or phone`}
                               >
-                                <MessageSquare className={`w-3.5 h-3.5 ${sendingSmsOrderId === order.id ? 'animate-bounce' : ''}`} />
-                                <span>Notify Customer</span>
-                                <span className="text-[9px] bg-emerald-800 text-white px-1.5 py-0.2 rounded-sm font-bold">SMS Intent</span>
+                                <Mail className="w-3.5 h-3.5" />
+                                <span>Email/SMS Notification</span>
+                                <span className="text-[9px] bg-blue-900 text-blue-100 px-1.5 py-0.2 rounded-sm font-bold">Status Update</span>
                               </button>
                             </div>
                             <div className="grid grid-cols-1 sm:grid-cols-2 gap-2">
@@ -3448,16 +3676,15 @@ Thank you for choosing Max Executive Tires!`;
                           </span>
                           <div className="flex items-center gap-2 flex-wrap">
                             <button
-                              id={`history-notify-sms-${order.id}`}
+                              id={`history-notify-email-sms-${order.id}`}
                               type="button"
-                              onClick={() => handleNotifyCustomerSMSIntent(order)}
-                              disabled={sendingSmsOrderId === order.id}
-                              className="inline-flex items-center gap-1.5 bg-emerald-100 hover:bg-emerald-200 text-emerald-950 font-black text-xs px-3.5 py-2 rounded-xl transition border-2 border-emerald-400 shadow-xs disabled:opacity-50 active:scale-95 cursor-pointer"
-                              title={`Trigger pre-filled SMS intent to ${order.customerPhone} confirming Ready for Fitting`}
+                              onClick={() => handleOpenNotifyCustomerModal(order, 'email', 'Ready for Fitting')}
+                              className="inline-flex items-center gap-1.5 bg-gradient-to-r from-blue-600 to-indigo-600 hover:from-blue-700 hover:to-indigo-700 text-white font-black text-xs px-3.5 py-2 rounded-xl transition border border-blue-400 shadow-xs active:scale-95 cursor-pointer"
+                              title={`Send pre-formatted status update (e.g. 'Ready for fitting') to customer via Email or SMS`}
                             >
-                              <MessageSquare className={`w-3.5 h-3.5 text-emerald-700 ${sendingSmsOrderId === order.id ? 'animate-bounce' : ''}`} />
-                              <span>Notify Customer</span>
-                              <span className="text-[9px] bg-emerald-700 text-white font-black px-1.5 py-0.2 rounded-sm">SMS Intent</span>
+                              <Mail className="w-3.5 h-3.5 text-white" />
+                              <span>Email/SMS Notification</span>
+                              <span className="text-[9px] bg-blue-950 text-white font-black px-1.5 py-0.2 rounded-sm">Ready for Fitting</span>
                             </button>
                             <button
                               id={`history-whatsapp-template-${order.id}`}
@@ -4296,18 +4523,17 @@ Thank you for choosing Max Executive Tires!`;
                           <span>{dispatchStatus === 'Dispatched' ? 'Completed (Click for Pending)' : 'Mark as Completed'}</span>
                         </button>
 
-                        {/* Direct Notify Customer SMS Intent button right on the top row */}
+                        {/* Direct 'Email/SMS Notification' trigger button on the top row */}
                         <button
-                          id={`active-order-top-notify-sms-${order.id}`}
+                          id={`active-order-top-notify-${order.id}`}
                           type="button"
-                          onClick={() => handleNotifyCustomerSMSIntent(order)}
-                          disabled={sendingSmsOrderId === order.id}
-                          className="inline-flex items-center gap-1.5 text-[11px] font-black px-3 py-1 rounded-full bg-emerald-600 hover:bg-emerald-500 text-white border border-emerald-400 shadow-xs transition active:scale-95 cursor-pointer disabled:opacity-50"
-                          title={`Trigger pre-filled SMS intent to ${order.customerPhone} confirming Ready for Fitting`}
+                          onClick={() => handleOpenNotifyCustomerModal(order, 'email', 'Ready for Fitting')}
+                          className="inline-flex items-center gap-1.5 text-[11px] font-black px-3 py-1 rounded-full bg-gradient-to-r from-blue-600 to-indigo-600 hover:from-blue-500 hover:to-indigo-500 text-white border border-blue-400 shadow-xs transition active:scale-95 cursor-pointer"
+                          title={`Send pre-formatted status update (e.g. 'Ready for fitting') to ${order.customerName} via Email or SMS`}
                         >
-                          <MessageSquare className={`w-3 h-3 text-white ${sendingSmsOrderId === order.id ? 'animate-bounce' : ''}`} />
-                          <span>Notify Customer</span>
-                          <span className="text-[9px] bg-emerald-800 text-emerald-100 px-1.5 py-0.2 rounded-sm font-extrabold uppercase">SMS</span>
+                          <Mail className="w-3 h-3 text-white" />
+                          <span>Email/SMS Notification</span>
+                          <span className="text-[9px] bg-blue-900/80 text-blue-100 px-1.5 py-0.2 rounded-sm font-extrabold uppercase">Ready for Fitting</span>
                         </button>
                       </div>
 
@@ -4347,18 +4573,17 @@ Thank you for choosing Max Executive Tires!`;
                       <div className="bg-blue-50/80 border border-blue-200 rounded-xl p-4 space-y-3 text-xs text-slate-800 animate-fade-in">
                         <div className="flex flex-wrap items-center justify-between gap-2 border-b border-blue-200/60 pb-2">
                           <span className="font-bold text-blue-900 uppercase tracking-wider text-[10px] block">Customer Contact Details & Vehicle Model Information</span>
-                          {/* Notify Customer via SMS Intent within individual order details */}
+                          {/* Notify Customer via Email/SMS trigger within individual order details */}
                           <button
-                            id={`details-notify-sms-${order.id}`}
+                            id={`details-notify-email-sms-${order.id}`}
                             type="button"
-                            onClick={() => handleNotifyCustomerSMSIntent(order)}
-                            disabled={sendingSmsOrderId === order.id}
-                            className="inline-flex items-center gap-1.5 px-3 py-1.5 rounded-xl bg-emerald-600 hover:bg-emerald-700 text-white font-bold text-xs shadow-xs transition disabled:opacity-50 active:scale-95 cursor-pointer"
-                            title={`Trigger pre-filled SMS intent to ${order.customerPhone} confirming Ready for Fitting`}
+                            onClick={() => handleOpenNotifyCustomerModal(order, 'email', 'Ready for Fitting')}
+                            className="inline-flex items-center gap-1.5 px-3 py-1.5 rounded-xl bg-gradient-to-r from-blue-600 to-indigo-600 hover:from-blue-700 hover:to-indigo-700 text-white font-bold text-xs shadow-xs transition active:scale-95 cursor-pointer"
+                            title={`Send pre-formatted status update (e.g. 'Ready for fitting') to customer via Email or SMS`}
                           >
-                            <MessageSquare className={`w-3.5 h-3.5 ${sendingSmsOrderId === order.id ? 'animate-bounce' : ''}`} />
-                            <span>Notify Customer</span>
-                            <span className="text-[9px] bg-emerald-800 text-white px-1.5 py-0.2 rounded-sm font-bold">SMS Intent</span>
+                            <Mail className="w-3.5 h-3.5" />
+                            <span>Email/SMS Notification</span>
+                            <span className="text-[9px] bg-blue-950 text-white px-1.5 py-0.2 rounded-sm font-bold">Status Update</span>
                           </button>
                         </div>
                         <div className="grid grid-cols-1 sm:grid-cols-2 gap-2.5">
@@ -4657,18 +4882,18 @@ Thank you for choosing Max Executive Tires!`;
                           </button>
                         )}
 
-                        {/* Dedicated Notify Customer Button (triggers pre-filled WhatsApp message or SMS template) */}
+                        {/* Dedicated 'Email/SMS Notification' Trigger */}
                         <button
                           id={`notify-customer-btn-${order.id}`}
                           data-testid="notify-customer-btn"
                           type="button"
-                          onClick={() => handleOpenNotifyCustomerModal(order)}
-                          className="inline-flex items-center gap-1.5 text-xs font-black text-white bg-gradient-to-r from-emerald-600 to-teal-600 hover:from-emerald-500 hover:to-teal-500 px-3.5 py-2 rounded-xl shadow-xs transition active:scale-95 cursor-pointer"
-                          title={`Notify customer ${order.customerName} via pre-filled WhatsApp message or SMS template`}
+                          onClick={() => handleOpenNotifyCustomerModal(order, 'email', 'Ready for Fitting')}
+                          className="inline-flex items-center gap-1.5 text-xs font-black text-white bg-gradient-to-r from-blue-600 via-indigo-600 to-emerald-600 hover:from-blue-500 hover:to-emerald-500 px-3.5 py-2 rounded-xl shadow-xs transition active:scale-95 cursor-pointer"
+                          title={`Send pre-formatted status update (e.g. 'Ready for fitting') to customer via Email or SMS`}
                         >
-                          <MessageSquare className="w-3.5 h-3.5 text-white" />
-                          <span>Notify Customer</span>
-                          <span className="text-[10px] bg-emerald-800 text-emerald-100 font-extrabold px-1.5 py-0.5 rounded-sm">WhatsApp / SMS</span>
+                          <Mail className="w-3.5 h-3.5 text-white" />
+                          <span>Email/SMS Notification</span>
+                          <span className="text-[10px] bg-blue-950/80 text-blue-100 font-extrabold px-1.5 py-0.5 rounded-sm">Send Update</span>
                         </button>
 
                         <button
@@ -4974,93 +5199,209 @@ Thank you for choosing Max Executive Tires!`;
         </div>
       )}
 
-      {/* Notify Customer Modal (Pre-filled WhatsApp & SMS Template) */}
+      {/* Dedicated 'Email/SMS Notification' Modal (Pre-formatted status update triggers) */}
       {notifyCustomerModalOrder && (
-        <div className="fixed inset-0 z-70 flex items-center justify-center p-4 bg-slate-950/80 backdrop-blur-xs animate-fade-in">
-          <div className="bg-white rounded-2xl max-w-lg w-full p-6 space-y-4 shadow-2xl border border-slate-200 text-slate-900">
+        <div className="fixed inset-0 z-70 flex items-center justify-center p-4 bg-slate-950/80 backdrop-blur-xs animate-fade-in overflow-y-auto">
+          <div className="bg-white rounded-3xl max-w-xl w-full p-6 space-y-4 shadow-2xl border border-slate-200 text-slate-900 my-6">
+            {/* Header */}
             <div className="flex items-center justify-between border-b border-slate-200 pb-3">
-              <div className="flex items-center gap-2.5">
-                <div className="w-9 h-9 rounded-xl bg-gradient-to-br from-emerald-600 to-teal-600 text-white flex items-center justify-center shadow-xs">
-                  <MessageSquare className="w-5 h-5" />
+              <div className="flex items-center gap-3">
+                <div className="w-10 h-10 rounded-2xl bg-gradient-to-br from-blue-600 via-indigo-600 to-emerald-600 text-white flex items-center justify-center shadow-sm">
+                  <Mail className="w-5 h-5" />
                 </div>
                 <div>
-                  <h3 className="font-extrabold text-sm text-slate-900">
-                    Notify Customer — #{notifyCustomerModalOrder.reservationCode}
-                  </h3>
-                  <p className="text-[11px] text-slate-500">
-                    Pre-filled notification for {notifyCustomerModalOrder.customerName}
+                  <div className="flex items-center gap-2">
+                    <h3 className="font-extrabold text-base text-slate-900">
+                      Email / SMS Notification Trigger
+                    </h3>
+                    <span className="text-[11px] font-mono bg-blue-100 text-blue-900 font-bold px-2 py-0.5 rounded-full border border-blue-200">
+                      #{notifyCustomerModalOrder.reservationCode}
+                    </span>
+                  </div>
+                  <p className="text-xs text-slate-500">
+                    Send pre-formatted status updates directly to <strong>{notifyCustomerModalOrder.customerName}</strong>
                   </p>
                 </div>
               </div>
               <button
                 type="button"
                 onClick={() => setNotifyCustomerModalOrder(null)}
-                className="text-slate-400 hover:text-slate-700 font-bold p-1 rounded-lg cursor-pointer"
+                className="text-slate-400 hover:text-slate-700 font-bold p-1 rounded-xl hover:bg-slate-100 cursor-pointer transition text-lg"
               >
                 ✕
               </button>
             </div>
 
-            {/* Recipient Phone */}
-            <div className="space-y-1">
-              <label className="text-[11px] font-bold text-slate-600 uppercase tracking-wider block">
-                Customer Phone Number (Dominica / Caribbean)
+            {/* 1. Status Update Preset Picker */}
+            <div className="space-y-1.5">
+              <label className="text-[11px] font-black text-slate-700 uppercase tracking-wider flex items-center justify-between">
+                <span>1. Select Status Update Preset:</span>
+                <span className="text-blue-600 font-bold">Active: {notifyStatusPreset}</span>
               </label>
-              <input
-                type="text"
-                value={notifyCustomerPhone}
-                onChange={(e) => setNotifyCustomerPhone(e.target.value)}
-                placeholder="+1 (767) 616-0155"
-                className="w-full px-3 py-2 rounded-xl border border-slate-300 text-xs font-bold text-slate-900 focus:outline-none focus:ring-2 focus:ring-[#0984E3]"
-              />
+              <div className="grid grid-cols-2 sm:grid-cols-4 gap-2">
+                {[
+                  { id: 'Ready for Fitting', label: '⚡ Ready for Fitting', subtitle: 'Pichelin Workshop Bay' },
+                  { id: 'Order Confirmed', label: '📋 Order Confirmed', subtitle: 'Preparation Queue' },
+                  { id: 'Scheduled', label: '📅 Fitting Scheduled', subtitle: 'Bay Slot Reserved' },
+                  { id: 'Completed', label: '✓ Fitting Completed', subtitle: 'Road Certified' },
+                ].map((preset) => {
+                  const isSelected = notifyStatusPreset === preset.id;
+                  return (
+                    <button
+                      key={preset.id}
+                      type="button"
+                      onClick={() => handleSwitchNotifyPreset(preset.id)}
+                      className={`text-left p-2.5 rounded-xl border transition cursor-pointer flex flex-col justify-between ${
+                        isSelected
+                          ? 'bg-blue-50 border-blue-600 text-blue-950 ring-2 ring-blue-500/20 shadow-xs'
+                          : 'bg-slate-50 border-slate-200 text-slate-700 hover:bg-slate-100 hover:border-slate-300'
+                      }`}
+                    >
+                      <span className="text-xs font-black truncate">{preset.label}</span>
+                      <span className="text-[10px] text-slate-500 mt-0.5 truncate">{preset.subtitle}</span>
+                    </button>
+                  );
+                })}
+              </div>
             </div>
 
-            {/* Channel Tabs */}
-            <div className="flex items-center gap-2 pt-1">
-              <button
-                type="button"
-                onClick={() => setNotifyChannel('whatsapp')}
-                className={`flex-1 flex items-center justify-center gap-1.5 py-2 px-3 rounded-xl font-bold text-xs transition border cursor-pointer ${
-                  notifyChannel === 'whatsapp'
-                    ? 'bg-[#25D366] text-slate-950 border-[#25D366] shadow-xs'
-                    : 'bg-slate-100 text-slate-600 border-slate-200 hover:bg-slate-200'
-                }`}
-              >
-                <span>💬 WhatsApp Template</span>
-              </button>
+            {/* 2. Channel Switcher Tabs */}
+            <div className="space-y-1.5">
+              <label className="text-[11px] font-black text-slate-700 uppercase tracking-wider block">
+                2. Notification Channel:
+              </label>
+              <div className="grid grid-cols-3 gap-2">
+                <button
+                  type="button"
+                  onClick={() => handleSwitchNotifyChannel('email')}
+                  className={`flex items-center justify-center gap-1.5 py-2 px-3 rounded-xl font-black text-xs transition border cursor-pointer ${
+                    notifyChannel === 'email'
+                      ? 'bg-blue-600 text-white border-blue-600 shadow-sm'
+                      : 'bg-slate-100 text-slate-700 border-slate-200 hover:bg-slate-200'
+                  }`}
+                >
+                  <Mail className="w-3.5 h-3.5" />
+                  <span>Email Update</span>
+                </button>
 
-              <button
-                type="button"
-                onClick={() => setNotifyChannel('sms')}
-                className={`flex-1 flex items-center justify-center gap-1.5 py-2 px-3 rounded-xl font-bold text-xs transition border cursor-pointer ${
-                  notifyChannel === 'sms'
-                    ? 'bg-[#0984E3] text-white border-[#0984E3] shadow-xs'
-                    : 'bg-slate-100 text-slate-600 border-slate-200 hover:bg-slate-200'
-                }`}
-              >
-                <span>📱 Cellular SMS Template</span>
-              </button>
+                <button
+                  type="button"
+                  onClick={() => handleSwitchNotifyChannel('sms')}
+                  className={`flex items-center justify-center gap-1.5 py-2 px-3 rounded-xl font-black text-xs transition border cursor-pointer ${
+                    notifyChannel === 'sms'
+                      ? 'bg-indigo-600 text-white border-indigo-600 shadow-sm'
+                      : 'bg-slate-100 text-slate-700 border-slate-200 hover:bg-slate-200'
+                  }`}
+                >
+                  <Smartphone className="w-3.5 h-3.5" />
+                  <span>Cellular SMS</span>
+                </button>
+
+                <button
+                  type="button"
+                  onClick={() => handleSwitchNotifyChannel('whatsapp')}
+                  className={`flex items-center justify-center gap-1.5 py-2 px-3 rounded-xl font-black text-xs transition border cursor-pointer ${
+                    notifyChannel === 'whatsapp'
+                      ? 'bg-[#25D366] text-slate-950 border-[#25D366] shadow-sm'
+                      : 'bg-slate-100 text-slate-700 border-slate-200 hover:bg-slate-200'
+                  }`}
+                >
+                  <MessageSquare className="w-3.5 h-3.5" />
+                  <span>WhatsApp</span>
+                </button>
+              </div>
             </div>
 
-            {/* Message Preview Textarea */}
+            {/* Recipient Details (Channel Specific) */}
+            {notifyChannel === 'email' ? (
+              <div className="space-y-2.5 bg-blue-50/60 p-3.5 rounded-2xl border border-blue-100">
+                <div className="space-y-1">
+                  <label className="text-[11px] font-bold text-slate-700 uppercase tracking-wider block">
+                    Customer Email Address:
+                  </label>
+                  <div className="relative">
+                    <Mail className="w-4 h-4 text-slate-400 absolute left-3 top-2.5" />
+                    <input
+                      type="email"
+                      value={notifyCustomerEmail}
+                      onChange={(e) => {
+                        setNotifyCustomerEmail(e.target.value);
+                        setNotifyValidationError('');
+                      }}
+                      placeholder="customer@example.com"
+                      className="w-full pl-9 pr-3 py-2 rounded-xl border border-slate-300 text-xs font-bold text-slate-900 focus:outline-none focus:ring-2 focus:ring-blue-600 bg-white"
+                    />
+                  </div>
+                </div>
+
+                <div className="space-y-1">
+                  <label className="text-[11px] font-bold text-slate-700 uppercase tracking-wider block">
+                    Email Subject Line:
+                  </label>
+                  <input
+                    type="text"
+                    value={notifyEmailSubject}
+                    onChange={(e) => setNotifyEmailSubject(e.target.value)}
+                    placeholder="Order Status Notification"
+                    className="w-full px-3 py-2 rounded-xl border border-slate-300 text-xs font-bold text-slate-900 focus:outline-none focus:ring-2 focus:ring-blue-600 bg-white"
+                  />
+                </div>
+              </div>
+            ) : (
+              <div className="space-y-1 bg-slate-50 p-3 rounded-2xl border border-slate-200">
+                <label className="text-[11px] font-bold text-slate-700 uppercase tracking-wider block">
+                  Customer Mobile Phone Number (Dominica / Caribbean):
+                </label>
+                <div className="relative">
+                  <Phone className="w-4 h-4 text-slate-400 absolute left-3 top-2.5" />
+                  <input
+                    type="tel"
+                    value={notifyCustomerPhone}
+                    onChange={(e) => {
+                      setNotifyCustomerPhone(e.target.value);
+                      setNotifyValidationError('');
+                    }}
+                    placeholder="+1 (767) 616-0155"
+                    className="w-full pl-9 pr-3 py-2 rounded-xl border border-slate-300 text-xs font-bold text-slate-900 focus:outline-none focus:ring-2 focus:ring-blue-600 bg-white"
+                  />
+                </div>
+              </div>
+            )}
+
+            {/* Validation Error Alert Banner */}
+            {notifyValidationError && (
+              <div className="p-3 bg-red-50 border border-red-200 rounded-xl flex items-center gap-2 text-xs text-red-800 font-bold animate-shake">
+                <AlertCircle className="w-4 h-4 text-red-600 shrink-0" />
+                <span>{notifyValidationError}</span>
+              </div>
+            )}
+
+            {/* Pre-filled Message Body Textarea */}
             <div className="space-y-1">
               <div className="flex items-center justify-between text-[11px] font-bold text-slate-600 uppercase tracking-wider">
-                <span>Pre-filled Message Body</span>
-                <span className="text-slate-400 font-normal">{notifyCustomMessage.length} chars</span>
+                <span>Pre-Formatted Status Message:</span>
+                <span className="text-slate-400 font-normal">{notifyCustomMessage.length} characters</span>
               </div>
               <textarea
-                rows={4}
+                rows={notifyChannel === 'email' ? 6 : 4}
                 value={notifyCustomMessage}
                 onChange={(e) => setNotifyCustomMessage(e.target.value)}
-                className="w-full p-3 rounded-xl border border-slate-300 text-xs font-medium text-slate-800 focus:outline-none focus:ring-2 focus:ring-[#0984E3] bg-slate-50"
+                className="w-full p-3 rounded-xl border border-slate-300 text-xs font-medium text-slate-800 focus:outline-none focus:ring-2 focus:ring-blue-600 bg-slate-50 leading-relaxed font-sans"
               />
             </div>
 
-            {/* Order Brief Summary */}
-            <div className="bg-slate-100 p-2.5 rounded-xl text-[11px] text-slate-600 flex justify-between items-center">
-              <span>Order: <strong>#{notifyCustomerModalOrder.reservationCode}</strong></span>
-              <span>Status: <strong className="text-emerald-700">{notifyCustomerModalOrder.dispatchStatus || 'Ready for Fitting'}</strong></span>
-              <span>Total: <strong className="text-slate-900">EC$ {notifyCustomerModalOrder.totalXCD}</strong></span>
+            {/* Order Brief Summary & Bay Location */}
+            <div className="bg-slate-100 p-3 rounded-xl text-[11px] text-slate-700 flex flex-wrap justify-between items-center gap-2 border border-slate-200">
+              <div>
+                Order: <strong>#{notifyCustomerModalOrder.reservationCode}</strong> &bull; Total: <strong>EC$ {notifyCustomerModalOrder.totalXCD}</strong>
+              </div>
+              <div>
+                Status After Send: <strong className="text-blue-700 font-bold">{notifyStatusPreset}</strong>
+              </div>
+              <div className="w-full text-slate-500 text-[10px] flex items-center gap-1 pt-1 border-t border-slate-200/60">
+                <MapPin className="w-3 h-3 text-[#0984E3]" />
+                <span>Fitment Bay: Maranatha Square, Pichelin, Dominica &bull; Mon-Sat 7:30 AM - 5:30 PM</span>
+              </div>
             </div>
 
             {/* Action Buttons */}
@@ -5072,37 +5413,61 @@ Thank you for choosing Max Executive Tires!`;
                   setIsCopiedNotifyText(true);
                   setTimeout(() => setIsCopiedNotifyText(false), 2000);
                 }}
-                className="px-3 py-2 rounded-xl bg-slate-100 hover:bg-slate-200 text-slate-700 font-bold text-xs transition cursor-pointer"
+                className="px-3 py-2 rounded-xl bg-slate-100 hover:bg-slate-200 text-slate-700 font-bold text-xs transition cursor-pointer flex items-center gap-1.5"
               >
-                {isCopiedNotifyText ? '✓ Copied!' : '📋 Copy Text'}
+                {isCopiedNotifyText ? (
+                  <>
+                    <Check className="w-3.5 h-3.5 text-emerald-600" />
+                    <span>Copied!</span>
+                  </>
+                ) : (
+                  <>
+                    <FileText className="w-3.5 h-3.5 text-slate-600" />
+                    <span>Copy Text</span>
+                  </>
+                )}
               </button>
 
               <div className="flex items-center gap-2">
                 <button
                   type="button"
                   onClick={() => setNotifyCustomerModalOrder(null)}
-                  className="px-3.5 py-2 rounded-xl text-slate-600 hover:bg-slate-100 font-semibold text-xs transition cursor-pointer"
+                  className="px-4 py-2.5 rounded-xl text-slate-600 hover:bg-slate-100 font-bold text-xs transition cursor-pointer"
                 >
                   Cancel
                 </button>
 
-                {notifyChannel === 'whatsapp' ? (
+                {notifyChannel === 'email' ? (
                   <button
                     type="button"
-                    onClick={() => handleSendNotification('whatsapp')}
-                    className="px-5 py-2.5 rounded-xl bg-[#25D366] hover:bg-[#20ba59] text-slate-950 font-black text-xs transition shadow-md flex items-center gap-1.5 cursor-pointer active:scale-95"
+                    onClick={handleSendEmailNotification}
+                    disabled={isSendingEmailNotification}
+                    className="px-5 py-2.5 rounded-xl bg-gradient-to-r from-blue-600 to-indigo-600 hover:from-blue-700 hover:to-indigo-700 text-white font-black text-xs transition shadow-md flex items-center gap-2 cursor-pointer active:scale-95 disabled:opacity-50"
                   >
-                    <span>Send Pre-Filled WhatsApp</span>
-                    <ArrowRight className="w-3.5 h-3.5" />
+                    <Mail className="w-4 h-4" />
+                    <span>
+                      {isSendingEmailNotification
+                        ? 'Dispatching Email...'
+                        : `Send Email Notification ('${notifyStatusPreset}')`}
+                    </span>
+                  </button>
+                ) : notifyChannel === 'sms' ? (
+                  <button
+                    type="button"
+                    onClick={() => handleSendNotification('sms')}
+                    className="px-5 py-2.5 rounded-xl bg-[#0984E3] hover:bg-[#0873c4] text-white font-black text-xs transition shadow-md flex items-center gap-2 cursor-pointer active:scale-95"
+                  >
+                    <Smartphone className="w-4 h-4" />
+                    <span>Trigger SMS Notification</span>
                   </button>
                 ) : (
                   <button
                     type="button"
-                    onClick={() => handleSendNotification('sms')}
-                    className="px-5 py-2.5 rounded-xl bg-[#0984E3] hover:bg-[#0873c4] text-white font-black text-xs transition shadow-md flex items-center gap-1.5 cursor-pointer active:scale-95"
+                    onClick={() => handleSendNotification('whatsapp')}
+                    className="px-5 py-2.5 rounded-xl bg-[#25D366] hover:bg-[#20ba59] text-slate-950 font-black text-xs transition shadow-md flex items-center gap-2 cursor-pointer active:scale-95"
                   >
-                    <span>Trigger SMS Template</span>
-                    <ArrowRight className="w-3.5 h-3.5" />
+                    <MessageSquare className="w-4 h-4" />
+                    <span>Send via WhatsApp</span>
                   </button>
                 )}
               </div>

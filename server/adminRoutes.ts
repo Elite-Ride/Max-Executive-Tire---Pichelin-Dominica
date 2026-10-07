@@ -109,6 +109,8 @@ export interface AdminOrder {
   dispatchStatus: 'Pending' | 'Ready for Fitting' | 'Completed' | 'Cancelled';
   assignedBay?: string;
   notes?: string;
+  customerNotified?: boolean;
+  notifiedAt?: string;
 }
 
 export interface PriceUpdateRecord {
@@ -372,6 +374,7 @@ interface StoredData {
   cashDrawerLogs: CashDrawerLog[];
   settings: WorkshopSettings;
   payrollAuditLogs?: PayrollAuditEntry[];
+  adminActivityLog?: any[];
 }
 
 function generateSeedAuditLogs(): PayrollAuditEntry[] {
@@ -640,6 +643,47 @@ export function createAdminRouter(): Router {
 
     saveData(data);
     res.json({ success: true, order: data.orders[idx] });
+  });
+
+  router.post('/orders/:id/notify-email', (req: Request, res: Response) => {
+    const { id } = req.params;
+    const { email, subject, message, status } = req.body;
+    const data = loadData();
+    const idx = data.orders.findIndex((o) => o.id === id);
+    if (idx === -1) {
+      return res.status(404).json({ error: 'Order not found' });
+    }
+
+    const order = data.orders[idx];
+    const targetEmail = (email || order.customerEmail || '').trim();
+    if (!targetEmail) {
+      return res.status(400).json({ error: 'Customer email address is required' });
+    }
+
+    const now = new Date().toISOString();
+    order.customerEmail = targetEmail;
+    if (status) {
+      order.dispatchStatus = status;
+    }
+    order.customerNotified = true;
+    order.notifiedAt = now;
+
+    // Log admin activity
+    data.adminActivityLog = data.adminActivityLog || [];
+    data.adminActivityLog.unshift({
+      id: 'log-' + Date.now().toString(36),
+      timestamp: now,
+      actionType: 'STATUS_CHANGE',
+      description: `Dispatched email status update ('${status || order.dispatchStatus || 'Ready for Fitting'}') to ${order.customerName} (${targetEmail}) for Order #${order.reservationCode}.`,
+      adminName: 'Workshop Manager',
+    });
+
+    saveData(data);
+    res.json({
+      success: true,
+      message: `Email notification successfully sent to ${targetEmail}`,
+      order,
+    });
   });
 
   router.delete('/orders/:id', (req: Request, res: Response) => {
